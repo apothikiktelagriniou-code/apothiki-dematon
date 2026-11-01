@@ -15,5 +15,7 @@ alter table public.app_settings add column if not exists sms_template text not n
 
 -- διακόπτης υπηρεσίας SMS (κλειστός μέχρι να ξεκινήσει το delivery)
 alter table public.app_settings add column if not exists sms_enabled boolean not null default false;
+alter table public.app_settings add column if not exists whatsapp_enabled boolean not null default false;
+alter table public.app_settings add column if not exists viber_enabled boolean not null default false;
 
 select 'OK — κανάλια ειδοποίησης και SMS' as αποτέλεσμα;
