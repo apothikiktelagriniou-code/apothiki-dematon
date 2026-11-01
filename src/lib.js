@@ -156,7 +156,7 @@ export function autoSaveDecision(d, exists, maxFare = 40) {
 export const PROBLEM_TEXT = {
   missing_receipt_no: "Δεν διαβάστηκε αριθμός απόδειξης", duplicate: "Υπάρχει ήδη στη βάση", missing_recipient: "Λείπει παραλήπτης",
   missing_origin: "Λείπει πόλη", missing_fare: "Λείπει κόμιστρο", fare_out_of_range: "Περίεργο κόμιστρο", missing_departure: "Λείπει ώρα αναχώρησης",
-  invalid_phone: "Λάθος μορφή τηλεφώνου", handwritten_receipt: "Χειρόγραφη απόδειξη", ai_unavailable: "Δεν διαβάστηκε αυτόματα",
+  invalid_phone: "Λάθος μορφή τηλεφώνου", handwritten_receipt: "Χειρόγραφη απόδειξη", pair_mismatch: "Η φωτογραφία δέματος δεν ταιριάζει με την ετικέτα", ai_unavailable: "Δεν διαβάστηκε αυτόματα",
 };
 export const problemText = k => k.startsWith("unsure:") ? "Αβέβαιο: " + ({ receipt_no: "αριθμός απόδειξης", phone: "τηλέφωνο", fare_eur: "κόμιστρο", recipient: "παραλήπτης", departure: "αναχώρηση", origin_city: "πόλη", parcel_code: "κωδικός" }[k.slice(7)] || k.slice(7)) : (PROBLEM_TEXT[k] || k);
 
@@ -174,7 +174,7 @@ export function extractedToParcel(d) {
     phone_confirmed: !!phone && !d.phone_is_handwritten,
     shelf: dest === HOME ? (shelfFor(d.recipient) || null) : null,
     status: dest === HOME ? "arrived" : "transit",
-    damaged: !!d.damage_visible, notes: shortNote(d.notes),
+    damaged: !!d.damage_visible, notes: shortNote(d.notes), package_desc: String(d.package_desc || "").trim() || null,
     pieces_total: Math.max(1, Number(d.pieces) || 1), pieces_in: 1,
   };
 }

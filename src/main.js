@@ -50,7 +50,7 @@ async function boot() {
   subscribe();
   loadNotes();
   checkSms().then(render);
-  initCapture({ sb, operator, needOperator, findCustomers, linkCustomer, lastTrip, settings: () => settings,
+  initCapture({ sb, operator, attachPackage, needOperator, findCustomers, linkCustomer, lastTrip, settings: () => settings,
     receiptExists: rn => [...rows.values()].some(p => !(p.bypassed && p.status === "not_arrived") && sameReceipt(p.receipt_no, rn)),
     saveParcel,
     findByReceipt: rn => [...rows.values()].find(p => !(p.bypassed && p.status === "not_arrived") && sameReceipt(p.receipt_no, rn)),
@@ -90,7 +90,7 @@ async function loadParcels() {
     .order("created_at", { ascending: false }).limit(5000);
   if (error) { show($("netMsg"), "Δεν φορτώθηκαν τα δέματα. Έλεγξε τη σύνδεση και ανανέωσε τη σελίδα.", "bad"); return; }
   rows = new Map(data.map(p => [p.id, p]));
-  render();
+  render(); purgeAllClosed();
 }
 function subscribe() {
   sb.channel("live")
@@ -119,7 +119,38 @@ async function saveParcel(o) {
 async function updateParcel(id, patch) {
   const { data, error } = await sb.from("parcels").update({ ...patch, operator: operator() }).eq("id", id).select().single();
   if (error) throw error;
-  rows.set(id, data); render(); return data;
+  rows.set(id, data); render(); purgePackage(data); return data;
+}
+
+// ---------------------------------------------------------------- φωτογραφία δέματος (σβήνεται όταν κλείσει)
+async function attachPackage(id, b64, desc) {
+  try {
+    const bin = atob(b64); const u8 = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+    const path = id + ".jpg";
+    const { error } = await sb.storage.from("packages").upload(path, new Blob([u8], { type: "image/jpeg" }), { upsert: true, contentType: "image/jpeg" });
+    if (error) throw error;
+    const patch = { package_photo_path: path }; const cur = rows.get(id); if (desc && !(cur && cur.package_desc)) patch.package_desc = desc;
+    const { data } = await sb.from("parcels").update(patch).eq("id", id).select().single();
+    if (data) { rows.set(id, data); render(); purgePackage(data); }
+  } catch (e) { console.warn("package photo", e); }
+}
+const purging = new Set();
+async function purgePackage(p) {
+  if (!p || !p.package_photo_path || !isClosed(p) || purging.has(p.id)) return;
+  purging.add(p.id);
+  try {
+    await sb.storage.from("packages").remove([p.package_photo_path]);
+    const { data } = await sb.from("parcels").update({ package_photo_path: null }).eq("id", p.id).select().single();
+    if (data) rows.set(p.id, data);
+  } catch (e) { console.warn("purge", e); } finally { purging.delete(p.id); }
+}
+function purgeAllClosed() { [...rows.values()].filter(p => p.package_photo_path && isClosed(p)).forEach(purgePackage); }
+async function showPackage(p) {
+  const { data } = await sb.storage.from("packages").createSignedUrl(p.package_photo_path, 300);
+  const b = $("dlgBody"); b.textContent = "";
+  b.append(el("h3", null, "📦 " + (p.recipient_name || p.receipt_no || "Δέμα")), el("div", "hint", p.package_desc || ""));
+  if (data) { const i = el("img", "pkgimg"); i.alt = "Φωτογραφία δέματος"; i.src = data.signedUrl; b.append(i); } else b.append(el("div", "msg warn", "Δεν βρέθηκε η φωτογραφία."));
+  $("dlg").showModal();
 }
 
 // ---------------------------------------------------------------- πελάτες
@@ -157,7 +188,7 @@ async function lookupCustomerForForm() {
 }
 
 // ---------------------------------------------------------------- φόρμα
-const FIELDS = ["receipt_no", "parcel_code", "kind", "origin_city", "destination_city", "fare_eur", "recipient_name", "recipient_phone", "shelf", "sender_name", "item", "cod_amount_eur", "notes", "pieces_total", "pieces_in"];
+const FIELDS = ["receipt_no", "parcel_code", "kind", "origin_city", "destination_city", "fare_eur", "recipient_name", "recipient_phone", "shelf", "sender_name", "package_desc", "item", "cod_amount_eur", "notes", "pieces_total", "pieces_in"];
 function clearForm() {
   for (const f of FIELDS) { const e = $(f); e.classList.remove("ai"); if (e.tagName === "SELECT") e.selectedIndex = 0; else e.value = ""; delete e.dataset.src; }
   editingId = null; shelfManual = false; customerChoice = null; $("custHint").textContent = ""; $("destHint").textContent = "";
@@ -197,7 +228,7 @@ function readForm() {
     fare_eur: fare, recipient_name: v("recipient_name"), recipient_phone: phone || null,
     phone_source: phone ? ($("recipient_phone").dataset.src || "manual") : null,
     shelf: dest === HOME ? (v("shelf").toUpperCase() || shelfFor(v("recipient_name")) || null) : null, shelf_manual: shelfManual,
-    sender_name: v("sender_name") || null, item: v("item") || null, cod_amount_eur: cod, notes: v("notes") || null,
+    sender_name: v("sender_name") || null, package_desc: v("package_desc") || null, item: v("item") || null, cod_amount_eur: cod, notes: v("notes") || null,
     pieces_total: Math.max(1, parseInt(v("pieces_total"), 10) || 1), pieces_in: Math.max(0, parseInt(v("pieces_in"), 10) || 1),
   };
   o.phone_confirmed = o.phone_source !== "handwritten";
@@ -321,7 +352,7 @@ function matches(p) {
   }
   const q = norm($("q").value); if (!q) return true;
   if (p.id_doc_number && p.id_doc_number.includes(cleanIdDoc(q)) && cleanIdDoc(q).length >= 3) return true;
-  return norm([p.receipt_no, p.parcel_code, p.recipient_name, p.sender_name, p.recipient_phone, p.origin_city, p.destination_city, p.shelf, (p.tags || []).join(" "), p.notes, p.pickup_code, p.picked_by_name, p.picked_by_phone, p.id_doc_number, p.fwd_bus, p.fwd_destination].join(" ")).includes(q);
+  return norm([p.receipt_no, p.parcel_code, p.recipient_name, p.sender_name, p.recipient_phone, p.origin_city, p.destination_city, p.shelf, (p.tags || []).join(" "), p.notes, p.pickup_code, p.picked_by_name, p.picked_by_phone, p.id_doc_number, p.fwd_bus, p.fwd_destination, p.package_desc].join(" ")).includes(q);
 }
 
 function render() {
@@ -418,6 +449,7 @@ function card(p) {
   if (p.recipient_phone) { ph = el("span", null, "📞 " + fmtPhone(p.recipient_phone)); if (p.phone_source === "handwritten") ph.append(" ", el("span", "badge", p.phone_confirmed ? "✍ ✓" : "✍ χειρόγραφο")); if (p.phone_source === "customer_db") ph.append(" ", el("span", "badge", "📇")); }
   line("Απόδειξη", el("span", "mono", p.receipt_no || "—"));
   if (ph) line("Τηλέφωνο", ph);
+  if (p.package_desc || p.package_photo_path) { const d = line("Συσκευασία", p.package_desc || ""); if (p.package_photo_path) { const b = el("button", "btn small pkgbtn", "📷 Φωτο"); b.type = "button"; b.onclick = () => showPackage(p); d.append(b); } }
   line("Είδος", "Ασυνόδευτο", p.fare_eur != null ? "· " + money(p.fare_eur) : "");
   line("Υπάλληλος", p.operator ? "👤 " + p.operator : "—");
   const remarks = tags.filter(t => t !== "Στο υπόγειο" && t !== "Παραλήφθηκε με φθορά");
@@ -794,7 +826,7 @@ $("exportBtn").onclick = async () => {
   if (error) { show($("formMsg"), "Η εξαγωγή απέτυχε. Δοκίμασε ξανά.", "bad"); return; }
   const d = k => r => fmtGr(r[k]); const yes = k => r => r[k] ? "Ναι" : ""; const eur = k => r => r[k] == null ? "" : Number(r[k]).toFixed(2).replace(".", ",");
   const cols = [["receipt_no", "Αρ. Απόδειξης"], ["parcel_code", "Κωδ. Δέματος"], ["issued_at", "Ημ/νία έκδοσης", d("issued_at")], ["departure_at", "Αναχώρηση", d("departure_at")],
-    ["kind", "Τύπος"], ["item", "Είδος"], ["origin_city", "Από"], ["destination_city", "Προορισμός"], ["sender_name", "Αποστολέας"], ["recipient_name", "Παραλήπτης"],
+    ["kind", "Τύπος"], ["item", "Είδος"], ["origin_city", "Από"], ["destination_city", "Προορισμός"], ["sender_name", "Αποστολέας"], ["package_desc", "Συσκευασία"], ["recipient_name", "Παραλήπτης"],
     ["recipient_phone", "Τηλέφωνο"], ["phone_source", "Πηγή τηλεφώνου"], ["fare_eur", "Κόμιστρο €", eur("fare_eur")], ["shelf", "Ράφι"], ["status", "Κατάσταση", r => STATUS[r.status] || r.status],
     ["created_at", "Καταχώρηση", d("created_at")], ["notified_at", "Ειδοποίηση", d("notified_at")], ["picked_up_at", "Παραλαβή", d("picked_up_at")], ["picked_by_name", "Παρέλαβε"],
     ["picked_by_phone", "Τηλ. παραλαβής"], ["id_doc_type", "Έγγραφο"], ["id_doc_number", "Αριθμός εγγράφου"], ["signature_path", "Υπογραφή", r => r.signature_path ? "Ναι" : ""],
@@ -809,7 +841,7 @@ $("goSearch").onclick = () => { $("hLog").scrollIntoView({ behavior: "smooth" })
 $("goNew").onclick = () => { $("hNew").scrollIntoView({ behavior: "smooth" }); };
 
 // ---------------------------------------------------------------- εκκίνηση
-setInterval(() => { if (!openBox.id && !$("app").hidden) render(); }, 60000);
+setInterval(() => { if (!openBox.id && !$("app").hidden) { render(); purgeAllClosed(); } }, 60000);
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 sb.auth.onAuthStateChange(ev => { if (ev === "SIGNED_OUT") location.reload(); });
 boot();

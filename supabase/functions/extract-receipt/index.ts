@@ -1,5 +1,5 @@
 // Supabase Edge Function: extract-receipt
-// Διαβάζει 1–2 φωτογραφίες απόδειξης ΚΤΕΛ με Claude Haiku και επιστρέφει τα πεδία σε JSON.
+// Διαβάζει 1–3 φωτογραφίες απόδειξης (+ προαιρετικά ολόκληρο το δέμα) ή ταξινομεί φωτογραφίες (mode=classify) ΚΤΕΛ με Claude Haiku και επιστρέφει τα πεδία σε JSON.
 // Το κλειδί ANTHROPIC_API_KEY ζει ΜΟΝΟ στα Secrets του Supabase — ποτέ στην εφαρμογή.
 import { createClient } from "npm:@supabase/supabase-js@2.49.4";
 
@@ -25,10 +25,16 @@ const SYSTEM = `Διαβάζεις φωτογραφίες από αποδείξ�
 - Πόλεις: κεφαλαία χωρίς τόνους (π.χ. ΠΑΤΡΑ, ΑΘΗΝΑ, ΙΩΑΝΝΙΝΑ).
 - Ημερομηνίες: DD/MM/YYYY HH:MM.
 - notes: ΜΟΝΟ αν υπάρχει πρόβλημα που πρέπει να δει ο υπάλληλος, σε ΜΙΑ σύντομη φράση έως 10 λέξεις (π.χ. «Αμφιβολία κωδικού: 0 ή Ο», «Χειρόγραφο τηλέφωνο, δυσανάγνωστο»). ΟΧΙ περιγραφή της απόδειξης ή του εντύπου. Αν δεν υπάρχει πρόβλημα → "".
+- Αν υπάρχει φωτογραφία ΟΛΟΚΛΗΡΟΥ του δέματος: package_desc = σύντομη περιγραφή έως 8 λέξεις: τι είναι, χρώμα, μέγεθος, φίρμα/λογότυπο αν φαίνεται μεγάλο (π.χ. «Καφέ κουτί JUMBO, μεσαίο», «Λευκός φάκελος A4», «Μαύρη σακούλα, μαλακή»). Αν πάνω στο δέμα φαίνεται ετικέτα με ΑΛΛΟΝ αριθμό απόδειξης ή άλλο παραλήπτη από την ετικέτα → pair_mismatch=true. Χειρόγραφο τηλέφωνο πάνω στο δέμα μετράει κανονικά για το phone. Χωρίς φωτογραφία δέματος → package_desc "", pair_mismatch false.
 - pieces = πόσα τεμάχια/δέματα έχει η αποστολή, αν γράφεται (π.χ. «Αριθμός δεμάτων: 3», «Τεμάχια 3», «Ποσ 3», «1/3», «2 ΤΕΜ»). Αν δεν γράφεται → 1. Αν γράφει «2/3» = τεμάχιο 2 από 3 → pieces=3.
 
 Απάντησε ΜΟΝΟ με ένα JSON αντικείμενο, χωρίς άλλο κείμενο, με ακριβώς αυτά τα κλειδιά:
-{"receipt_no":"","parcel_code":"","kind":"Συνοδευτικό|Ασυνόδευτο|","item":"","fare_eur":null,"issued":"","departure":"","sender":"","recipient":"","phone":"","phone_is_handwritten":false,"pieces":1,"origin_city":"","destination_city":"","is_handwritten_receipt":false,"damage_visible":false,"unsure":[],"notes":""}`;
+{"receipt_no":"","parcel_code":"","kind":"Συνοδευτικό|Ασυνόδευτο|","item":"","fare_eur":null,"issued":"","departure":"","sender":"","recipient":"","phone":"","phone_is_handwritten":false,"pieces":1,"origin_city":"","destination_city":"","is_handwritten_receipt":false,"damage_visible":false,"unsure":[],"notes":"","package_desc":"","pair_mismatch":false}`;
+
+const SYSTEM_CLASSIFY = `Σου δίνω μικρές φωτογραφίες από αποθήκη δεμάτων ΚΤΕΛ, με τη σειρά. Για ΚΑΘΕ φωτογραφία, με την ίδια σειρά, πες τι δείχνει:
+- "label": κυρίως ετικέτα/απόδειξη από κοντά (ΔΕΛΤΙΟ ΑΠΟΣΚΕΥΩΝ, θερμικό χαρτάκι ή χειρόγραφη απόδειξη) — το κείμενο πιάνει μεγάλο μέρος της εικόνας.
+- "parcel": ολόκληρο δέμα/συσκευασία (κουτί, φάκελος, σακούλα κ.λπ.) από πιο μακριά, ακόμα κι αν φαίνεται μικρή ετικέτα πάνω του.
+Απάντησε ΜΟΝΟ με JSON: {"types":["label","parcel",...]} με ακριβώς τόσα στοιχεία όσες οι φωτογραφίες.`;
 
 const SYSTEM_MANIFEST = `Διαβάζεις φωτογραφίες από ΚΑΤΑΣΤΑΣΗ ΦΟΡΤΩΣΗΣ / λίστα δεμάτων που στέλνει πρακτορείο ΚΤΕΛ μαζί με ένα λεωφορείο προς το Αγρίνιο. Μπορεί να είναι τυπωμένη, χειρόγραφη ή φωτογραφία οθόνης, σε μία ή περισσότερες σελίδες (οι φωτογραφίες είναι σελίδες της ΙΔΙΑΣ κατάστασης).
 
@@ -68,6 +74,8 @@ function clean(d: Record<string, unknown>) {
   if (o.fare_eur !== null && isNaN(o.fare_eur as number)) o.fare_eur = null;
   o.kind = /ΑΣΥΝ/.test(up(d.kind)) ? "Ασυνόδευτο" : /ΣΥΝ/.test(up(d.kind)) ? "Συνοδευτικό" : "";
   o.unsure = Array.isArray(d.unsure) ? d.unsure.map(String) : [];
+  o.package_desc = String(d.package_desc ?? "").replace(/\s+/g, " ").trim().slice(0, 80);
+  o.pair_mismatch = d.pair_mismatch === true || d.pair_mismatch === "true";
   const pc = Number(String(d.pieces ?? "1").replace(/\D/g, "")) || 1; o.pieces = Math.min(Math.max(pc, 1), 99);
   return o;
 }
@@ -108,13 +116,16 @@ Deno.serve(async req => {
 
   let body: { mode?: string; images?: { data: string; media_type?: string }[] };
   try { body = await req.json(); } catch { return json({ error: "bad_request" }, 400); }
-  const manifest = body.mode === "manifest";
-  const imgs = (body.images || []).slice(0, manifest ? 4 : 2).filter(i => i && typeof i.data === "string" && i.data.length < 6_000_000);
+  const manifest = body.mode === "manifest", classify = body.mode === "classify";
+  const pkgIdx = typeof (body as { package_index?: number }).package_index === "number" ? (body as { package_index: number }).package_index : -1;
+  const imgs = (body.images || []).slice(0, manifest ? 4 : classify ? 30 : 3).filter(i => i && typeof i.data === "string" && i.data.length < 6_000_000);
   if (!imgs.length) return json({ error: "no_image" }, 400);
 
   const content = [
     ...imgs.map(i => ({ type: "image", source: { type: "base64", media_type: i.media_type || "image/jpeg", data: i.data } })),
     { type: "text", text: manifest ? (imgs.length > 1 ? imgs.length + " σελίδες της ίδιας κατάστασης. " : "") + "Επέστρεψε το JSON."
+      : classify ? imgs.length + " φωτογραφίες. Επέστρεψε το JSON."
+      : pkgIdx >= 0 && pkgIdx < imgs.length ? "Φωτογραφίες του ΙΔΙΟΥ δέματος. Η φωτογραφία νούμερο " + (pkgIdx + 1) + " δείχνει ΟΛΟΚΛΗΡΟ το δέμα (για package_desc και έλεγχο pair_mismatch)" + (pkgIdx === 0 ? " — δεν υπάρχει ξεχωριστή ετικέτα από κοντά, διάβασε ό,τι φαίνεται." : "; οι υπόλοιπες είναι η ετικέτα.") + " Επέστρεψε το JSON."
       : imgs.length > 1 ? "Δύο φωτογραφίες του ΙΔΙΟΥ δέματος (η 2η συνήθως δείχνει χειρόγραφο τηλέφωνο). Επέστρεψε το JSON." : "Επέστρεψε το JSON." },
   ];
 
@@ -122,7 +133,7 @@ Deno.serve(async req => {
     const r = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: { "x-api-key": key!, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-      body: JSON.stringify({ model: MODEL, max_tokens: manifest ? 16000 : MAX_TOKENS, system: manifest ? SYSTEM_MANIFEST : SYSTEM, messages: [{ role: "user", content }] }),
+      body: JSON.stringify({ model: MODEL, max_tokens: manifest ? 16000 : MAX_TOKENS, system: manifest ? SYSTEM_MANIFEST : classify ? SYSTEM_CLASSIFY : SYSTEM, messages: [{ role: "user", content }] }),
     });
     const j = await r.json();
     if (!r.ok) throw new Error("anthropic " + r.status + ": " + (j?.error?.message || ""));
@@ -143,6 +154,10 @@ Deno.serve(async req => {
   const cost = usage.input_tokens * PRICE_IN + usage.output_tokens * PRICE_OUT;
   await sb.from("ai_usage").insert({ input_tokens: usage.input_tokens, output_tokens: usage.output_tokens, cost_usd: cost, ok: !!parsed });
   if (!parsed) { console.error("extract_failed", err); return json({ error: "extract_failed", detail: err.slice(0, 300) }, 502); }
+  if (classify) {
+    const t = Array.isArray((parsed as { types?: unknown[] }).types) ? (parsed as { types: unknown[] }).types : [];
+    return json({ data: { types: imgs.map((_, i) => (t[i] === "parcel" ? "parcel" : "label")) }, usage, cost_usd: cost });
+  }
   if (manifest) {
     const p = parsed as { items?: Record<string, unknown>[] } & Record<string, unknown>;
     const items = (Array.isArray(p.items) ? p.items : []).map(it => ({

@@ -298,3 +298,21 @@ header .btn{white-space:nowrap}
 #opInput{min-width:200px;flex:1 1 200px}
 .inote{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;cursor:pointer}
 .inote.open{-webkit-line-clamp:unset;display:inline}
+/* δίσκος: ζευγάρια ετικέτα | δέμα */
+.tray{display:flex;flex-direction:column;gap:8px}
+.tpair{display:grid;grid-template-columns:28px minmax(0,1fr) minmax(0,1fr);gap:8px;align-items:stretch;border:1px solid var(--line-2);border-radius:14px;padding:8px;background:var(--surface-2)}
+.tpair.orphan{border-color:var(--warn);background:var(--warn-soft)}
+.tnum{font-weight:800;color:var(--muted);text-align:center;padding-top:6px}
+.tslot{display:flex;flex-direction:column;gap:6px;min-width:0}
+.tslot img{width:100%;height:110px;object-fit:cover;border-radius:10px;background:#fff}
+.tslot img.textra{height:44px}
+.tslot.empty{border:2px dashed var(--line);border-radius:10px;display:grid;place-items:center;text-align:center;font-size:12.5px;color:var(--muted);padding:8px;min-height:110px}
+.tslot.addpkg{cursor:pointer;font-weight:700;font-size:14px;color:var(--navy)}
+.tslot.addpkg:hover{border-color:var(--teal)}
+.tbar{display:flex;gap:4px;flex-wrap:wrap}.tbar .btn{min-height:34px;padding:4px 8px;font-size:12px;box-shadow:none}
+.ttype{flex:1}
+.rimgs{display:flex;flex-direction:column;gap:8px}.rpkg{display:flex;flex-direction:column;gap:4px}
+.pkgbtn{min-height:28px;padding:2px 8px;font-size:12px;box-shadow:none}
+.pkgimg{max-width:100%;max-height:70vh;border-radius:12px;display:block;margin-top:8px}
+.tbar label.btn,.tslot.addpkg{text-transform:none;letter-spacing:0}
+.iline .btn.pkgbtn{min-height:26px;padding:1px 8px;font-size:12px;border-radius:8px;margin-left:2px}

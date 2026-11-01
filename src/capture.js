@@ -24,41 +24,96 @@ async function toJpegB64(file, max, q) {
 }
 
 // ---------- δίσκος (πριν την αποστολή) ----------
-let tray = []; // [{id, files:[File], urls:[]}]
+// Κάθε φωτογραφία έχει τύπο: "label" (ετικέτα από κοντά) ή "parcel" (ολόκληρο δέμα).
+// Σειρά = ώρα λήψης. Ζευγάρι = ετικέτα + η αμέσως επόμενη φωτογραφία δέματος.
+let tray = []; // [{id, file, url, type, extra:[{file,url}]}]
+let classifying = 0, classifyFailed = false;
+export function pairUp(photos) {
+  const out = []; let cur = null;
+  for (const ph of photos) {
+    if (ph.type === "parcel") {
+      if (cur && cur.label && !cur.pkg) cur.pkg = ph; else out.push({ label: null, pkg: ph });
+      cur = null;
+    } else { cur = { label: ph, pkg: null }; out.push(cur); }
+  }
+  return out;
+}
+function slot(ph, role, idx) {
+  const s = el("div", "tslot " + role);
+  const i = el("img"); i.src = ph.url; i.alt = (role === "pkg" ? "Δέμα " : "Ετικέτα ") + (idx + 1); s.append(i);
+  ph.extra.forEach(x => { const j = el("img", "textra"); j.src = x.url; j.alt = "2η φωτογραφία"; s.append(j); });
+  const bar = el("div", "tbar");
+  const t = el("button", "btn small ttype", ph.type == null ? "…" : ph.type === "parcel" ? "📦 Δέμα" : "🏷 Ετικέτα"); t.type = "button";
+  t.title = "Πάτα αν το AI το μπέρδεψε"; t.disabled = ph.type == null;
+  t.onclick = () => { ph.type = ph.type === "parcel" ? "label" : "parcel"; renderTray(); };
+  bar.append(t);
+  if (ph.type !== "parcel" && ph.extra.length < 1) { const add = el("label", "btn small", "＋ τηλ."); add.title = "2η φωτογραφία της ετικέτας (π.χ. χειρόγραφο τηλέφωνο)";
+    const f = el("input"); f.type = "file"; f.accept = "image/*"; f.hidden = true;
+    f.onchange = () => { const x = f.files[0]; if (x) { ph.extra.push({ file: x, url: URL.createObjectURL(x) }); renderTray(); } }; add.append(f); bar.append(add); }
+  const del = el("button", "btn small", "✕"); del.type = "button"; del.setAttribute("aria-label", "Αφαίρεση");
+  del.onclick = () => { URL.revokeObjectURL(ph.url); ph.extra.forEach(x => URL.revokeObjectURL(x.url)); tray = tray.filter(x => x !== ph); renderTray(); };
+  bar.append(del); s.append(bar); return s;
+}
 function renderTray() {
   const t = $("tray"); t.textContent = "";
-  tray.forEach((it, idx) => {
-    const box = el("div", "titem");
-    it.urls.forEach(u => { const i = el("img"); i.src = u; i.alt = "Φωτογραφία " + (idx + 1); box.append(i); });
-    const bar = el("div", "tbar");
-    const add = el("label", "btn small", it.files.length < 2 ? "＋ τηλ." : "2/2"); add.title = "2η φωτογραφία για το ίδιο δέμα (π.χ. χειρόγραφο τηλέφωνο)";
-    if (it.files.length < 2) { const f = el("input"); f.type = "file"; f.accept = "image/*"; f.hidden = true;
-      f.onchange = () => { const x = f.files[0]; if (x) { it.files.push(x); it.urls.push(URL.createObjectURL(x)); renderTray(); } }; add.append(f); }
-    const del = el("button", "btn small", "✕"); del.type = "button"; del.setAttribute("aria-label", "Αφαίρεση");
-    del.onclick = () => { it.urls.forEach(URL.revokeObjectURL); tray.splice(idx, 1); renderTray(); };
-    bar.append(add, del); box.append(bar); t.append(box);
+  const pairs = pairUp(tray);
+  pairs.forEach((pr, idx) => {
+    const box = el("div", "tpair" + (!pr.label ? " orphan" : ""));
+    box.append(el("div", "tnum", String(idx + 1)));
+    if (pr.label) box.append(slot(pr.label, "lbl", idx));
+    else box.append(el("div", "tslot empty", "Χωρίς ετικέτα — θα διαβαστεί από τη φωτογραφία του δέματος"));
+    if (pr.pkg) box.append(slot(pr.pkg, "pkg", idx));
+    else { const add = el("label", "tslot empty addpkg", "＋ δέμα"); add.title = "Φωτογραφία ολόκληρου του δέματος";
+      const f = el("input"); f.type = "file"; f.accept = "image/*"; f.hidden = true;
+      f.onchange = () => { const x = f.files[0]; if (!x) return; const ph = { id: crypto.randomUUID(), file: x, url: URL.createObjectURL(x), type: "parcel", extra: [] };
+        tray.splice(tray.indexOf(pr.label) + 1, 0, ph); renderTray(); };
+      add.append(f); box.append(add); }
+    t.append(box);
   });
-  $("sendBtn").hidden = !tray.length; $("sendBtn").textContent = "Αποστολή (" + tray.length + ")";
+  const nPkg = pairs.filter(p => p.pkg).length;
+  $("sendBtn").hidden = !tray.length; $("sendBtn").disabled = classifying > 0;
+  $("sendBtn").textContent = classifying ? "Αναγνώριση φωτογραφιών…" : "Αποστολή (" + pairs.length + " δέματα" + (nPkg ? ", " + nPkg + " με φωτο δέματος" : "") + ")";
+  $("trayHint").hidden = !tray.length;
+  $("trayHint").textContent = classifyFailed ? "⚠ Δεν έγινε αυτόματη αναγνώριση ετικέτας/δέματος (σύνδεση;). Έλεγξε τα κουμπιά 🏷/📦." : "Έλεγξε τα ζευγάρια. Αν κάτι μπερδεύτηκε, πάτα 🏷/📦 για να αλλάξεις τον τύπο.";
+}
+async function classify(list) {
+  classifying++; renderTray();
+  try {
+    for (let i = 0; i < list.length; i += 30) {
+      const part = list.slice(i, i + 30);
+      const imgs = await Promise.all(part.map(ph => toJpegB64(ph.file, 512, 0.6)));
+      const { data, error } = await D.sb.functions.invoke("extract-receipt", { body: { mode: "classify", images: imgs.map(d => ({ data: d, media_type: "image/jpeg" })) } });
+      const types = !error && data && data.data && data.data.types;
+      if (!types) { classifyFailed = true; part.forEach(ph => { if (ph.type == null) ph.type = "label"; }); continue; }
+      part.forEach((ph, k) => { if (ph.type == null) ph.type = types[k] === "parcel" ? "parcel" : "label"; });
+    }
+  } catch { classifyFailed = true; list.forEach(ph => { if (ph.type == null) ph.type = "label"; }); }
+  finally { classifying--; renderTray(); }
 }
 function addFiles(files) {
-  [...files].filter(f => f.type.startsWith("image/")).forEach(f => tray.push({ id: crypto.randomUUID(), files: [f], urls: [URL.createObjectURL(f)] }));
-  renderTray();
+  const add = [...files].filter(f => f.type.startsWith("image/")).sort((a, b) => a.lastModified - b.lastModified)
+    .map(f => ({ id: crypto.randomUUID(), file: f, url: URL.createObjectURL(f), type: null, extra: [] }));
+  if (!add.length) return;
+  if (!tray.length) classifyFailed = false;
+  tray.push(...add); renderTray(); classify(add);
 }
 
 async function send() {
-  if (D.needOperator()) return;
-  const items = tray; tray = []; renderTray();
-  show($("capMsg"), "Ετοιμάζω " + items.length + " φωτογραφίες…", "info");
+  if (D.needOperator() || classifying) return;
+  const pairs = pairUp(tray); const all = tray; tray = []; renderTray();
+  show($("capMsg"), "Ετοιμάζω " + pairs.length + " δέματα…", "info");
   const batch = crypto.randomUUID();
-  for (const it of items) {
+  for (const pr of pairs) {
     try {
-      const imgs = await Promise.all(it.files.map(f => toJpegB64(f, 1600, 0.8)));
-      const thumb = await toJpegB64(it.files[0], 1000, 0.6);
-      await obPut({ id: it.id, batch, imgs, thumb, at: Date.now(), operator: D.operator() });
+      const lbl = pr.label ? [pr.label.file, ...pr.label.extra.map(x => x.file)] : [];
+      const imgs = await Promise.all([...lbl, ...(pr.pkg ? [pr.pkg.file] : [])].map(f => toJpegB64(f, 1600, 0.8)));
+      const pkg = pr.pkg ? await toJpegB64(pr.pkg.file, 1200, 0.72) : null;
+      const thumb = await toJpegB64((pr.label || pr.pkg).file, 1000, 0.6);
+      await obPut({ id: crypto.randomUUID(), batch, imgs, pkgIdx: pr.pkg ? lbl.length : -1, pkg, thumb, at: Date.now(), operator: D.operator() });
     } catch { /* χαλασμένη εικόνα */ }
-    it.urls.forEach(URL.revokeObjectURL);
   }
-  stats = { auto: 0, review: 0, fail: 0, pieces: 0, total: items.length };
+  all.forEach(ph => { URL.revokeObjectURL(ph.url); ph.extra.forEach(x => URL.revokeObjectURL(x.url)); });
+  stats = { auto: 0, review: 0, fail: 0, pieces: 0, total: pairs.length };
   pump();
 }
 
@@ -89,7 +144,8 @@ export async function pump() {
   }
 }
 async function processOne(it) {
-  const { data, error } = await D.sb.functions.invoke("extract-receipt", { body: { images: it.imgs.map(d => ({ data: d, media_type: "image/jpeg" })) } });
+  const pkgIdx = typeof it.pkgIdx === "number" ? it.pkgIdx : -1;
+  const { data, error } = await D.sb.functions.invoke("extract-receipt", { body: { images: it.imgs.map(d => ({ data: d, media_type: "image/jpeg" })), package_index: pkgIdx } });
   if (error) {
     const st = error.context && error.context.status;
     if (!st || error.name === "FunctionsFetchError" || error.name === "FunctionsRelayError") return "offline"; // ξαναδοκιμή αργότερα
@@ -105,12 +161,13 @@ async function processOne(it) {
   // ίδιος αριθμός απόδειξης = επόμενο τεμάχιο της ίδιας αποστολής
   const addPiece = async () => {
     const { data: rows } = await D.sb.rpc("add_piece", { p_receipt: d.receipt_no, p_total: Number(d.pieces) || 1 });
-    if (rows && rows.length) { D.onSaved(rows[0]); stats.auto++; stats.pieces = (stats.pieces || 0) + 1; await obDel(it.id); return true; }
+    if (rows && rows.length) { D.onSaved(rows[0]); if (it.pkg && !rows[0].package_photo_path) await D.attachPackage(rows[0].id, it.pkg, d.package_desc); stats.auto++; stats.pieces = (stats.pieces || 0) + 1; await obDel(it.id); return true; }
     return false;
   };
   const ex = d.receipt_no && D.findByReceipt(d.receipt_no);
   if (ex && Math.max(ex.pieces_total || 1, Number(d.pieces) || 1) > 1 && await addPiece()) return "ok";
   const dec = autoSaveDecision(d, rn => D.receiptExists(rn), D.settings().max_reasonable_fare_eur || 40);
+  if (d.pair_mismatch) { dec.auto = false; dec.problems = [...dec.problems, "pair_mismatch"]; }
   if (dec.auto) {
     const p = extractedToParcel(d);
     if (!ph && custs.length === 1) { p.recipient_phone = custs[0].phones[0]; p.phone_source = "customer_db"; p.phone_confirmed = true; }
@@ -121,13 +178,13 @@ async function processOne(it) {
     const ins = await D.saveParcel(p);
     if (ins.error && ins.error.code === "23505" && (Number(d.pieces) || 1) > 1 && await addPiece()) return "ok";
     if (ins.error) { await toQueue(it, d, [ins.error.code === "23505" ? "duplicate" : "ai_unavailable"]); stats.review++; }
-    else { D.onSaved(ins.data); stats.auto++; }
+    else { D.onSaved(ins.data); if (it.pkg) await D.attachPackage(ins.data.id, it.pkg, d.package_desc); stats.auto++; }
   } else { await toQueue(it, d, dec.problems); stats.review++; }
   await obDel(it.id);
   return "ok";
 }
 async function toQueue(it, d, problems) {
-  await D.sb.from("extraction_queue").insert({ batch_id: null, extracted: d, problems, thumbnail: it.thumb });
+  await D.sb.from("extraction_queue").insert({ batch_id: null, extracted: d, problems, thumbnail: it.thumb, package_thumb: it.pkg || null });
   loadQueue();
 }
 
@@ -139,7 +196,7 @@ export async function loadQueue() {
   queue = data || []; renderQueue();
 }
 const QF = [["receipt_no", "Αρ. απόδειξης", "mono"], ["recipient", "Παραλήπτης", ""], ["phone", "Τηλέφωνο", "mono"], ["origin_city", "Από", ""],
-  ["destination_city", "Προορισμός", ""], ["departure", "Αναχώρηση", "mono"], ["fare_eur", "Κόμιστρο €", "mono"], ["parcel_code", "Κωδ. δέματος", "mono"]];
+  ["destination_city", "Προορισμός", ""], ["departure", "Αναχώρηση", "mono"], ["fare_eur", "Κόμιστρο €", "mono"], ["parcel_code", "Κωδ. δέματος", "mono"], ["package_desc", "Συσκευασία", ""]];
 const fieldOfProblem = p => ({ missing_receipt_no: "receipt_no", duplicate: "receipt_no", missing_recipient: "recipient", missing_origin: "origin_city", missing_fare: "fare_eur", fare_out_of_range: "fare_eur", missing_departure: "departure", invalid_phone: "phone" }[p] || (p.startsWith("unsure:") ? p.slice(7) : ""));
 
 const cards = new Map();
@@ -154,6 +211,13 @@ function reviewCard(q, idx) {
   const d = { ...q.extracted }; const card = el("form", "rcard"); card.autocomplete = "off";
   const img = el("img", "rthumb"); img.alt = "Φωτογραφία απόδειξης"; if (q.thumbnail) img.src = "data:image/jpeg;base64," + q.thumbnail;
   img.onclick = () => img.classList.toggle("zoom");
+  const left = el("div", "rimgs"); left.append(img);
+  let pkgKeep = !!q.package_thumb;
+  if (q.package_thumb) {
+    const pw = el("div", "rpkg"); const pi = el("img", "rthumb"); pi.alt = "Φωτογραφία δέματος"; pi.src = "data:image/jpeg;base64," + q.package_thumb; pi.onclick = () => pi.classList.toggle("zoom");
+    const rm = el("button", "btn small", "✕ Χωρίς φωτο δέματος"); rm.type = "button"; rm.onclick = () => { pkgKeep = false; pw.remove(); };
+    pw.append(el("div", "hint", "📦 Φωτογραφία δέματος"), pi, rm); left.append(pw);
+  }
   const right = el("div", "rfields");
   const probs = el("div", "rprobs"); q.problems.forEach(p => probs.append(el("span", "codb", problemText(p)))); right.append(probs);
   if (d.notes) right.append(el("div", "hint", d.notes));
@@ -177,9 +241,9 @@ function reviewCard(q, idx) {
     const src = prev && prev.origin_city && prev.departure ? { o: prev.origin_city, dep: prev.departure } : lt ? { o: lt.origin_city, dep: fmtGr(lt.departure_at) } : null;
     if (src) { inputs.origin_city.value = src.o; inputs.departure.value = src.dep; inputs.origin_city.classList.remove("bad"); inputs.departure.classList.remove("bad"); } };
   const skip = el("button", "btn small", "Απόρριψη"); skip.type = "button";
-  skip.onclick = async () => { await D.sb.from("extraction_queue").update({ status: "discarded", thumbnail: null }).eq("id", q.id); loadQueue(); };
+  skip.onclick = async () => { await D.sb.from("extraction_queue").update({ status: "discarded", thumbnail: null, package_thumb: null }).eq("id", q.id); loadQueue(); };
   bar.append(save, same, skip); right.append(bar);
-  card.append(img, right);
+  card.append(left, right);
   card.onsubmit = async e => {
     e.preventDefault(); if (D.needOperator()) return;
     const v = Object.fromEntries(Object.entries(inputs).map(([k, i]) => [k, i.value.trim()]));
@@ -198,7 +262,8 @@ function reviewCard(q, idx) {
     const ins = await D.saveParcel(p);
     if (ins.error) { save.disabled = false; return say(ins.error.code === "23505" ? "Αυτή η απόδειξη υπάρχει ήδη." : "Δεν αποθηκεύτηκε. Δοκίμασε ξανά."); }
     D.onSaved(ins.data);
-    await D.sb.from("extraction_queue").update({ status: "saved", thumbnail: null, parcel_id: ins.data.id }).eq("id", q.id);
+    if (pkgKeep && q.package_thumb) await D.attachPackage(ins.data.id, q.package_thumb, ed.package_desc);
+    await D.sb.from("extraction_queue").update({ status: "saved", thumbnail: null, package_thumb: null, parcel_id: ins.data.id }).eq("id", q.id);
     queue = queue.filter(x => x.id !== q.id); renderQueue();
     const next = $("reviewList").querySelector("input.bad, input"); next && next.focus();
   };
