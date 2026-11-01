@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="el">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#14325c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Αποθήκη">
+<title>Αποθήκη Δεμάτων</title>
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" href="./icon-192.png">
+<link rel="apple-touch-icon" href="./icon-192.png">
+<link rel="stylesheet" href="./src/style.css">
+</head>
+<body>
+<!-- ΣΥΝΔΕΣΗ -->
+<section id="login" class="login" hidden>
+  <form id="loginForm" class="panel login-box" autocomplete="on">
+    <img src="./icon-192.png" alt="" width="64" height="64">
+    <h1>Αποθήκη Δεμάτων</h1>
+    <div class="sub">Αποθήκη Ασυνοδεύτων · ΚΤΕΛ Αγρινίου</div>
+    <div class="f"><label for="lgEmail">Email</label><input id="lgEmail" type="email" autocomplete="username" required></div>
+    <div class="f"><label for="lgPass">Κωδικός</label><input id="lgPass" type="password" autocomplete="current-password" required></div>
+    <button class="btn primary" type="submit" id="lgBtn">Σύνδεση</button>
+    <div id="lgMsg" class="msg bad" hidden></div>
+  </form>
+</section>
+
+<!-- ΕΦΑΡΜΟΓΗ -->
+<div id="app" class="wrap" hidden>
+  <header>
+    <div>
+      <h1>Αποθήκη Δεμάτων</h1>
+      <div class="sub">Αποθήκη Ασυνοδεύτων · ΚΤΕΛ Αγρινίου</div>
+    </div>
+    <div class="hdr-right">
+      <button class="btn small op" id="opBtn" type="button">👤 <span id="opName">—</span> · αλλαγή</button>
+      <details class="menu">
+        <summary class="btn small">☰ Μενού</summary>
+        <div class="menu-pop">
+          <button class="btn small" type="button" id="exportBtn">Εξαγωγή για Excel</button>
+          <button class="btn small" type="button" id="customersBtn">Πελάτες</button>
+          <button class="btn small" type="button" id="logoutBtn">Αποσύνδεση</button>
+        </div>
+      </details>
+    </div>
+  </header>
+
+  <form id="opForm" class="msg warn opform" hidden>
+    <label for="opInput">Ποιος δουλεύει τώρα;</label>
+    <input id="opInput" placeholder="Γράψε το όνομά σου" autocomplete="off">
+    <button class="btn small primary" type="submit">OK</button>
+  </form>
+
+  <div class="stats" aria-live="polite">
+    <div class="stat"><b id="stToday">0</b><span>Ήρθαν σήμερα</span></div>
+    <div class="stat"><b id="stWaiting">0</b><span>Περιμένουν</span></div>
+    <div class="stat"><b id="stOld">0</b><span>Πάνω από 5 μέρες</span></div>
+    <div class="stat"><b id="stTr">0</b><span>Μεταφορτώσεις</span></div>
+    <div class="stat"><b id="stDone">0</b><span>Παραδόθηκαν σήμερα</span></div>
+    <div class="stat"><b id="stHome">0</b><span>Delivery σήμερα</span></div>
+  </div>
+
+  <div id="netMsg" class="msg warn" hidden></div>
+  <div class="alerts" id="alerts"></div>
+
+  <section class="panel notes" aria-labelledby="hNotes">
+    <div class="row-h"><h2 id="hNotes">Σημείωμα βάρδιας</h2></div>
+    <div id="notesList" class="notes-list"></div>
+    <form id="noteForm" class="toolbar"><input id="noteInput" placeholder="π.χ. ο ΠΑΠΑΔΟΠΟΥΛΟΣ θα περάσει αύριο 9:00" autocomplete="off"><button class="btn small" type="submit">Προσθήκη</button></form>
+  </section>
+
+  <div class="grid">
+    <section class="panel" aria-labelledby="hNew">
+      <h2 id="hNew">Νέα καταχώρηση</h2>
+      <div class="scan">
+        <label for="scanText">Κείμενο απόδειξης (σάρωση με το κινητό)</label>
+        <textarea id="scanText" placeholder="Πάτα εδώ και σάρωσε την ετικέτα με την κάμερα του πληκτρολογίου, ή επικόλλησε το κείμενο"></textarea>
+        <div class="srow"><button type="button" class="btn primary" id="scanBtn">Συμπλήρωση πεδίων</button></div>
+        <details><summary>Πώς σαρώνω την ετικέτα;</summary>
+          <p><b>iPhone:</b> πάτα μέσα στο κουτί → πάτα ξανά → «Σάρωση κειμένου». Στόχευσε την ετικέτα και πάτα «Εισαγωγή».</p>
+          <p><b>Android:</b> Google Lens → «Κείμενο» → «Αντιγραφή όλων», και επικόλληση εδώ.</p>
+        </details>
+      </div>
+      <button type="button" class="btn" id="sameTripBtn" hidden>↻ Ίδιο δρομολόγιο</button>
+      <div id="formMsg" class="msg info" hidden role="status"></div>
+      <form id="form" autocomplete="off">
+        <div class="f"><label for="receipt_no">Αρ. απόδειξης</label><input id="receipt_no" class="mono" placeholder="258-341-23682"></div>
+        <div class="f"><label for="parcel_code">Κωδ. δέματος</label><input id="parcel_code" class="mono" placeholder="8CAM5U8B"></div>
+        <div class="f"><label for="kind">Τύπος</label><select id="kind"><option>Ασυνόδευτο</option><option>Συνοδευτικό</option></select></div>
+        <div class="f"><label for="origin_city">Από</label><input id="origin_city" list="cities" placeholder="ΠΑΤΡΑ"></div>
+        <div class="f"><label for="destination_city">Προορισμός</label><input id="destination_city" list="cities" placeholder="ΑΓΡΙΝΙΟ"><div class="hint" id="destHint"></div></div>
+        <div class="f"><label for="issued">Ημ/νία έκδοσης</label><input id="issued" class="mono" placeholder="31/10/2026 16:40"></div>
+        <div class="f"><label for="departure">Αναχώρηση από πόλη</label><input id="departure" class="mono" placeholder="31/10/2026 17:00"></div>
+        <div class="f"><label for="fare_eur">Κόμιστρο €</label><input id="fare_eur" class="mono" inputmode="decimal" placeholder="5"></div>
+        <div class="f wide"><label for="recipient_name">Παραλήπτης</label><input id="recipient_name"><div class="hint" id="custHint"></div></div>
+        <div class="f"><label for="recipient_phone">Τηλ. παραλήπτη</label><input id="recipient_phone" class="mono" inputmode="tel" placeholder="69xxxxxxxx"></div>
+        <div class="f"><label for="shelf">Ράφι (αυτόματα)</label><input id="shelf" class="mono" placeholder="Χ"></div>
+        <div class="f"><label for="sender_name">Αποστολέας</label><input id="sender_name"></div>
+        <div class="f"><label for="item">Είδος</label><input id="item" placeholder="Απλό δέμα"></div>
+        <div class="f"><label for="cod_amount_eur">Πληρώνει ο παραλήπτης €</label><input id="cod_amount_eur" class="mono" inputmode="decimal" placeholder="(σπάνια)"></div>
+        <div class="f wide"><label for="notes">Σημειώσεις</label><input id="notes"></div>
+        <div class="formactions">
+          <button type="submit" class="btn primary" id="saveBtn">Αποθήκευση</button>
+          <button type="button" class="btn" id="clearBtn">Καθαρισμός</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="panel" aria-labelledby="hLog">
+      <h2 id="hLog">Δέματα</h2>
+      <input id="q" type="search" class="search" placeholder="Ήρθε πελάτης; Επώνυμο, 4 τελευταία ψηφία τηλεφώνου ή κωδικός" aria-label="Αναζήτηση">
+      <div class="chips" role="group" aria-label="Φίλτρο">
+        <button class="chip" type="button" data-f="all" aria-pressed="true">Όλα</button>
+        <button class="chip" type="button" data-f="waiting" aria-pressed="false">Περιμένουν</button>
+        <button class="chip" type="button" data-f="tonotify" aria-pressed="false">Να ειδοποιηθούν</button>
+        <button class="chip" type="button" data-f="remind" aria-pressed="false">Για υπενθύμιση</button>
+        <button class="chip" type="button" data-f="nophone" aria-pressed="false">Χωρίς τηλέφωνο</button>
+        <button class="chip" type="button" data-f="transit" aria-pressed="false">Μεταφόρτωση</button>
+        <button class="chip" type="button" data-f="cod" aria-pressed="false">Είσπραξη</button>
+        <button class="chip" type="button" data-f="today" aria-pressed="false">Σήμερα</button>
+        <button class="chip" type="button" data-f="done" aria-pressed="false">Έκλεισαν</button>
+      </div>
+      <div class="f"><label for="tripSel">Δρομολόγιο</label><select id="tripSel"><option value="">Όλα τα δρομολόγια</option></select></div>
+      <div class="msg info" id="tripSum" hidden></div>
+      <div class="cities" id="cityBar" role="group" aria-label="Πόλη αναχώρησης"></div>
+      <div class="bulk" id="bulkBar" hidden>
+        <button class="btn small primary" type="button" id="bulkBtn">Ειδοποίηση όλων</button>
+        <span class="hint" id="bulkHint"></span>
+      </div>
+      <div class="list" id="list"><div class="empty">Φόρτωση…</div></div>
+    </section>
+  </div>
+
+  <nav class="bottombar" aria-label="Γρήγορη μετάβαση">
+    <button class="btn" type="button" id="goSearch">🔎 Αναζήτηση</button>
+    <button class="btn primary" type="button" id="goNew">＋ Καταχώρηση</button>
+  </nav>
+  <dialog id="dlg"><div id="dlgBody"></div><form method="dialog"><button class="btn small">Κλείσιμο</button></form></dialog>
+</div>
+
+<datalist id="cities"><option>ΑΓΡΙΝΙΟ</option><option>ΑΘΗΝΑ</option><option>ΘΕΣΣΑΛΟΝΙΚΗ</option><option>ΠΑΤΡΑ</option><option>ΙΩΑΝΝΙΝΑ</option><option>ΠΡΕΒΕΖΑ</option><option>ΑΡΤΑ</option><option>ΛΕΥΚΑΔΑ</option><option>ΛΑΜΙΑ</option><option>ΚΟΖΑΝΗ</option><option>ΛΑΡΙΣΑ</option><option>ΒΟΛΟΣ</option><option>ΠΥΡΓΟΣ</option><option>ΚΑΛΑΜΑΤΑ</option><option>ΜΕΣΟΛΟΓΓΙ</option><option>ΝΑΥΠΑΚΤΟΣ</option><option>ΑΙΤΩΛΙΚΟ</option><option>ΑΜΦΙΛΟΧΙΑ</option><option>ΒΟΝΙΤΣΑ</option><option>ΑΣΤΑΚΟΣ</option><option>ΘΕΡΜΟ</option><option>ΚΑΤΟΥΝΑ</option><option>ΜΥΤΙΚΑΣ</option></datalist>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>

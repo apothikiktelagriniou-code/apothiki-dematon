@@ -1,0 +1,128 @@
+// Καθαρές συναρτήσεις (χωρίς DOM/δίκτυο) — ελέγχονται με tests/lib.test.js
+
+export const HOME = "ΑΓΡΙΝΙΟ";
+
+/** Κεφαλαία, χωρίς τόνους, ένα κενό. */
+export function norm(s) {
+  return String(s ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "")
+    .toUpperCase().replace(/\s+/g, " ").trim();
+}
+
+/** Ράφι = πρώτο γράμμα του επωνύμου (πρώτη λέξη). Λατινικά → ελληνικά. */
+export function shelfFor(name) {
+  const w = norm(name).replace(/^[^A-ZΑ-Ω]+/, "").split(/[\s,.-]+/)[0] || "";
+  if (!w) return "";
+  const c = w[0];
+  if (/[Α-Ω]/.test(c)) return c === "Ϊ" ? "Ι" : c === "Ϋ" ? "Υ" : c;
+  const di = { TH: "Θ", CH: "Χ", PS: "Ψ", KS: "Ξ", PH: "Φ" };
+  if (di[w.slice(0, 2)]) return di[w.slice(0, 2)];
+  const one = { A: "Α", B: "Β", V: "Β", G: "Γ", D: "Δ", E: "Ε", Z: "Ζ", H: "Χ", I: "Ι", J: "Τ", K: "Κ", C: "Κ", Q: "Κ",
+    L: "Λ", M: "Μ", N: "Ν", O: "Ο", P: "Π", R: "Ρ", S: "Σ", T: "Τ", Y: "Υ", U: "Ο", F: "Φ", X: "Χ", W: "Ο" };
+  return one[c] || "";
+}
+
+/** Κινητό/σταθερό 10 ψηφίων. Επιστρέφει "" αν δεν είναι έγκυρο. */
+export function cleanPhone(s) {
+  let d = String(s ?? "").replace(/\D/g, "");
+  d = d.replace(/^0030(?=\d{10}$)/, "").replace(/^30(?=\d{10}$)/, "");
+  return /^(69\d{8}|2\d{9})$/.test(d) ? d : "";
+}
+export const isPhone = s => !!cleanPhone(s);
+export const fmtPhone = p => (p && p.length === 10 ? p.slice(0, 3) + " " + p.slice(3, 6) + " " + p.slice(6) : p || "");
+
+/** "31/10/2026 17:00" ή "31/10/2026" → Date (τοπική ώρα) ή null. */
+export function parseGrDate(s) {
+  const t = String(s ?? "");
+  const d = t.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (!d) return null;
+  const m = t.match(/(\d{1,2}):(\d{2})(?!.*\d{1,2}:\d{2})/);
+  const dt = new Date(+d[3], +d[2] - 1, +d[1], m ? +m[1] : 0, m ? +m[2] : 0);
+  return isNaN(dt) ? null : dt;
+}
+const p2 = n => String(n).padStart(2, "0");
+/** Date/ISO → "31/10/2026 17:00" */
+export function fmtGr(v, withTime = true) {
+  if (!v) return "";
+  const d = v instanceof Date ? v : new Date(v);
+  if (isNaN(d)) return "";
+  const s = p2(d.getDate()) + "/" + p2(d.getMonth() + 1) + "/" + d.getFullYear();
+  return withTime ? s + " " + p2(d.getHours()) + ":" + p2(d.getMinutes()) : s;
+}
+/** Date → value για <input type=datetime-local> */
+export function toLocalInput(v) {
+  const d = v ? new Date(v) : new Date();
+  return d.getFullYear() + "-" + p2(d.getMonth() + 1) + "-" + p2(d.getDate()) + "T" + p2(d.getHours()) + ":" + p2(d.getMinutes());
+}
+export const money = n => (n == null || n === "" ? "" : Number(n).toFixed(2).replace(".", ",") + " €");
+export function hoursSince(iso) { return iso ? (Date.now() - new Date(iso).getTime()) / 3600000 : 0; }
+export function daysSince(iso) { return Math.floor(hoursSince(iso) / 24); }
+
+/** Κλειδί δρομολογίου άφιξης / αποστολής. */
+function minuteKey(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  return d.getFullYear() + "-" + p2(d.getMonth() + 1) + "-" + p2(d.getDate()) + " " + p2(d.getHours()) + ":" + p2(d.getMinutes());
+}
+export function tripsOf(p) {
+  const a = [p.departure_at ? (p.origin_city || "?") + "|" + minuteKey(p.departure_at) : "__none"];
+  if (p.fwd_departure_at) a.push(">" + (p.fwd_destination || p.destination_city || "?") + "|" + minuteKey(p.fwd_departure_at));
+  return a;
+}
+export function tripLabel(t) {
+  if (t === "__none") return "Χωρίς δρομολόγιο";
+  const [c, k] = t.split("|");
+  const [d, hm] = k.split(" ");
+  const [y, mo, da] = d.split("-");
+  return (c[0] === ">" ? "Αποστολή ΑΓΡΙΝΙΟ → " + c.slice(1) : c) + " · " + da + "/" + mo + "/" + y + " " + hm;
+}
+export function sortTrips(keys) {
+  return keys.sort((a, b) => a === "__none" ? 1 : b === "__none" ? -1 :
+    b.split("|")[1].localeCompare(a.split("|")[1]) || a.localeCompare(b));
+}
+
+export const CLOSED = ["done", "forwarded", "returned"];
+export const isClosed = p => CLOSED.includes(p.status);
+export const isTransit = p => !!p.destination_city && norm(p.destination_city) !== HOME;
+
+/** Ανάγνωση κειμένου ετικέτας ΚΤΕΛ (από σάρωση/επικόλληση). */
+export function parseLabel(raw) {
+  const t = norm(raw).replace(/\r/g, "");
+  const lines = String(raw ?? "").split(/\n/).map(norm).filter(Boolean);
+  const o = {};
+  const after = re => {
+    for (let i = 0; i < lines.length; i++) {
+      const m = lines[i].match(re);
+      if (m) { const v = (m[1] || "").trim(); if (v) return v; const nx = lines[i + 1] || ""; return nx && !/:/.test(nx) ? nx : ""; }
+    }
+    return "";
+  };
+  const rc = t.match(/\b(\d{3}\s?-\s?\d{3}\s?-\s?\d{4,7})\b/); if (rc) o.receipt_no = rc[1].replace(/\s/g, "");
+  const lat = { Α: "A", Β: "B", Ε: "E", Ζ: "Z", Η: "H", Ι: "I", Κ: "K", Μ: "M", Ν: "N", Ο: "O", Ρ: "P", Τ: "T", Υ: "Y", Χ: "X" };
+  const cd = t.match(/ΚΩΔ\.?\s*ΔΕΜΑΤΟΣ\s*:?\s*([A-ZΑ-Ω0-9]{5,12})/); if (cd) o.parcel_code = cd[1].replace(/[Α-Ω]/g, c => lat[c] || c);
+  const fr = t.match(/ΚΟΜΙΣΤΡΟ\s*:?\s*(\d+(?:[.,]\d+)?)/); if (fr) o.fare_eur = Number(fr[1].replace(",", "."));
+  if (/ΑΣΥΝΟΔΕΥΤ/.test(t)) o.kind = "Ασυνόδευτο"; else if (/ΣΥΝΟΔΕΥΤΙΚ|ΑΠΟΣΚΕΥ/.test(t)) o.kind = "Συνοδευτικό";
+  const it = after(/^ΕΙΔΟΣ\s*:?\s*(.*)$/); if (it) o.item = it === "ΑΠΛΟ ΔΕΜΑ" ? "Απλό δέμα" : it.charAt(0) + it.slice(1).toLowerCase();
+  const is = t.match(/ΕΚΔΟΣΗΣ[^\d]*(\d{1,2}\/\d{1,2}\/\d{4})(?:[^\d\n]*(\d{1,2}:\d{2}))?/); if (is) o.issued = is[1] + (is[2] ? " " + is[2] : "");
+  const dp = t.match(/ΑΝΑΧΩΡΗΣΗΣ[^\d]*(\d{1,2}\/\d{1,2}\/\d{4})(?:[^\d\n]*(\d{1,2}:\d{2}))?/); if (dp) o.departure = dp[1] + (dp[2] ? " " + dp[2] : "");
+  const rp = after(/^ΠΑΡΑΛΗΠΤΗΣ\s*:?\s*(.*)$/); if (rp && !/^(ΤΗΛ|ΑΠΟ)/.test(rp)) o.recipient_name = rp;
+  const sn = after(/^ΑΠΟΣΤΟΛΕΑΣ\s*:?\s*(.*)$/); if (sn && !/^(ΠΑΡΑΛΗΠΤΗΣ|ΤΗΛ)/.test(sn)) o.sender_name = sn;
+  const ph = t.match(/ΤΗΛ\.?\s*:?\s*((?:\+?30)?[\s\d]{10,14})/); if (ph) { const c = cleanPhone(ph[1]); if (c) o.recipient_phone = c; }
+  const fm = after(/^ΑΠΟ\s*-?\s*FROM\s*:?\s*(.*)$/); if (fm) o.origin_city = fm;
+  const to = after(/^ΠΡΟΣ\s*-?\s*(?:ΤΟ|TO)\s*:?\s*(.*)$/); if (to) o.destination_city = to;
+  return o;
+}
+
+/** Κείμενο ειδοποίησης από πρότυπο. */
+export function fillTemplate(tpl, p) {
+  return String(tpl)
+    .replace("{αρ}", p.receipt_no ? " (αρ. " + p.receipt_no + ")" : "")
+    .replace("{από}", p.origin_city ? "από " + p.origin_city : "")
+    .replace("{κωδικός}", p.pickup_code ? "Κωδικός παραλαβής: " + p.pickup_code : "")
+    .replace(/ +\n/g, "\n").replace(/ {2,}/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+}
+
+/** CSV για Excel (ελληνικό): ; διαχωριστικό, BOM. */
+export function toCSV(rows, cols) {
+  const esc = v => { v = v == null ? "" : String(v); return /[;"\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+  return "﻿" + [cols.map(c => esc(c[1])).join(";"), ...rows.map(r => cols.map(c => esc(c[2] ? c[2](r) : r[c[0]])).join(";"))].join("\r\n");
+}
