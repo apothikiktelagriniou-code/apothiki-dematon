@@ -16,7 +16,7 @@ const store = { get(k) { try { return localStorage.getItem(k) || ""; } catch { r
 const STATUS = { arrived: "Ήρθε", notified: "Ειδοποιήθηκε", done: "Παραδόθηκε", transit: "Μεταφόρτωση", forwarded: "Προωθήθηκε", returned: "Επεστράφη" , not_arrived: "Δεν πέρασε από αποθήκη"};
 let settings = { reminder_days: 3, transit_alert_hours: 3, old_parcel_days: 5, max_reasonable_fare_eur: 40, city_colors: {}, notification_template: "{αρ}", reminder_template: "{αρ}" };
 let rows = new Map();       // id → parcel
-let filter = "all", cityFilter = "", tripFilter = "", editingId = null;
+let filter = "all", cityFilter = "", tripFilter = "", tripDay = "", editingId = null;
 let openBox = { id: null, kind: null }; // ειδοποίηση/παράδοση/προώθηση/ζημιά
 let bulk = false, shelfManual = false, customerChoice = null;
 
@@ -32,6 +32,7 @@ function needOperator() {
   if (operator()) return false;
   $("opForm").hidden = false; $("opInput").focus();
   show($("formMsg"), "Γράψε πρώτα ποιος δουλεύει (πάνω).", "warn");
+  if ($("editDlg").open) $("editDlg").close();
   return true;
 }
 
@@ -155,7 +156,7 @@ const FIELDS = ["receipt_no", "parcel_code", "kind", "origin_city", "destination
 function clearForm() {
   for (const f of FIELDS) { const e = $(f); e.classList.remove("ai"); if (e.tagName === "SELECT") e.selectedIndex = 0; else e.value = ""; delete e.dataset.src; }
   editingId = null; shelfManual = false; customerChoice = null; $("custHint").textContent = ""; $("destHint").textContent = "";
-  $("saveBtn").textContent = "Αποθήκευση"; $("scanText").value = "";
+  $("saveBtn").textContent = "Αποθήκευση"; show($("editMsg"), "", "info");
 }
 function fillForm(o, ai) {
   for (const f of FIELDS) if (o[f] != null && o[f] !== "") { $(f).value = o[f]; if (ai) $(f).classList.add("ai"); }
@@ -174,18 +175,9 @@ $("destination_city").addEventListener("input", autoShelf);
 $("shelf").addEventListener("input", () => { shelfManual = !!$("shelf").value.trim(); });
 $("recipient_phone").addEventListener("input", () => { $("recipient_phone").dataset.src = "manual"; });
 for (const f of FIELDS) $(f).addEventListener("input", e => e.target.classList.remove("ai"));
-$("clearBtn").onclick = () => { clearForm(); show($("formMsg"), "", "info"); };
-
-$("scanBtn").onclick = () => {
-  const raw = $("scanText").value.trim();
-  if (!raw) { show($("formMsg"), "Σάρωσε ή επικόλλησε πρώτα το κείμενο της ετικέτας.", "warn"); return; }
-  const o = parseLabel(raw);
-  if (!o.receipt_no && !o.recipient_name) { show($("formMsg"), "Δεν βρέθηκε αριθμός απόδειξης ή παραλήπτης. Σάρωσε ξανά πιο κοντά ή συμπλήρωσε με το χέρι.", "warn"); return; }
-  clearForm(); fillForm({ ...o, issued: o.issued, departure: o.departure }, true);
-  if (o.recipient_phone) $("recipient_phone").dataset.src = "label";
-  const miss = [["receipt_no", "απόδειξη"], ["recipient_name", "παραλήπτης"], ["fare_eur", "κόμιστρο"], ["origin_city", "από"], ["departure", "αναχώρηση"]].filter(([k]) => o[k] == null || o[k] === "").map(x => x[1]);
-  show($("formMsg"), miss.length ? "Λείπουν: " + miss.join(", ") + ". Έλεγξε και πάτα Αποθήκευση." : "Συμπληρώθηκε. Έλεγξε τα γαλάζια πεδία και πάτα Αποθήκευση.", miss.length ? "warn" : "ok");
-};
+$("clearBtn").onclick = () => { clearForm(); $("editDlg").close(); };
+$("editClose").onclick = () => { clearForm(); $("editDlg").close(); };
+$("newManualBtn").onclick = () => { if (needOperator()) return; clearForm(); $("editTitle").textContent = "Νέο δέμα (χωρίς φωτογραφία)"; render(); $("editDlg").showModal(); $("recipient_name").focus(); };
 
 function readForm() {
   const v = f => $(f).value.trim();
@@ -208,31 +200,31 @@ function readForm() {
 $("form").addEventListener("submit", async e => {
   e.preventDefault(); if (needOperator()) return;
   const o = readForm();
-  if (!o.receipt_no && !o.recipient_name) { show($("formMsg"), "Γράψε τουλάχιστον αριθμό απόδειξης ή παραλήπτη.", "warn"); return; }
-  if ($("recipient_phone").value.trim() && !o.recipient_phone) { show($("formMsg"), "Το τηλέφωνο δεν μοιάζει σωστό (10 ψηφία, κινητό από 69). Διόρθωσέ το ή άφησέ το κενό.", "warn"); return; }
-  if (o.fare_eur != null && (isNaN(o.fare_eur) || o.fare_eur < 0)) { show($("formMsg"), "Το κόμιστρο δεν είναι σωστό ποσό.", "warn"); return; }
+  if (!o.receipt_no && !o.recipient_name) { show($("editMsg"), "Γράψε τουλάχιστον αριθμό απόδειξης ή παραλήπτη.", "warn"); return; }
+  if ($("recipient_phone").value.trim() && !o.recipient_phone) { show($("editMsg"), "Το τηλέφωνο δεν μοιάζει σωστό (10 ψηφία, κινητό από 69). Διόρθωσέ το ή άφησέ το κενό.", "warn"); return; }
+  if (o.fare_eur != null && (isNaN(o.fare_eur) || o.fare_eur < 0)) { show($("editMsg"), "Το κόμιστρο δεν είναι σωστό ποσό.", "warn"); return; }
   if (o.fare_eur > Number(settings.max_reasonable_fare_eur || 40) && !confirmInline("Κόμιστρο " + money(o.fare_eur) + " — σίγουρα σωστό; Πάτα ξανά Αποθήκευση για επιβεβαίωση.")) return;
   const btn = $("saveBtn"); btn.disabled = true;
   try {
     o.customer_id = customerChoice || (o.recipient_name ? await linkCustomer(o.recipient_name, o.recipient_phone) : null);
     if (editingId) {
       await updateParcel(editingId, o);
-      clearForm(); show($("formMsg"), "Ενημερώθηκε.", "ok");
+      clearForm(); $("editDlg").close(); show($("formMsg"), "Ενημερώθηκε.", "ok");
     } else {
       o.status = o.destination_city === HOME ? "arrived" : "transit"; o.source = "manual"; o.operator = operator();
       const { data, error } = await saveParcel(o);
       if (error) {
-        if (error.code === "23505") { const ex = [...rows.values()].find(r => r.receipt_no === o.receipt_no); show($("formMsg"), "Αυτή η απόδειξη έχει ήδη καταχωρηθεί" + (ex ? " (" + ex.recipient_name + ", " + fmtGr(ex.created_at) + ")" : "") + ".", "warn"); return; }
+        if (error.code === "23505") { const ex = [...rows.values()].find(r => r.receipt_no === o.receipt_no); show($("editMsg"), "Αυτή η απόδειξη έχει ήδη καταχωρηθεί" + (ex ? " (" + ex.recipient_name + ", " + fmtGr(ex.created_at) + ")" : "") + ".", "warn"); return; }
         throw error;
       }
       rows.set(data.id, data); render();
-      clearForm(); show($("formMsg"), "Αποθηκεύτηκε" + (data.shelf ? " — Ράφι " + data.shelf : data.status === "transit" ? " — Μεταφόρτωση" : "") + ".", "ok");
+      clearForm(); $("editDlg").close(); show($("formMsg"), "Αποθηκεύτηκε" + (data.shelf ? " — Ράφι " + data.shelf : data.status === "transit" ? " — Μεταφόρτωση" : "") + ".", "ok");
     }
-  } catch (err) { console.error(err); show($("formMsg"), "Δεν αποθηκεύτηκε. Δοκίμασε ξανά.", "bad"); }
+  } catch (err) { console.error(err); show($("editMsg"), "Δεν αποθηκεύτηκε. Δοκίμασε ξανά.", "bad"); }
   finally { btn.disabled = false; }
 });
 let pendingConfirm = "";
-function confirmInline(text) { if (pendingConfirm === text) { pendingConfirm = ""; return true; } pendingConfirm = text; show($("formMsg"), text, "warn"); return false; }
+function confirmInline(text) { if (pendingConfirm === text) { pendingConfirm = ""; return true; } pendingConfirm = text; show($("editMsg"), text, "warn"); return false; }
 
 function lastTrip() {
   return [...rows.values()].filter(p => p.departure_at && p.origin_city).sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))[0];
@@ -242,14 +234,14 @@ $("sameTripBtn").onclick = () => {
   $("origin_city").value = t.origin_city; $("departure").value = fmtGr(t.departure_at);
   if (!$("issued").value) $("issued").value = fmtGr(t.departure_at, false);
   ["origin_city", "departure"].forEach(f => $(f).classList.add("ai"));
-  show($("formMsg"), "Μπήκε το δρομολόγιο. Γράψε παραλήπτη, τηλέφωνο, κόμιστρο.", "info"); $("recipient_name").focus();
+  show($("editMsg"), "Μπήκε το δρομολόγιο. Γράψε παραλήπτη, τηλέφωνο, κόμιστρο.", "info"); $("recipient_name").focus();
 };
 function startEdit(p) {
   clearForm(); editingId = p.id;
   fillForm({ ...p, issued: fmtGr(p.issued_at), departure: fmtGr(p.departure_at), fare_eur: p.fare_eur ?? "", cod_amount_eur: p.cod_amount_eur ?? "" }, false);
   shelfManual = !!p.shelf_manual; if (p.phone_source) $("recipient_phone").dataset.src = p.phone_source;
-  $("saveBtn").textContent = "Ενημέρωση"; show($("formMsg"), "Επεξεργασία: " + (p.receipt_no || p.recipient_name), "info");
-  window.scrollTo({ top: $("hNew").offsetTop - 10, behavior: "smooth" }); $("receipt_no").focus();
+  $("saveBtn").textContent = "Αποθήκευση αλλαγών"; $("editTitle").textContent = "Επεξεργασία · " + (p.recipient_name || p.receipt_no || "δέμα");
+  $("sameTripBtn").hidden = true; $("editDlg").showModal();
 }
 
 // ---------------------------------------------------------------- λίστα
@@ -315,9 +307,21 @@ function render() {
 
   // δρομολόγια
   const trips = {}; all.forEach(p => tripsOf(p).forEach(t => (trips[t] = trips[t] || []).push(p)));
-  const sel = $("tripSel"); sel.textContent = ""; sel.append(new Option("Όλα τα δρομολόγια", ""));
-  sortTrips(Object.keys(trips)).slice(0, 200).forEach(t => sel.append(new Option(tripLabel(t) + " (" + trips[t].length + ")", t)));
-  if (tripFilter && !trips[tripFilter]) tripFilter = ""; sel.value = tripFilter;
+  if (!tripDay) tripDay = dayKey(new Date());
+  $("tripDay").value = tripDay;
+  const tl = $("tripList"); tl.textContent = "";
+  const dayKeys = Object.keys(trips).filter(t => t !== "__none" && t.split("|")[1].startsWith(tripDay)).sort((a, b) => a.split("|")[1].localeCompare(b.split("|")[1]) || a.localeCompare(b));
+  if (tripFilter && !trips[tripFilter]) tripFilter = "";
+  dayKeys.forEach(t => {
+    const [c, k] = t.split("|"); const out = c[0] === ">"; const city = out ? c.slice(1) : c; const g = trips[t]; const open = g.filter(p => !isClosed(p)).length;
+    const b = el("button", "tripbtn"); b.type = "button"; b.style.setProperty("--cc", out ? "#facc15" : cityColor(city)); b.setAttribute("aria-pressed", String(tripFilter === t));
+    const left = el("span"); left.append(el("b", null, k.split(" ")[1]), document.createTextNode(" " + (out ? "Αποστολή → " + city : "από " + city)));
+    b.append(left, el("span", "tcount", g.length + " δέματα" + (open ? " · " + open + " εκκρεμούν" : " · ✓")));
+    b.onclick = () => { tripFilter = tripFilter === t ? "" : t; render(); }; tl.append(b);
+  });
+  if (!dayKeys.length) tl.append(el("div", "hint", "Κανένα δρομολόγιο αυτή τη μέρα."));
+  if (trips.__none && trips.__none.some(p => !isClosed(p))) { const b = el("button", "tripbtn"); b.type = "button"; b.setAttribute("aria-pressed", String(tripFilter === "__none"));
+    b.append(el("span", null, "Χωρίς δρομολόγιο"), el("span", "tcount", trips.__none.length + " δέματα")); b.onclick = () => { tripFilter = tripFilter === "__none" ? "" : "__none"; render(); }; tl.append(b); }
   if (tripFilter) { const g = trips[tripFilter]; const dn = g.filter(isClosed).length; const tr = g.filter(isTransit).length;
     show($("tripSum"), tripLabel(tripFilter) + ": " + g.length + " δέματα" + (tr ? " (μεταφόρτωση " + tr + ")" : "") + " · έκλεισαν " + dn + " · εκκρεμούν " + (g.length - dn) + " · κόμιστρα " + money(g.reduce((s, p) => s + (Number(p.fare_eur) || 0), 0)), "info"); }
   else show($("tripSum"), "", "info");
@@ -391,7 +395,11 @@ function card(p) {
 function setFilter(f) { filter = f; document.querySelectorAll(".chip").forEach(x => x.setAttribute("aria-pressed", String(x.dataset.f === f))); }
 document.querySelectorAll(".chip").forEach(c => c.onclick = () => { setFilter(c.dataset.f); render(); });
 $("q").addEventListener("input", scheduleRender);
-$("tripSel").addEventListener("change", e => { tripFilter = e.target.value; render(); });
+const dayKey = d => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+const shiftDay = n => { const [y, mo, d] = tripDay.split("-").map(Number); tripDay = dayKey(new Date(y, mo - 1, d + n)); tripFilter = ""; render(); };
+$("tripDay").addEventListener("change", e => { if (e.target.value) { tripDay = e.target.value; tripFilter = ""; render(); } });
+$("dayPrev").onclick = () => shiftDay(-1); $("dayNext").onclick = () => shiftDay(1);
+$("dayToday").onclick = () => { tripDay = dayKey(new Date()); tripFilter = ""; render(); };
 
 // αναζήτηση και σε παλιότερα (εκτός των 45 ημερών)
 let qT = null;
