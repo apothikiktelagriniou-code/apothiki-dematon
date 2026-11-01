@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="el">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#14325c">
+<title>Πού είναι το δέμα μου; · Αποθήκη Ασυνοδεύτων ΚΤΕΛ Αγρινίου</title>
+<link rel="icon" href="./icon-192.png">
+<style>
+:root{--bg:#F2F5F7;--surface:#fff;--fg:#16212B;--muted:#55626D;--line:#D6DEE3;--navy:#14325c;--teal:#0e7c86;--ok:#1D7A46;--ok-soft:#E1F3E8;--warn:#9A5B00;--warn-soft:#FBEFD9;--bad:#B3261E;--bad-soft:#FBE3E1;--info-soft:#E6ECF4;color-scheme:light}
+@media (prefers-color-scheme:dark){:root{--bg:#0E151B;--surface:#16202A;--fg:#E6ECF0;--muted:#9AA8B3;--line:#2A3743;--navy:#8FB4DE;--teal:#4FC1D6;--ok:#6FD39A;--ok-soft:#163324;--warn:#F2B866;--warn-soft:#3A2B12;--bad:#F2928B;--bad-soft:#3D1B19;--info-soft:#1C2A3A;color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans",sans-serif;padding:16px max(16px,env(safe-area-inset-right)) 32px max(16px,env(safe-area-inset-left))}
+main{max-width:520px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+.logo{display:block;width:min(260px,70%);margin:8px auto 0;background:#fff;border-radius:14px;padding:6px}
+h1{font-size:24px;margin:0;text-align:center;color:var(--navy)}
+.sub{text-align:center;color:var(--muted);font-size:14px;margin-top:-6px}
+form{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:12px}
+label{font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+input{font:inherit;font-size:18px;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 12px;min-height:50px;width:100%}
+input:focus-visible,button:focus-visible{outline:3px solid var(--teal);outline-offset:2px}
+.mono{font-family:ui-monospace,"SF Mono","Cascadia Mono",monospace;letter-spacing:.03em}
+.hint{font-size:13px;color:var(--muted)}
+button{font:inherit;font-weight:700;font-size:17px;border:0;border-radius:12px;background:var(--navy);color:#fff;min-height:52px;cursor:pointer}
+@media (prefers-color-scheme:dark){button{color:#0E151B}}
+button[disabled]{opacity:.6}
+.res{border-radius:16px;padding:16px;font-size:17px}
+.res b{display:block;font-size:20px;margin-bottom:4px}
+.res.ok{background:var(--ok-soft);color:var(--ok)}.res.warn{background:var(--warn-soft);color:var(--warn)}.res.bad{background:var(--bad-soft);color:var(--bad)}.res.info{background:var(--info-soft);color:var(--fg)}
+.box{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px;font-size:15px}
+.box a{color:var(--teal);font-weight:700}
+</style>
+</head>
+<body>
+<main>
+  <img class="logo" src="./logo.png" alt="Αποθήκη Ασυνοδεύτων ΚΤΕΛ Αιτωλοακαρνανίας">
+  <h1>Πού είναι το δέμα μου;</h1>
+  <div class="sub">Αποθήκη Ασυνοδεύτων · Σταθμός ΚΤΕΛ Αγρινίου</div>
+  <form id="f" autocomplete="off">
+    <div><label for="rc">Αριθμός απόδειξης</label>
+      <input id="rc" class="mono" inputmode="numeric" placeholder="π.χ. 258-341-23682" required>
+      <div class="hint">Τον βρίσκετε στην απόδειξη που σας έδωσε ο αποστολέας («Αρ. Απόδειξης»).</div></div>
+    <div><label for="nm">3 πρώτα γράμματα επωνύμου παραλήπτη</label>
+      <input id="nm" maxlength="20" autocapitalize="characters" placeholder="π.χ. ΠΑΠ" required>
+      <div class="hint">Για την προστασία των δεδομένων σας.</div></div>
+    <button id="go" type="submit">Έλεγχος</button>
+  </form>
+  <div id="out" role="status" aria-live="polite"></div>
+  <div class="box">
+    <b>Ωράριο παραλαβής</b><br>Δευτέρα–Παρασκευή 06:30–21:30<br>Σάββατο–Κυριακή 08:00–21:30<br>
+    Φέρτε ταυτότητα ή άλλο έγγραφο ταυτοποίησης.<br><br>
+    🏠 <b>Delivery στο σπίτι 3,50 €</b> — καλέστε μας.<br>
+    📞 <a href="tel:+302641024446">26410 24446</a> · <a href="tel:+306979334186">697 933 4186</a>
+  </div>
+</main>
+<script>
+const URL_ = "https://cwsmbuvrjnphbzpcghzs.supabase.co", KEY = "sb_publishable_zrORrSV30rvMtHazn8zEmA_U-7r8Tnj";
+const $ = id => document.getElementById(id);
+const p2 = n => String(n).padStart(2, "0");
+const fmt = v => { const d = new Date(v); return isNaN(d) ? "" : p2(d.getDate()) + "/" + p2(d.getMonth() + 1) + "/" + d.getFullYear() + " " + p2(d.getHours()) + ":" + p2(d.getMinutes()); };
+function show(cls, title, text) { const o = $("out"); o.className = "res " + cls; o.textContent = ""; const b = document.createElement("b"); b.textContent = title; o.append(b, document.createTextNode(text || "")); }
+const q = new URLSearchParams(location.search); if (q.get("r")) $("rc").value = q.get("r");
+$("f").onsubmit = async e => {
+  e.preventDefault();
+  const rc = $("rc").value.replace(/\D/g, ""), nm = $("nm").value.trim();
+  if (rc.length < 10) return show("warn", "Ελέγξτε τον αριθμό απόδειξης", "Πρέπει να έχει τουλάχιστον 10 ψηφία.");
+  if (nm.replace(/\s/g, "").length < 3) return show("warn", "Γράψτε 3 γράμματα", "Τα 3 πρώτα γράμματα του επωνύμου του παραλήπτη.");
+  $("go").disabled = true; show("info", "Αναζήτηση…", "");
+  try {
+    const r = await fetch(URL_ + "/rest/v1/rpc/track_parcel", { method: "POST", headers: { apikey: KEY, "content-type": "application/json" }, body: JSON.stringify({ p_receipt: $("rc").value, p_name: nm }) });
+    if (r.status === 429) return show("warn", "Πολλές αναζητήσεις", "Δοκιμάστε ξανά σε λίγο.");
+    if (!r.ok) throw new Error(r.status);
+    const [x] = await r.json();
+    if (!x) return show("warn", "Δεν βρέθηκε ακόμα", "Αν το δέμα στάλθηκε σήμερα, μπορεί να μην έχει φτάσει ή να μην έχει καταχωρηθεί ακόμα. Ελέγξτε τον αριθμό και τα γράμματα, ή καλέστε μας.");
+    const pcs = x.pieces_total > 1 ? " Έχουν φτάσει " + x.pieces_in + " από " + x.pieces_total + " τεμάχια." : "";
+    if (x.state === "here") show("ok", "✓ Το δέμα σας έφτασε!", "Σας περιμένει στην Αποθήκη Ασυνοδεύτων του σταθμού ΚΤΕΛ Αγρινίου" + (x.origin ? " (από " + x.origin + ")" : "") + "." + pcs);
+    else if (x.state === "done") show("info", "Παραδόθηκε", "Το δέμα παραλήφθηκε στις " + fmt(x.at) + ".");
+    else if (x.state === "transit") show("info", "Σε μεταφόρτωση", "Το δέμα πέρασε από το Αγρίνιο και θα συνεχίσει προς " + (x.dest || "τον προορισμό του") + "." + pcs);
+    else if (x.state === "forwarded") show("info", "Στάλθηκε", "Το δέμα στάλθηκε από το Αγρίνιο προς " + (x.dest || "τον προορισμό του") + (x.at ? " στις " + fmt(x.at) : "") + ".");
+    else if (x.state === "returned") show("warn", "Επεστράφη", "Το δέμα επιστράφηκε στον αποστολέα. Καλέστε μας για πληροφορίες.");
+    else show("warn", "Καλέστε μας", "Δεν μπορούμε να δούμε την κατάσταση του δέματος από εδώ.");
+  } catch { show("bad", "Πρόβλημα σύνδεσης", "Δοκιμάστε ξανά σε λίγο ή καλέστε μας."); }
+  finally { $("go").disabled = false; }
+};
+</script>
+</body>
+</html>
