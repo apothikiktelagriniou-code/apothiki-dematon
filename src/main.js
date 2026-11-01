@@ -201,7 +201,8 @@ function readForm() {
   return o;
 }
 $("form").addEventListener("submit", async e => {
-  e.preventDefault(); if (needOperator()) return;
+  e.preventDefault();
+  for (const id of ["departure_t", "issued_t"]) if (parseT24($(id).value) === null) { show($("editMsg"), "Λάθος ώρα: γράψε 24ωρη μορφή, π.χ. 17:30.", "bad"); $(id).focus(); return; } if (needOperator()) return;
   const o = readForm();
   if (!o.receipt_no && !o.recipient_name) { show($("editMsg"), "Γράψε τουλάχιστον αριθμό απόδειξης ή παραλήπτη.", "warn"); return; }
   if ($("recipient_phone").value.trim() && !o.recipient_phone) { show($("editMsg"), "Το τηλέφωνο δεν μοιάζει σωστό (10 ψηφία, κινητό από 69). Διόρθωσέ το ή άφησέ το κενό.", "warn"); return; }
@@ -239,9 +240,19 @@ function setDT(prefix, iso) {
   $(prefix + "_d").value = d && !isNaN(d) ? d.getFullYear() + "-" + p2_(d.getMonth() + 1) + "-" + p2_(d.getDate()) : "";
   $(prefix + "_t").value = d && !isNaN(d) ? p2_(d.getHours()) + ":" + p2_(d.getMinutes()) : "";
 }
+// ώρα πάντα 24ωρη: «930» → 09:30, «1730» → 17:30
+function parseT24(s) {
+  const d = String(s || "").replace(/\D/g, ""); if (!d) return "";
+  const h = d.length <= 2 ? d : d.slice(0, d.length - 2), m = d.length <= 2 ? "00" : d.slice(-2);
+  return +h <= 23 && +m <= 59 ? p2_(+h) + ":" + m : null;
+}
+document.querySelectorAll(".t24").forEach(el => {
+  el.addEventListener("input", () => { const d = el.value.replace(/\D/g, "").slice(0, 4); el.value = d.length > 2 ? d.slice(0, d.length - 2) + ":" + d.slice(-2) : d; });
+  el.addEventListener("blur", () => { const t = parseT24(el.value); if (t) el.value = t; });
+});
 function getDT(prefix) {
   const dv = $(prefix + "_d").value, tv = $(prefix + "_t").value; if (!dv) return null;
-  const [y, m, d] = dv.split("-").map(Number); const [hh, mm] = (tv || "00:00").split(":").map(Number);
+  const [y, m, d] = dv.split("-").map(Number); const [hh, mm] = (parseT24(tv) || "00:00").split(":").map(Number);
   return new Date(y, m - 1, d, hh, mm).toISOString();
 }
 function startEdit(p) {
