@@ -58,7 +58,7 @@ async function send() {
     } catch { /* χαλασμένη εικόνα */ }
     it.urls.forEach(URL.revokeObjectURL);
   }
-  stats = { auto: 0, review: 0, fail: 0, total: items.length };
+  stats = { auto: 0, review: 0, fail: 0, pieces: 0, total: items.length };
   pump();
 }
 
@@ -84,7 +84,7 @@ export async function pump() {
   await refreshOutboxInfo();
   if (stats.total) {
     const done = stats.auto + stats.review + stats.fail;
-    show($("capMsg"), "Καταχωρήθηκαν αυτόματα: " + stats.auto + " · Για έλεγχο: " + stats.review + (stats.fail ? " · Απέτυχαν: " + stats.fail : "") + (done < stats.total ? " · Σε αναμονή: " + (stats.total - done) : ""), stats.review || stats.fail ? "warn" : "ok");
+    show($("capMsg"), "Καταχωρήθηκαν αυτόματα: " + stats.auto + (stats.pieces ? " (από αυτά " + stats.pieces + " επιπλέον τεμάχια υπαρχουσών αποστολών)" : "") + " · Για έλεγχο: " + stats.review + (stats.fail ? " · Απέτυχαν: " + stats.fail : "") + (done < stats.total ? " · Σε αναμονή: " + (stats.total - done) : ""), stats.review || stats.fail ? "warn" : "ok");
     if (done >= stats.total) { D.sb.from("batches").insert({ photo_count: stats.total, auto_saved: stats.auto, queued: stats.review, failed: stats.fail, device: matchMedia("(pointer:fine)").matches ? "pc" : "phone", operator: D.operator() }).then(() => {}); stats.total = 0; }
   }
 }
@@ -102,6 +102,14 @@ async function processOne(it) {
   // τηλέφωνο από αρχείο πελατών
   const custs = d.recipient ? (await D.findCustomers(d.recipient)).filter(c => (c.phones || []).length) : [];
   const ph = cleanPhone(d.phone);
+  // ίδιος αριθμός απόδειξης = επόμενο τεμάχιο της ίδιας αποστολής
+  const addPiece = async () => {
+    const { data: rows } = await D.sb.rpc("add_piece", { p_receipt: d.receipt_no, p_total: Number(d.pieces) || 1 });
+    if (rows && rows.length) { D.onSaved(rows[0]); stats.auto++; stats.pieces = (stats.pieces || 0) + 1; await obDel(it.id); return true; }
+    return false;
+  };
+  const ex = d.receipt_no && D.findByReceipt(d.receipt_no);
+  if (ex && Math.max(ex.pieces_total || 1, Number(d.pieces) || 1) > 1 && await addPiece()) return "ok";
   const dec = autoSaveDecision(d, rn => D.receiptExists(rn), D.settings().max_reasonable_fare_eur || 40);
   if (dec.auto) {
     const p = extractedToParcel(d);
@@ -111,6 +119,7 @@ async function processOne(it) {
     p.source = "photo_auto"; p.batch_id = it.batch; p.operator = it.operator; p.extraction_confidence = { unsure: d.unsure || [] };
     p.customer_id = custs.length === 1 ? custs[0].id : await D.linkCustomer(p.recipient_name, p.recipient_phone);
     const ins = await D.saveParcel(p);
+    if (ins.error && ins.error.code === "23505" && (Number(d.pieces) || 1) > 1 && await addPiece()) return "ok";
     if (ins.error) { await toQueue(it, d, [ins.error.code === "23505" ? "duplicate" : "ai_unavailable"]); stats.review++; }
     else { D.onSaved(ins.data); stats.auto++; }
   } else { await toQueue(it, d, dec.problems); stats.review++; }

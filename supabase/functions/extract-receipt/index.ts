@@ -24,9 +24,10 @@ const SYSTEM = `Διαβάζεις φωτογραφίες από αποδείξ�
 - Οι χειρόγραφοι αριθμοί τηλεφώνου είναι πάντα επικίνδυνοι: αν το τηλέφωνο είναι χειρόγραφο, phone_is_handwritten=true.
 - Πόλεις: κεφαλαία χωρίς τόνους (π.χ. ΠΑΤΡΑ, ΑΘΗΝΑ, ΙΩΑΝΝΙΝΑ).
 - Ημερομηνίες: DD/MM/YYYY HH:MM.
+- pieces = πόσα τεμάχια/δέματα έχει η αποστολή, αν γράφεται (π.χ. «Αριθμός δεμάτων: 3», «Τεμάχια 3», «Ποσ 3», «1/3», «2 ΤΕΜ»). Αν δεν γράφεται → 1. Αν γράφει «2/3» = τεμάχιο 2 από 3 → pieces=3.
 
 Απάντησε ΜΟΝΟ με ένα JSON αντικείμενο, χωρίς άλλο κείμενο, με ακριβώς αυτά τα κλειδιά:
-{"receipt_no":"","parcel_code":"","kind":"Συνοδευτικό|Ασυνόδευτο|","item":"","fare_eur":null,"issued":"","departure":"","sender":"","recipient":"","phone":"","phone_is_handwritten":false,"origin_city":"","destination_city":"","is_handwritten_receipt":false,"damage_visible":false,"unsure":[],"notes":""}`;
+{"receipt_no":"","parcel_code":"","kind":"Συνοδευτικό|Ασυνόδευτο|","item":"","fare_eur":null,"issued":"","departure":"","sender":"","recipient":"","phone":"","phone_is_handwritten":false,"pieces":1,"origin_city":"","destination_city":"","is_handwritten_receipt":false,"damage_visible":false,"unsure":[],"notes":""}`;
 
 const SYSTEM_MANIFEST = `Διαβάζεις φωτογραφίες από ΚΑΤΑΣΤΑΣΗ ΦΟΡΤΩΣΗΣ / λίστα δεμάτων που στέλνει πρακτορείο ΚΤΕΛ μαζί με ένα λεωφορείο προς το Αγρίνιο. Μπορεί να είναι τυπωμένη, χειρόγραφη ή φωτογραφία οθόνης, σε μία ή περισσότερες σελίδες (οι φωτογραφίες είναι σελίδες της ΙΔΙΑΣ κατάστασης).
 
@@ -66,6 +67,7 @@ function clean(d: Record<string, unknown>) {
   if (o.fare_eur !== null && isNaN(o.fare_eur as number)) o.fare_eur = null;
   o.kind = /ΑΣΥΝ/.test(up(d.kind)) ? "Ασυνόδευτο" : /ΣΥΝ/.test(up(d.kind)) ? "Συνοδευτικό" : "";
   o.unsure = Array.isArray(d.unsure) ? d.unsure.map(String) : [];
+  const pc = Number(String(d.pieces ?? "1").replace(/\D/g, "")) || 1; o.pieces = Math.min(Math.max(pc, 1), 99);
   return o;
 }
 

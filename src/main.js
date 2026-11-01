@@ -50,6 +50,8 @@ async function boot() {
   initCapture({ sb, operator, needOperator, findCustomers, linkCustomer, lastTrip, settings: () => settings,
     receiptExists: rn => [...rows.values()].some(p => !(p.bypassed && p.status === "not_arrived") && sameReceipt(p.receipt_no, rn)),
     saveParcel,
+    findByReceipt: rn => [...rows.values()].find(p => !(p.bypassed && p.status === "not_arrived") && sameReceipt(p.receipt_no, rn)),
+    updatePiece: async (p, patch) => { try { return await updateParcel(p.id, patch); } catch { return null; } },
     onSaved: p => { rows.set(p.id, p); scheduleRender(); } });
 }
 $("loginForm").onsubmit = async e => {
@@ -152,7 +154,7 @@ async function lookupCustomerForForm() {
 }
 
 // ---------------------------------------------------------------- φόρμα
-const FIELDS = ["receipt_no", "parcel_code", "kind", "origin_city", "destination_city", "issued", "departure", "fare_eur", "recipient_name", "recipient_phone", "shelf", "sender_name", "item", "cod_amount_eur", "notes"];
+const FIELDS = ["receipt_no", "parcel_code", "kind", "origin_city", "destination_city", "issued", "departure", "fare_eur", "recipient_name", "recipient_phone", "shelf", "sender_name", "item", "cod_amount_eur", "notes", "pieces_total", "pieces_in"];
 function clearForm() {
   for (const f of FIELDS) { const e = $(f); e.classList.remove("ai"); if (e.tagName === "SELECT") e.selectedIndex = 0; else e.value = ""; delete e.dataset.src; }
   editingId = null; shelfManual = false; customerChoice = null; $("custHint").textContent = ""; $("destHint").textContent = "";
@@ -193,6 +195,7 @@ function readForm() {
     phone_source: phone ? ($("recipient_phone").dataset.src || "manual") : null,
     shelf: dest === HOME ? (v("shelf").toUpperCase() || shelfFor(v("recipient_name")) || null) : null, shelf_manual: shelfManual,
     sender_name: v("sender_name") || null, item: v("item") || null, cod_amount_eur: cod, notes: v("notes") || null,
+    pieces_total: Math.max(1, parseInt(v("pieces_total"), 10) || 1), pieces_in: Math.max(0, parseInt(v("pieces_in"), 10) || 1),
   };
   o.phone_confirmed = o.phone_source !== "handwritten";
   return o;
@@ -358,6 +361,8 @@ function card(p) {
   if (p.shelf && !isClosed(p)) top.append(el("span", "shelf", "Ράφι " + p.shelf));
   if (tr) top.append(el("span", "transit", "⇄ → " + (p.fwd_destination || p.destination_city)));
   if (p.cod_amount_eur > 0 && !p.cod_collected) top.append(el("span", "codb", "💶 ΕΙΣΠΡΑΞΗ " + money(p.cod_amount_eur)));
+  const pt = p.pieces_total || 1, pin = p.pieces_in ?? 1;
+  if (pt > 1) top.append(el("span", pin < pt ? "codb" : "tag", "📦 " + pin + "/" + pt + " τεμ."));
   if (p.damaged) top.append(el("span", "codb", "⚠ ΖΗΜΙΑ"));
   if (away(p)) top.append(isTransit(p) ? el("span", "transit", "⇄ ΑΠΕΥΘΕΙΑΣ ΜΕΤΑΦΟΡΤΩΣΗ") : el("span", "codb", "🚫 ΔΕΝ ΗΡΘΕ ΣΤΗΝ ΑΠΟΘΗΚΗ"));
   tags.filter(t => t !== "Στο υπόγειο" && t !== "Παραλήφθηκε με φθορά").forEach(t => top.append(el("span", "tag", t)));
@@ -378,6 +383,10 @@ function card(p) {
       await updateParcel(p.id, { bypassed: false, status: dest === HOME ? "arrived" : "transit", status_at: new Date().toISOString(), shelf: dest === HOME ? (p.shelf || shelfFor(p.recipient_name) || null) : null }).catch(() => {}); });
   } else if (p.status === "transit") mk("Προώθηση", toggle("fwd"), "primary");
   else if (!isClosed(p)) { mk(p.status === "notified" ? "Υπενθύμιση" : "Ειδοποίηση", toggle("notify")); mk("Παράδοση", toggle("pickup"), "primary"); }
+  if ((p.pieces_total || 1) > 1 && (p.pieces_in ?? 1) < p.pieces_total && !isClosed(p)) {
+    mk("+1 τεμάχιο", () => updateParcel(p.id, { pieces_in: (p.pieces_in ?? 1) + 1 }).catch(() => {}));
+    mk("Ήρθαν όλα (" + p.pieces_total + ")", () => updateParcel(p.id, { pieces_in: p.pieces_total }).catch(() => {}));
+  }
   mk("Επεξεργασία", () => startEdit(p));
   mk("Παρατηρήσεις" + (tags.length || p.notes ? " (" + (tags.length + (p.notes ? 1 : 0)) + ")" : ""), toggle("tags"));
   mk("Ιστορικό", () => showHistory(p));
@@ -537,6 +546,8 @@ function pickupBox(p) {
   const chk = (text) => { const l = el("label", "check wide"); const c = el("input"); c.type = "checkbox"; l.append(c, document.createTextNode(text)); box.append(l); return c; };
   const home = chk("Παράδοση στο σπίτι (delivery 3,50 €)");
   const codC = p.cod_amount_eur > 0 ? chk("Εισπράχθηκε " + money(p.cod_amount_eur) + " από τον παραλήπτη") : null;
+  const pcs = (p.pieces_total || 1) > 1 ? chk("Παρέδωσα και τα " + p.pieces_total + " τεμάχια") : null;
+  if (pcs && (p.pieces_in ?? 1) < p.pieces_total) box.append(el("div", "msg warn wide", "⚠ Έχουν καταχωρηθεί μόνο " + (p.pieces_in ?? 1) + " από " + p.pieces_total + " τεμάχια. Έλεγξε ότι τα έχεις όλα πριν την παράδοση."));
   const sw = el("div", "f wide"); const cv = el("canvas", "sig"); cv.setAttribute("aria-label", "Πλαίσιο υπογραφής");
   const clr = el("button", "btn small", "Καθαρισμός υπογραφής"); clr.type = "button";
   sw.append(el("label", null, "Υπογραφή παραλήπτη (προαιρετική)"), cv, clr);
@@ -560,6 +571,7 @@ function pickupBox(p) {
     const say = (t, c) => { msg.textContent = t; msg.className = "msg " + c + " wide"; msg.hidden = false; };
     const nm = name.value.trim() || p.recipient_name || "", pn = cleanPhone(phone.value), idNo = cleanIdDoc(idn.value);
     if (!pn) { phone.focus(); return say("Γράψε το κινητό του παραλήπτη (10 ψηφία, π.χ. 6941234567).", "warn"); }
+    if (pcs && !pcs.checked) return say("Τσέκαρε ότι παρέδωσες και τα " + p.pieces_total + " τεμάχια.", "warn");
     if (codC && !codC.checked) return say("Τσέκαρε ότι εισπράχθηκε το ποσό " + money(p.cod_amount_eur) + ".", "warn");
     ok.disabled = true; say("Αποθήκευση…", "info");
     try {
@@ -715,7 +727,7 @@ $("exportBtn").onclick = async () => {
     ["created_at", "Καταχώρηση", d("created_at")], ["notified_at", "Ειδοποίηση", d("notified_at")], ["picked_up_at", "Παραλαβή", d("picked_up_at")], ["picked_by_name", "Παρέλαβε"],
     ["picked_by_phone", "Τηλ. παραλαβής"], ["id_doc_type", "Έγγραφο"], ["id_doc_number", "Αριθμός εγγράφου"], ["signature_path", "Υπογραφή", r => r.signature_path ? "Ναι" : ""],
     ["home_delivery", "Delivery", yes("home_delivery")], ["cod_amount_eur", "Είσπραξη €", eur("cod_amount_eur")], ["cod_collected", "Εισπράχθηκε", yes("cod_collected")],
-    ["fwd_departure_at", "Αποστολή από Αγρίνιο", d("fwd_departure_at")], ["fwd_note", "Σημ. αποστολής"], ["damaged", "Ζημιά", yes("damaged")], ["bypassed", "Δεν πέρασε από αποθήκη", yes("bypassed")], ["fwd_bus", "Λεωφορείο μεταφόρτωσης"], ["notes", "Σημειώσεις"], ["operator", "Τελευταίος χειριστής"]];
+    ["fwd_departure_at", "Αποστολή από Αγρίνιο", d("fwd_departure_at")], ["fwd_note", "Σημ. αποστολής"], ["damaged", "Ζημιά", yes("damaged")], ["bypassed", "Δεν πέρασε από αποθήκη", yes("bypassed")], ["fwd_bus", "Λεωφορείο μεταφόρτωσης"], ["pieces_total", "Τεμάχια"], ["pieces_in", "Ήρθαν τεμάχια"], ["notes", "Σημειώσεις"], ["operator", "Τελευταίος χειριστής"]];
   const blob = new Blob([toCSV(data, cols)], { type: "text/csv;charset=utf-8" });
   const a = el("a"); a.href = URL.createObjectURL(blob); a.download = "apothiki-dematon-" + fmtGr(new Date(), false).replace(/\//g, "-") + ".csv"; a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 5000);

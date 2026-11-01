@@ -68,7 +68,7 @@ export function openManifest(D) {
         const dest = it.destination_city || HOME;
         const row = { receipt_no: it.receipt_no || null, recipient_name: (it.recipient || "").trim(), origin_city: origin || null, destination_city: dest,
           departure_at: dep ? dep.toISOString() : null, fare_eur: it.fare_eur ?? null, kind: "Ασυνόδευτο", item: "Απλό δέμα", shelf: null,
-          status: "not_arrived", bypassed: true, source: "manifest", operator: D.operator(),
+          status: "not_arrived", bypassed: true, source: "manifest", operator: D.operator(), pieces_total: Math.max(1, Number(it.pieces) || 1), pieces_in: 0,
           notes: (kind === "home" ? "Στην κατάσταση " : "Απευθείας μεταφόρτωση — κατάσταση ") + (origin || "") + (dep ? " " + fmtGr(dep) : "") + (kind === "home" ? " — δεν ήρθε στην αποθήκη Αγρινίου" : "") + (it.unsure ? " (αβέβαιη ανάγνωση)" : "") };
         const res = await D.sb.from("parcels").insert(row).select().single();
         if (!res.error) { ok++; D.onSaved && D.onSaved(res.data); }

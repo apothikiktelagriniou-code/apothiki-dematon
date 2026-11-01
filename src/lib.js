@@ -175,6 +175,7 @@ export function extractedToParcel(d) {
     shelf: dest === HOME ? (shelfFor(d.recipient) || null) : null,
     status: dest === HOME ? "arrived" : "transit",
     damaged: !!d.damage_visible, notes: d.notes || null,
+    pieces_total: Math.max(1, Number(d.pieces) || 1), pieces_in: 1,
   };
 }
 
