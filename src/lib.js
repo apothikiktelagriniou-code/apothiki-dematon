@@ -124,6 +124,7 @@ export function fillTemplate(tpl, p) {
     .replace("{αρ}", p.receipt_no ? " (αρ. " + p.receipt_no + ")" : "")
     .replace("{από}", p.origin_city ? "από " + p.origin_city : "")
     .replace("{κωδικός}", p.pickup_code ? "Κωδικός παραλαβής: " + p.pickup_code : "")
+    .replace("{κωδ}", p.pickup_code || "")
     .replace(/ +\n/g, "\n").replace(/ {2,}/g, " ").replace(/\n{3,}/g, "\n\n").trim();
 }
 

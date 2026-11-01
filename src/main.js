@@ -45,6 +45,7 @@ async function boot() {
   await loadParcels();
   subscribe();
   loadNotes();
+  checkSms().then(render);
   initCapture({ sb, operator, needOperator, findCustomers, linkCustomer, lastTrip, settings: () => settings,
     receiptExists: rn => [...rows.values()].some(p => sameReceipt(p.receipt_no, rn)),
     onSaved: p => { rows.set(p.id, p); scheduleRender(); } });
@@ -306,7 +307,7 @@ function render() {
 
   // μαζική ειδοποίηση
   const toN = all.filter(p => p.status === "arrived" && phoneOk(p)).length;
-  $("bulkBar").hidden = !toN && !bulk; $("bulkBtn").textContent = bulk ? "Σταμάτημα" : "Ειδοποίηση όλων (" + toN + ")";
+  $("bulkBar").hidden = !toN && !bulk; $("bulkSmsBtn").hidden = !smsReady; $("bulkBtn").textContent = bulk ? "Σταμάτημα" : "Ειδοποίηση όλων (" + toN + ")";
   $("bulkHint").textContent = bulk ? "Πάτα κανάλι και ανοίγει το επόμενο." : "Δέματα με τηλέφωνο που δεν έχουν ειδοποιηθεί.";
 
   const lt = lastTrip(); $("sameTripBtn").hidden = !lt || !!editingId;
@@ -391,6 +392,7 @@ function notifyBox(p) {
     w.append(ok, " ", ed); box.append(w); return box;
   }
   const remind = p.status === "notified";
+  const chInfo = el("div", "hint wide"); box.append(chInfo);
   const ta = el("textarea", "wide"); ta.value = fillTemplate(remind ? settings.reminder_template : settings.notification_template, p); ta.setAttribute("aria-label", "Μήνυμα");
   const bar = el("div", "toolbar wide"); const ph = p.recipient_phone;
   const mark = async ch => {
@@ -399,18 +401,72 @@ function notifyBox(p) {
   };
   const link = (label, href, ch, cls, pre) => { const a = el("a", "btn small" + (cls ? " " + cls : ""), label); a.target = "_blank"; a.rel = "noopener";
     a.onclick = async () => { a.href = href(); if (pre) await pre(); setTimeout(() => mark(ch), 400); }; a.href = href(); bar.append(a); };
+  const sms = el("div", "toolbar wide"); const smsMsg = el("div", "hint wide");
   if (ph) {
-    link("WhatsApp", () => "https://wa.me/30" + ph + "?text=" + encodeURIComponent(ta.value), "whatsapp", "primary");
-    link("Viber", () => "viber://chat?number=%2B30" + ph + "&draft=" + encodeURIComponent(ta.value), "viber", "", async () => { try { await navigator.clipboard.writeText(ta.value); } catch {} });
-    link("SMS", () => "sms:+30" + ph + "?&body=" + encodeURIComponent(ta.value), "sms");
+    link("WhatsApp", () => "https://wa.me/30" + ph + "?text=" + encodeURIComponent(ta.value), "whatsapp", "primary", () => setChannel(p, "whatsapp"));
+    link("Viber", () => "viber://chat?number=%2B30" + ph + "&draft=" + encodeURIComponent(ta.value), "viber", "", async () => { setChannel(p, "viber"); try { await navigator.clipboard.writeText(ta.value); } catch {} });
+    const smsText = () => fillTemplate(settings.sms_template || "ΚΤΕΛ Αγρινίου: το δέμα σας{αρ} ήρθε. Κωδ. {κωδ}. Παραλαβή 06:30-21:30 ή delivery 3,50€ στο 6979334186", p);
+    if (smsReady && /^69/.test(ph)) {
+      const auto = el("button", "btn small", "✗ Ούτε WhatsApp ούτε Viber → 📩 SMS αυτόματα"); auto.type = "button";
+      auto.onclick = async () => { auto.disabled = true; smsMsg.textContent = "Αποστολή SMS…";
+        const r = await sendSms(p, smsText());
+        if (r.ok) { await setChannel(p, "sms"); smsMsg.textContent = "✓ Στάλθηκε SMS."; await mark("sms"); }
+        else { auto.disabled = false; smsMsg.textContent = "Δεν στάλθηκε: " + r.error + ". Έλεγξε ότι το κινητό της αποθήκης είναι αναμμένο με σήμα."; } };
+      sms.append(auto);
+    } else {
+      const a = el("a", "btn small", "SMS από αυτό το κινητό"); a.href = "sms:+30" + ph + "?&body=" + encodeURIComponent(smsText());
+      a.onclick = () => { setChannel(p, "sms"); setTimeout(() => mark("sms"), 400); }; sms.append(a);
+    }
+    getChannel(p).then(ch => {
+      chInfo.textContent = ch === "sms" ? "📩 Ο πελάτης έχει μόνο SMS (από προηγούμενη φορά)." : ch === "whatsapp" ? "Προηγούμενη φορά: WhatsApp." : ch === "viber" ? "Προηγούμενη φορά: Viber." : "Πρώτη φορά: δοκίμασε WhatsApp → αν δεν έχει, Viber → αν ούτε αυτό, SMS.";
+      if (ch === "sms" && sms.firstChild) { sms.firstChild.classList.add("primary"); bar.querySelector("a")?.classList.remove("primary"); }
+      if (ch === "viber") { bar.querySelectorAll("a")[0]?.classList.remove("primary"); bar.querySelectorAll("a")[1]?.classList.add("primary"); }
+    });
   }
   const copy = el("button", "btn small", "Αντιγραφή"); copy.type = "button";
   copy.onclick = async () => { try { await navigator.clipboard.writeText(ta.value); copy.textContent = "Αντιγράφηκε"; } catch { ta.select(); } }; bar.append(copy);
   const close = el("button", "btn small", bulk ? "Επόμενο" : "Κλείσιμο"); close.type = "button";
   close.onclick = () => { openBox = bulk ? { id: nextToNotify(p.id), kind: "notify" } : { id: null }; if (!openBox.id) bulk = false; render(); }; bar.append(close);
-  box.append(ta, bar, el("div", "hint wide", ph ? "Viber: αν δεν εμφανιστεί το μήνυμα, έχει αντιγραφεί — κράτα πατημένο → Επικόλληση. Μόλις πατήσεις κανάλι, σημειώνεται «Ειδοποιήθηκε»." : "Δεν υπάρχει τηλέφωνο. Πάτα «Επεξεργασία» για να το προσθέσεις."));
+  box.append(ta, bar, sms, smsMsg, el("div", "hint wide", ph ? "Viber: αν δεν εμφανιστεί το μήνυμα, έχει αντιγραφεί — κράτα πατημένο → Επικόλληση. Μόλις πατήσεις κανάλι, σημειώνεται «Ειδοποιήθηκε»." : "Δεν υπάρχει τηλέφωνο. Πάτα «Επεξεργασία» για να το προσθέσεις."));
   return box;
 }
+// ---------------------------------------------------------------- κανάλια & SMS
+let smsReady = false; const chCache = new Map();
+async function checkSms() {
+  try { const r = await fetch(SUPABASE_URL + "/functions/v1/send-sms?health=1", { headers: { apikey: SUPABASE_KEY } }); const j = await r.json(); smsReady = !!j.ready; } catch { smsReady = false; }
+}
+async function getChannel(p) {
+  if (!p.customer_id) return null; if (chCache.has(p.customer_id)) return chCache.get(p.customer_id);
+  const { data } = await sb.from("customers").select("channel").eq("id", p.customer_id).maybeSingle();
+  const ch = data ? data.channel : null; chCache.set(p.customer_id, ch); return ch;
+}
+async function setChannel(p, ch) {
+  if (!p.customer_id) { if (!p.recipient_name) return; const id = await linkCustomer(p.recipient_name, p.recipient_phone); if (!id) return; await updateParcel(p.id, { customer_id: id }).catch(() => {}); p = rows.get(p.id) || p; }
+  chCache.set(p.customer_id, ch);
+  await sb.from("customers").update({ channel: ch, channel_at: new Date().toISOString() }).eq("id", p.customer_id);
+}
+async function sendSms(p, text) {
+  const { data, error } = await sb.functions.invoke("send-sms", { body: { phone: p.recipient_phone, text } });
+  if (error) { let b = {}; try { b = await error.context.json(); } catch {} return { ok: false, error: b.error === "missing_credentials" ? "δεν έχουν μπει τα στοιχεία του κινητού στο Supabase" : (b.detail || b.error || "σφάλμα δικτύου") }; }
+  if (data && data.id) updateParcel(p.id, { sms_message_id: data.id }).catch(() => {});
+  return { ok: true };
+}
+async function bulkSms() {
+  const { data } = await sb.from("customers").select("id").eq("channel", "sms").limit(5000);
+  const smsIds = new Set((data || []).map(c => c.id));
+  const list = [...rows.values()].filter(p => p.status === "arrived" && /^69/.test(p.recipient_phone || "") && smsIds.has(p.customer_id) && !(p.phone_source === "handwritten" && !p.phone_confirmed));
+  return list;
+}
+$("bulkSmsBtn").onclick = async () => {
+  if (needOperator()) return; const b = $("bulkSmsBtn"); b.disabled = true;
+  const list = await bulkSms(); if (!list.length) { $("bulkHint").textContent = "Κανένα δέμα για αυτόματο SMS (πελάτες που έχουν μόνο SMS)."; b.disabled = false; return; }
+  let ok = 0, fail = 0;
+  for (const p of list) { $("bulkHint").textContent = "📩 SMS " + (ok + fail + 1) + "/" + list.length + "…";
+    const r = await sendSms(p, fillTemplate(settings.sms_template || "", p));
+    if (r.ok) { ok++; await updateParcel(p.id, { status: "notified", status_at: new Date().toISOString(), notified_at: new Date().toISOString(), notify_count: (p.notify_count || 0) + 1, notify_channel: "sms" }).catch(() => {}); } else fail++; }
+  $("bulkHint").textContent = "📩 Στάλθηκαν " + ok + " SMS" + (fail ? " · απέτυχαν " + fail : "") + "."; b.disabled = false;
+};
+
 $("bulkBtn").onclick = () => { if (bulk) { bulk = false; openBox = { id: null }; render(); return; }
   bulk = true; setFilter("tonotify"); openBox = { id: nextToNotify(null), kind: "notify" }; if (!openBox.id) bulk = false; render(); };
 
