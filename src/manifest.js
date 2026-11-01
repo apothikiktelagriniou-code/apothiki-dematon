@@ -67,11 +67,31 @@ export function openManifest(D) {
       const cp = el("button", "btn small", "Αντιγραφή λίστας που λείπουν (για το πρακτορείο)"); cp.type = "button";
       cp.onclick = async () => { try { await navigator.clipboard.writeText(txt); cp.textContent = "Αντιγράφηκε ✓"; } catch { cp.textContent = "Δεν αντιγράφηκε"; } };
       out.lastChild.append(cp);
+      // αυτόματα στη λίστα «Δεν πέρασαν από την αποθήκη»
+      const addMsg = el("div", "hint"); out.lastChild.append(addMsg);
+      const addAll = async () => {
+        let ok = 0;
+        for (const it of r.missing) {
+          const dest = it.destination_city || HOME;
+          const row = { receipt_no: it.receipt_no || null, recipient_name: (it.recipient || "").trim(), origin_city: origin || null, destination_city: dest,
+            departure_at: dep ? dep.toISOString() : null, fare_eur: it.fare_eur ?? null, kind: "Ασυνόδευτο", item: "Απλό δέμα", shelf: null,
+            status: "not_arrived", bypassed: true, source: "manifest", operator: D.operator(),
+            notes: "Από κατάσταση " + (origin || "") + (dep ? " " + fmtGr(dep) : "") + " — δεν παραλήφθηκε στην αποθήκη Αγρινίου" + (it.unsure ? " (αβέβαιη ανάγνωση)" : "") };
+          const res = await D.sb.from("parcels").insert(row).select().single();
+          if (!res.error) { ok++; D.onSaved && D.onSaved(res.data); }
+        }
+        addMsg.textContent = "🚫 " + ok + " μπήκαν στη λίστα «Δεν πέρασαν από αποθήκη». Εκεί δηλώνεις σε ποιο δρομολόγιο μεταφορτώθηκαν.";
+      };
+      if (D.pendingReview && D.pendingReview() > 0) {
+        const b = el("button", "btn small primary", "Καταχώρηση στη λίστα «Δεν πέρασαν» (" + r.missing.length + ")"); b.type = "button";
+        addMsg.textContent = "Δεν τα πέρασα αυτόματα επειδή υπάρχουν φωτογραφίες στο «Για έλεγχο». Αν είσαι σίγουρος ότι λείπουν, πάτα:";
+        b.onclick = async () => { b.disabled = true; await addAll(); b.remove(); }; out.lastChild.append(b);
+      } else addAll();
     }
     const weak = r.found.filter(f => f.how === "name");
     sec("✓ Βρέθηκαν (" + r.found.length + ")" + (weak.length ? " — " + weak.length + " μόνο με το όνομα, έλεγξέ τα" : ""), "ok", r.found.map(f =>
       line((f.how === "name" ? "⚠ " : "") + (f.parcel.recipient_name || "—"), [f.parcel.shelf && "Ράφι " + f.parcel.shelf, f.parcel.receipt_no && "Απόδ. " + f.parcel.receipt_no,
-        f.how === "name" ? "ταίριαξε μόνο με όνομα (κατάσταση: " + (f.item.recipient || "") + ")" : "", f.parcel.status === "done" ? "ήδη παραδόθηκε" : ""].filter(Boolean).join(" · "))));
+        f.how === "name" ? "ταίριαξε μόνο με όνομα (κατάσταση: " + (f.item.recipient || "") + ")" : "", f.parcel.status === "done" ? "ήδη παραδόθηκε" : "", f.parcel.bypassed ? "🚫 ήδη στη λίστα «Δεν πέρασαν»" : ""].filter(Boolean).join(" · "))));
     if (trip && trip.key) sec("⚠ Καταχωρημένα σε αυτό το δρομολόγιο αλλά ΟΧΙ στην κατάσταση (" + r.extra.length + ")", "warn", r.extra.map(p =>
       line(p.recipient_name || "—", [p.receipt_no && "Απόδ. " + p.receipt_no, p.recipient_phone && fmtPhone(p.recipient_phone)].filter(Boolean).join(" · "))));
 

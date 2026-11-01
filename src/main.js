@@ -13,7 +13,7 @@ const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls)
 const show = (node, text, cls) => { node.textContent = text; node.className = "msg " + cls; node.hidden = !text; };
 const store = { get(k) { try { return localStorage.getItem(k) || ""; } catch { return ""; } }, set(k, v) { try { localStorage.setItem(k, v); } catch {} } };
 
-const STATUS = { arrived: "Ήρθε", notified: "Ειδοποιήθηκε", done: "Παραδόθηκε", transit: "Μεταφόρτωση", forwarded: "Προωθήθηκε", returned: "Επεστράφη" };
+const STATUS = { arrived: "Ήρθε", notified: "Ειδοποιήθηκε", done: "Παραδόθηκε", transit: "Μεταφόρτωση", forwarded: "Προωθήθηκε", returned: "Επεστράφη" , not_arrived: "Δεν πέρασε από αποθήκη"};
 let settings = { reminder_days: 3, transit_alert_hours: 3, old_parcel_days: 5, max_reasonable_fare_eur: 40, city_colors: {}, notification_template: "{αρ}", reminder_template: "{αρ}" };
 let rows = new Map();       // id → parcel
 let filter = "all", cityFilter = "", tripFilter = "", editingId = null;
@@ -47,7 +47,8 @@ async function boot() {
   loadNotes();
   checkSms().then(render);
   initCapture({ sb, operator, needOperator, findCustomers, linkCustomer, lastTrip, settings: () => settings,
-    receiptExists: rn => [...rows.values()].some(p => sameReceipt(p.receipt_no, rn)),
+    receiptExists: rn => [...rows.values()].some(p => !(p.bypassed && p.status === "not_arrived") && sameReceipt(p.receipt_no, rn)),
+    saveParcel,
     onSaved: p => { rows.set(p.id, p); scheduleRender(); } });
 }
 $("loginForm").onsubmit = async e => {
@@ -98,6 +99,17 @@ let rT = null; const scheduleRender = () => { clearTimeout(rT); rT = setTimeout(
 window.addEventListener("online", () => { $("netMsg").hidden = true; loadParcels(); });
 window.addEventListener("offline", () => show($("netMsg"), "Χωρίς σύνδεση στο internet.", "warn"));
 
+/** Νέο δέμα· αν υπάρχει ήδη στη λίστα «Δεν πέρασαν» (ίδιος αριθμός), το μεταφέρει αντί για διπλή εγγραφή. */
+async function saveParcel(o) {
+  const ex = o.receipt_no && [...rows.values()].find(p => p.bypassed && p.status === "not_arrived" && sameReceipt(p.receipt_no, o.receipt_no));
+  if (ex) {
+    const patch = { ...o, bypassed: false, receipt_no: o.receipt_no, status_at: new Date().toISOString() };
+    const res = await sb.from("parcels").update(patch).eq("id", ex.id).select().single();
+    if (!res.error) rows.set(ex.id, res.data);
+    return res;
+  }
+  return sb.from("parcels").insert(o).select().single();
+}
 async function updateParcel(id, patch) {
   const { data, error } = await sb.from("parcels").update({ ...patch, operator: operator() }).eq("id", id).select().single();
   if (error) throw error;
@@ -208,7 +220,7 @@ $("form").addEventListener("submit", async e => {
       clearForm(); show($("formMsg"), "Ενημερώθηκε.", "ok");
     } else {
       o.status = o.destination_city === HOME ? "arrived" : "transit"; o.source = "manual"; o.operator = operator();
-      const { data, error } = await sb.from("parcels").insert(o).select().single();
+      const { data, error } = await saveParcel(o);
       if (error) {
         if (error.code === "23505") { const ex = [...rows.values()].find(r => r.receipt_no === o.receipt_no); show($("formMsg"), "Αυτή η απόδειξη έχει ήδη καταχωρηθεί" + (ex ? " (" + ex.recipient_name + ", " + fmtGr(ex.created_at) + ")" : "") + ".", "warn"); return; }
         throw error;
@@ -247,7 +259,11 @@ const lateTransit = p => p.status === "transit" && (hoursSince(p.created_at) >= 
 const sameDay = (iso, d) => iso && new Date(iso).toDateString() === d;
 const phoneOk = p => !!p.recipient_phone;
 
+const away = p => !!p.bypassed;
 function matches(p) {
+  const qq = $("q").value.trim();
+  if (filter === "bypassed") { if (!away(p)) return false; }
+  else if (away(p) && !qq) return false;
   if (cityFilter && p.origin_city !== cityFilter) return false;
   if (tripFilter && !tripsOf(p).includes(tripFilter)) return false;
   switch (filter) {
@@ -263,13 +279,13 @@ function matches(p) {
   }
   const q = norm($("q").value); if (!q) return true;
   if (p.id_doc_number && p.id_doc_number.includes(cleanIdDoc(q)) && cleanIdDoc(q).length >= 3) return true;
-  return norm([p.receipt_no, p.parcel_code, p.recipient_name, p.sender_name, p.recipient_phone, p.origin_city, p.destination_city, p.shelf, (p.tags || []).join(" "), p.notes, p.pickup_code, p.picked_by_name, p.picked_by_phone, p.id_doc_number].join(" ")).includes(q);
+  return norm([p.receipt_no, p.parcel_code, p.recipient_name, p.sender_name, p.recipient_phone, p.origin_city, p.destination_city, p.shelf, (p.tags || []).join(" "), p.notes, p.pickup_code, p.picked_by_name, p.picked_by_phone, p.id_doc_number, p.fwd_bus, p.fwd_destination].join(" ")).includes(q);
 }
 
 function render() {
   const all = [...rows.values()].sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
   const td = new Date().toDateString();
-  const open = all.filter(p => !isClosed(p));
+  const open = all.filter(p => !isClosed(p) && !away(p));
   $("stToday").textContent = all.filter(p => sameDay(p.created_at, td)).length;
   $("stWaiting").textContent = open.filter(p => !isTransit(p)).length;
   $("stOld").textContent = open.filter(p => daysSince(p.created_at) >= (settings.old_parcel_days || 5)).length;
@@ -338,6 +354,7 @@ function card(p) {
   if (tr) top.append(el("span", "transit", "⇄ → " + (p.fwd_destination || p.destination_city)));
   if (p.cod_amount_eur > 0 && !p.cod_collected) top.append(el("span", "codb", "💶 ΕΙΣΠΡΑΞΗ " + money(p.cod_amount_eur)));
   if (p.damaged) top.append(el("span", "codb", "⚠ ΖΗΜΙΑ"));
+  if (away(p)) top.append(el("span", "codb", "🚫 ΔΕΝ ΠΕΡΑΣΕ ΑΠΟ ΑΠΟΘΗΚΗ"));
   tags.filter(t => t !== "Στο υπόγειο" && t !== "Παραλήφθηκε με φθορά").forEach(t => top.append(el("span", "tag", t)));
   const meta = el("div", "meta"); const add = t => t && meta.append(el("span", null, t));
   add(p.departure_at ? "Αναχ. " + fmtGr(p.departure_at) : ""); add("Καταχ. " + fmtGr(p.created_at));
@@ -350,7 +367,11 @@ function card(p) {
   const acts = el("div", "acts");
   const mk = (t, fn, cls) => { const b = el("button", "btn small" + (cls ? " " + cls : ""), t); b.type = "button"; b.onclick = fn; acts.append(b); return b; };
   const toggle = kind => () => { openBox = openBox.id === p.id && openBox.kind === kind ? { id: null } : { id: p.id, kind }; render(); const r = $("row-" + p.id); r && r.scrollIntoView({ behavior: "smooth", block: "nearest" }); };
-  if (p.status === "transit") mk("Προώθηση", toggle("fwd"), "primary");
+  if (p.status === "not_arrived") {
+    mk("Μεταφόρτωση σε δρομολόγιο", toggle("fwd"), "primary");
+    mk("Ήρθε τελικά", async () => { if (needOperator()) return; const dest = p.destination_city || HOME;
+      await updateParcel(p.id, { bypassed: false, status: dest === HOME ? "arrived" : "transit", status_at: new Date().toISOString(), shelf: dest === HOME ? (p.shelf || shelfFor(p.recipient_name) || null) : null }).catch(() => {}); });
+  } else if (p.status === "transit") mk("Προώθηση", toggle("fwd"), "primary");
   else if (!isClosed(p)) { mk(p.status === "notified" ? "Υπενθύμιση" : "Ειδοποίηση", toggle("notify")); mk("Παράδοση", toggle("pickup"), "primary"); }
   mk("Επεξεργασία", () => startEdit(p));
   mk("Παρατηρήσεις" + (tags.length || p.notes ? " (" + (tags.length + (p.notes ? 1 : 0)) + ")" : ""), toggle("tags"));
@@ -360,7 +381,7 @@ function card(p) {
     row.append(el("div", "meta note", ["Παρέλαβε: " + (p.picked_by_name || "—"), p.id_doc_number ? (p.id_doc_type || "Έγγραφο") + " " + p.id_doc_number : p.id_doc_last4 ? (p.id_doc_type || "Έγγραφο") + " ••••" + p.id_doc_last4 : "", p.picked_by_phone ? fmtPhone(p.picked_by_phone) : "", fmtGr(p.picked_up_at), p.home_delivery ? "🏠 Delivery" : "", p.cod_collected ? "💶 Εισπράχθηκε " + money(p.cod_amount_eur) : ""].filter(Boolean).join(" · ")));
     if (p.signature_path) { const holder = el("div", "note"); const b = mk("Υπογραφή", () => showSignature(p, holder, b)); row.append(holder); }
   }
-  if (p.status === "forwarded") row.append(el("div", "meta note", ["Προωθήθηκε → " + (p.fwd_destination || p.destination_city), p.fwd_departure_at ? "με δρομολόγιο " + fmtGr(p.fwd_departure_at) : "", p.fwd_note || ""].filter(Boolean).join(" · ")));
+  if (p.status === "forwarded") row.append(el("div", "meta note", [(away(p) ? "Μεταφορτώθηκε → " : "Προωθήθηκε → ") + (p.fwd_destination || p.destination_city), p.fwd_departure_at ? "δρομολόγιο " + fmtGr(p.fwd_departure_at) : "", p.fwd_bus ? "λεωφορείο " + p.fwd_bus : "", p.fwd_note || ""].filter(Boolean).join(" · ")));
   if (p.notes) row.append(el("div", "meta note", p.notes));
   if (openBox.id === p.id) row.append(openBox.kind === "notify" ? notifyBox(p) : openBox.kind === "pickup" ? pickupBox(p) : openBox.kind === "tags" ? tagsBox(p) : fwdBox(p));
   return row;
@@ -375,7 +396,7 @@ $("tripSel").addEventListener("change", e => { tripFilter = e.target.value; rend
 let qT = null;
 $("q").addEventListener("input", () => { clearTimeout(qT); const q = $("q").value.trim(); if (q.length < 3) return;
   qT = setTimeout(async () => { const s = q.replace(/[%,()]/g, " ");
-    const { data } = await sb.from("parcels").select("*").or(`recipient_name.ilike.%${s}%,receipt_no.ilike.%${s}%,recipient_phone.ilike.%${s}%,picked_by_phone.ilike.%${s}%,id_doc_number.ilike.%${s}%,picked_by_name.ilike.%${s}%,pickup_code.eq.${s}`).limit(50);
+    const { data } = await sb.from("parcels").select("*").or(`fwd_bus.ilike.%${s}%,recipient_name.ilike.%${s}%,receipt_no.ilike.%${s}%,recipient_phone.ilike.%${s}%,picked_by_phone.ilike.%${s}%,id_doc_number.ilike.%${s}%,picked_by_name.ilike.%${s}%,pickup_code.eq.${s}`).limit(50);
     if (data && data.length) { data.forEach(p => rows.set(p.id, p)); render(); } }, 400); });
 
 // ---------------------------------------------------------------- ειδοποίηση
@@ -577,11 +598,12 @@ async function showSignature(p, holder, btn) {
 function fwdBox(p) {
   const box = el("form", "box"); box.autocomplete = "off";
   const dest = field(box, "Προορισμός", inp(p.fwd_destination || p.destination_city)); dest.setAttribute("list", "cities");
-  const when = field(box, "Αναχώρηση από Αγρίνιο", inp(toLocalInput(), { type: "datetime-local" }));
-  const note = field(box, "Σημείωση", inp("", { placeholder: "π.χ. λεωφορείο / οδηγός" }), true);
+  const when = field(box, away(p) ? "Ημέρα & ώρα δρομολογίου" : "Αναχώρηση από Αγρίνιο", inp(toLocalInput(p.fwd_departure_at || undefined), { type: "datetime-local" }));
+  const bus = field(box, "Αριθμός λεωφορείου", inp(p.fwd_bus || "", { className: "mono", placeholder: "π.χ. ΑΙΑ 1234 ή 25", autocapitalize: "characters" }));
+  const note = field(box, "Σημείωση", inp(p.fwd_note || "", { placeholder: "π.χ. οδηγός" }));
   const seen = new Set(); const q = el("div", "quick wide");
   [...rows.values()].filter(x => x.fwd_departure_at && norm(x.fwd_destination) === norm(dest.value)).sort((a, b) => String(b.fwd_at).localeCompare(String(a.fwd_at)))
-    .forEach(x => { const k = fmtGr(x.fwd_departure_at); if (seen.size < 3 && !seen.has(k)) { seen.add(k); const b = el("button", "btn small", "↻ " + k); b.type = "button"; b.onclick = () => { when.value = toLocalInput(x.fwd_departure_at); }; q.append(b); } });
+    .forEach(x => { const k = fmtGr(x.fwd_departure_at) + (x.fwd_bus ? " · " + x.fwd_bus : ""); if (seen.size < 3 && !seen.has(k)) { seen.add(k); const b = el("button", "btn small", "↻ " + k); b.type = "button"; b.onclick = () => { when.value = toLocalInput(x.fwd_departure_at); if (x.fwd_bus) bus.value = x.fwd_bus; }; q.append(b); } });
   if (q.childNodes.length) box.append(el("div", "hint wide", "Ίδιο δρομολόγιο με προηγούμενα δέματα:"), q);
   const msg = el("div", "msg warn wide"); msg.hidden = true; box.append(msg);
   const acts = el("div", "formactions"); const ok = el("button", "btn primary", "Καταχώρηση αποστολής"); ok.type = "submit";
@@ -591,7 +613,7 @@ function fwdBox(p) {
     const d = norm(dest.value); if (!d || d === HOME) { msg.textContent = "Γράψε τον προορισμό."; msg.hidden = false; return; }
     if (!when.value) { msg.textContent = "Διάλεξε ημέρα και ώρα."; msg.hidden = false; return; }
     ok.disabled = true;
-    try { const now = new Date().toISOString(); await updateParcel(p.id, { status: "forwarded", status_at: now, fwd_at: now, fwd_destination: d, fwd_departure_at: new Date(when.value).toISOString(), fwd_note: note.value.trim() || null });
+    try { const now = new Date().toISOString(); await updateParcel(p.id, { status: "forwarded", status_at: now, fwd_at: now, fwd_destination: d, fwd_departure_at: new Date(when.value).toISOString(), fwd_bus: bus.value.trim().toUpperCase() || null, fwd_note: note.value.trim() || null });
       openBox = { id: null }; show($("formMsg"), "Καταχωρήθηκε η αποστολή προς " + d + ".", "ok"); render(); }
     catch { ok.disabled = false; msg.textContent = "Δεν αποθηκεύτηκε. Δοκίμασε ξανά."; msg.hidden = false; } };
   return box;
@@ -684,7 +706,7 @@ $("exportBtn").onclick = async () => {
     ["created_at", "Καταχώρηση", d("created_at")], ["notified_at", "Ειδοποίηση", d("notified_at")], ["picked_up_at", "Παραλαβή", d("picked_up_at")], ["picked_by_name", "Παρέλαβε"],
     ["picked_by_phone", "Τηλ. παραλαβής"], ["id_doc_type", "Έγγραφο"], ["id_doc_number", "Αριθμός εγγράφου"], ["signature_path", "Υπογραφή", r => r.signature_path ? "Ναι" : ""],
     ["home_delivery", "Delivery", yes("home_delivery")], ["cod_amount_eur", "Είσπραξη €", eur("cod_amount_eur")], ["cod_collected", "Εισπράχθηκε", yes("cod_collected")],
-    ["fwd_departure_at", "Αποστολή από Αγρίνιο", d("fwd_departure_at")], ["fwd_note", "Σημ. αποστολής"], ["damaged", "Ζημιά", yes("damaged")], ["notes", "Σημειώσεις"], ["operator", "Τελευταίος χειριστής"]];
+    ["fwd_departure_at", "Αποστολή από Αγρίνιο", d("fwd_departure_at")], ["fwd_note", "Σημ. αποστολής"], ["damaged", "Ζημιά", yes("damaged")], ["bypassed", "Δεν πέρασε από αποθήκη", yes("bypassed")], ["fwd_bus", "Λεωφορείο μεταφόρτωσης"], ["notes", "Σημειώσεις"], ["operator", "Τελευταίος χειριστής"]];
   const blob = new Blob([toCSV(data, cols)], { type: "text/csv;charset=utf-8" });
   const a = el("a"); a.href = URL.createObjectURL(blob); a.download = "apothiki-dematon-" + fmtGr(new Date(), false).replace(/\//g, "-") + ".csv"; a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 5000);

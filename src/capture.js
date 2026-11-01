@@ -110,7 +110,7 @@ async function processOne(it) {
     if (!ph && custs.length > 1) p.notes = [p.notes, "Βρέθηκαν " + custs.length + " πελάτες με αυτό το όνομα — διάλεξε τηλέφωνο."].filter(Boolean).join(" · ");
     p.source = "photo_auto"; p.batch_id = it.batch; p.operator = it.operator; p.extraction_confidence = { unsure: d.unsure || [] };
     p.customer_id = custs.length === 1 ? custs[0].id : await D.linkCustomer(p.recipient_name, p.recipient_phone);
-    const ins = await D.sb.from("parcels").insert(p).select().single();
+    const ins = await D.saveParcel(p);
     if (ins.error) { await toQueue(it, d, [ins.error.code === "23505" ? "duplicate" : "ai_unavailable"]); stats.review++; }
     else { D.onSaved(ins.data); stats.auto++; }
   } else { await toQueue(it, d, dec.problems); stats.review++; }
@@ -186,7 +186,7 @@ function reviewCard(q, idx) {
     if (!p.recipient_phone && p.recipient_name) { const cs = (await D.findCustomers(p.recipient_name)).filter(c => (c.phones || []).length); if (cs.length === 1) { p.recipient_phone = cs[0].phones[0]; p.phone_source = "customer_db"; p.phone_confirmed = true; } }
     p.source = "photo_reviewed"; p.operator = D.operator();
     p.customer_id = await D.linkCustomer(p.recipient_name, p.recipient_phone);
-    const ins = await D.sb.from("parcels").insert(p).select().single();
+    const ins = await D.saveParcel(p);
     if (ins.error) { save.disabled = false; return say(ins.error.code === "23505" ? "Αυτή η απόδειξη υπάρχει ήδη." : "Δεν αποθηκεύτηκε. Δοκίμασε ξανά."); }
     D.onSaved(ins.data);
     await D.sb.from("extraction_queue").update({ status: "saved", thumbnail: null, parcel_id: ins.data.id }).eq("id", q.id);
