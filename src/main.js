@@ -5,6 +5,7 @@ import {
   tripsOf, tripLabel, sortTrips, isClosed, isTransit, parseLabel, fillTemplate, toCSV, cleanIdDoc,
 } from "./lib.js";
 import { initCapture } from "./capture.js";
+import { openManifest } from "./manifest.js";
 
 const sb = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true } });
 const $ = id => document.getElementById(id);
@@ -468,6 +469,13 @@ function pickupBox(p) {
   };
   return box;
 }
+/** Φωτογραφία → συμπιεσμένο JPEG */
+async function jpegBlob(file, max, q) {
+  const u = URL.createObjectURL(file); const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = u; });
+  URL.revokeObjectURL(u); const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+  const c = el("canvas"); c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+  c.getContext("2d").drawImage(img, 0, 0, c.width, c.height); return new Promise(r => c.toBlob(r, "image/jpeg", q));
+}
 /** Υπογραφή → ασπρόμαυρο PNG ≤ ~8KB */
 function signatureBlob(cv) {
   const W = Math.min(480, cv.width), H = Math.round(cv.height * W / cv.width);
@@ -519,6 +527,22 @@ function tagsBox(p) {
   opts.forEach(t => { const b = el("button", "chip", t); b.type = "button"; b.setAttribute("aria-pressed", String(sel.has(t)));
     b.onclick = () => { sel.has(t) ? sel.delete(t) : sel.add(t); b.setAttribute("aria-pressed", String(sel.has(t))); }; wrap.append(b); });
   box.append(wrap);
+  // φωτογραφίες φθοράς
+  const ph = el("div", "f wide"); const phLbl = el("label", "btn small", "📷 Φωτογραφία φθοράς"); const phIn = el("input"); phIn.type = "file"; phIn.accept = "image/*"; phIn.multiple = true; phIn.hidden = true; phLbl.append(phIn);
+  const gal = el("div", "dgal"); const phMsg = el("div", "hint");
+  ph.append(el("label", null, "Φωτογραφίες φθοράς" + ((p.damage_photo_paths || []).length ? " (" + p.damage_photo_paths.length + ")" : "")), phLbl, phMsg, gal); box.append(ph);
+  (async () => { for (const path of p.damage_photo_paths || []) { const { data } = await sb.storage.from("damage").createSignedUrl(path, 600); if (data) { const a = el("a"); a.href = data.signedUrl; a.target = "_blank"; a.rel = "noopener"; const i = el("img"); i.src = data.signedUrl; i.alt = "Φθορά"; a.append(i); gal.append(a); } } })();
+  phIn.onchange = async () => {
+    if (needOperator()) return; const files = [...phIn.files]; if (!files.length) return; phMsg.textContent = "Ανέβασμα " + files.length + "…";
+    try {
+      const paths = [...(p.damage_photo_paths || [])];
+      for (const f of files) { const blob = await jpegBlob(f, 1280, 0.72); const path = p.id + "/" + Date.now() + "-" + Math.round(Math.random() * 1e4) + ".jpg";
+        const up = await sb.storage.from("damage").upload(path, blob, { contentType: "image/jpeg" }); if (up.error) throw up.error; paths.push(path); }
+      sel.add("Παραλήφθηκε με φθορά");
+      await updateParcel(p.id, { damage_photo_paths: paths, damaged: true, tags: [...sel] });
+      openBox = { id: p.id, kind: "tags" }; render();
+    } catch (err) { console.error(err); phMsg.textContent = "Δεν ανέβηκε η φωτογραφία. Δοκίμασε ξανά."; }
+  };
   const notes = el("textarea", "wide"); notes.value = p.notes || ""; notes.placeholder = "Άλλη παρατήρηση (ελεύθερο κείμενο)"; notes.style.minHeight = "70px";
   const w = el("div", "f wide"); w.append(el("label", null, "Σημειώσεις"), notes); box.append(w);
   const acts = el("div", "formactions"); const ok = el("button", "btn primary", "Αποθήκευση"); ok.type = "submit";
@@ -555,6 +579,7 @@ $("noteForm").onsubmit = async e => { e.preventDefault(); const t = $("noteInput
   await sb.from("shift_notes").insert({ text: t, operator: operator() || null }); $("noteInput").value = ""; loadNotes(); };
 
 // ---------------------------------------------------------------- πελάτες (προβολή)
+$("manifestBtn").onclick = () => { $("manifestBtn").closest("details").open = false; openManifest({ sb, operator, rows: () => [...rows.values()] }); };
 $("customersBtn").onclick = async () => {
   $("customersBtn").closest("details").open = false;
   const body = $("dlgBody"); body.textContent = ""; body.append(el("h2", null, "Πελάτες"));

@@ -28,6 +28,18 @@ const SYSTEM = `Διαβάζεις φωτογραφίες από αποδείξ�
 Απάντησε ΜΟΝΟ με ένα JSON αντικείμενο, χωρίς άλλο κείμενο, με ακριβώς αυτά τα κλειδιά:
 {"receipt_no":"","parcel_code":"","kind":"Συνοδευτικό|Ασυνόδευτο|","item":"","fare_eur":null,"issued":"","departure":"","sender":"","recipient":"","phone":"","phone_is_handwritten":false,"origin_city":"","destination_city":"","is_handwritten_receipt":false,"damage_visible":false,"unsure":[],"notes":""}`;
 
+const SYSTEM_MANIFEST = `Διαβάζεις φωτογραφίες από ΚΑΤΑΣΤΑΣΗ ΦΟΡΤΩΣΗΣ / λίστα δεμάτων που στέλνει πρακτορείο ΚΤΕΛ μαζί με ένα λεωφορείο προς το Αγρίνιο. Μπορεί να είναι τυπωμένη, χειρόγραφη ή φωτογραφία οθόνης, σε μία ή περισσότερες σελίδες (οι φωτογραφίες είναι σελίδες της ΙΔΙΑΣ κατάστασης).
+
+ΚΑΝΟΝΕΣ:
+- Βγάλε ΚΑΘΕ γραμμή δέματος. Μην παραλείψεις καμία, μη διπλασιάσεις καμία (αν η ίδια γραμμή φαίνεται σε δύο φωτογραφίες, γράψ' την μία φορά).
+- Διάβασε μόνο ό,τι φαίνεται· ό,τι λείπει → "". Αμφιβολία σε γραμμή → "unsure": true.
+- Αριθμός απόδειξης συνήθως σε μορφή 258-341-23682.
+- Πόλεις κεφαλαία χωρίς τόνους. Ημερομηνία/ώρα DD/MM/YYYY HH:MM.
+
+Απάντησε ΜΟΝΟ με JSON:
+{"origin_city":"","departure":"","agency":"","items":[{"receipt_no":"","recipient":"","destination_city":"","pieces":null,"fare_eur":null,"unsure":false}],"total_declared":null,"notes":""}
+όπου total_declared = το σύνολο δεμάτων αν γράφεται στην κατάσταση.`;
+
 const GR2LAT: Record<string, string> = { Α: "A", Β: "B", Ε: "E", Ζ: "Z", Η: "H", Ι: "I", Κ: "K", Μ: "M", Ν: "N", Ο: "O", Ρ: "P", Τ: "T", Υ: "Y", Χ: "X" };
 const up = (s: unknown) => String(s ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toUpperCase().replace(/\s+/g, " ").trim();
 
@@ -81,21 +93,23 @@ Deno.serve(async req => {
   if (!user) return json({ error: "unauthorized" }, 401);
   if (!key) return json({ error: "missing_key" }, 500);
 
-  let body: { images?: { data: string; media_type?: string }[] };
+  let body: { mode?: string; images?: { data: string; media_type?: string }[] };
   try { body = await req.json(); } catch { return json({ error: "bad_request" }, 400); }
-  const imgs = (body.images || []).slice(0, 2).filter(i => i && typeof i.data === "string" && i.data.length < 6_000_000);
+  const manifest = body.mode === "manifest";
+  const imgs = (body.images || []).slice(0, manifest ? 4 : 2).filter(i => i && typeof i.data === "string" && i.data.length < 6_000_000);
   if (!imgs.length) return json({ error: "no_image" }, 400);
 
   const content = [
     ...imgs.map(i => ({ type: "image", source: { type: "base64", media_type: i.media_type || "image/jpeg", data: i.data } })),
-    { type: "text", text: imgs.length > 1 ? "Δύο φωτογραφίες του ΙΔΙΟΥ δέματος (η 2η συνήθως δείχνει χειρόγραφο τηλέφωνο). Επέστρεψε το JSON." : "Επέστρεψε το JSON." },
+    { type: "text", text: manifest ? (imgs.length > 1 ? imgs.length + " σελίδες της ίδιας κατάστασης. " : "") + "Επέστρεψε το JSON."
+      : imgs.length > 1 ? "Δύο φωτογραφίες του ΙΔΙΟΥ δέματος (η 2η συνήθως δείχνει χειρόγραφο τηλέφωνο). Επέστρεψε το JSON." : "Επέστρεψε το JSON." },
   ];
 
   async function call() {
     const r = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: { "x-api-key": key!, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-      body: JSON.stringify({ model: MODEL, max_tokens: MAX_TOKENS, system: SYSTEM, messages: [{ role: "user", content }] }),
+      body: JSON.stringify({ model: MODEL, max_tokens: manifest ? 16000 : MAX_TOKENS, system: manifest ? SYSTEM_MANIFEST : SYSTEM, messages: [{ role: "user", content }] }),
     });
     const j = await r.json();
     if (!r.ok) throw new Error("anthropic " + r.status + ": " + (j?.error?.message || ""));
@@ -116,5 +130,14 @@ Deno.serve(async req => {
   const cost = usage.input_tokens * PRICE_IN + usage.output_tokens * PRICE_OUT;
   await sb.from("ai_usage").insert({ input_tokens: usage.input_tokens, output_tokens: usage.output_tokens, cost_usd: cost, ok: !!parsed });
   if (!parsed) { console.error("extract_failed", err); return json({ error: "extract_failed", detail: err.slice(0, 300) }, 502); }
+  if (manifest) {
+    const p = parsed as { items?: Record<string, unknown>[] } & Record<string, unknown>;
+    const items = (Array.isArray(p.items) ? p.items : []).map(it => ({
+      receipt_no: String(it.receipt_no ?? "").replace(/\s/g, ""), recipient: String(it.recipient ?? "").trim(),
+      destination_city: up(it.destination_city), pieces: it.pieces == null || it.pieces === "" ? null : Number(it.pieces),
+      fare_eur: it.fare_eur == null || it.fare_eur === "" ? null : Number(String(it.fare_eur).replace(",", ".")), unsure: !!it.unsure }));
+    return json({ data: { origin_city: up(p.origin_city), departure: String(p.departure ?? ""), agency: String(p.agency ?? ""), items,
+      total_declared: p.total_declared == null || p.total_declared === "" ? null : Number(p.total_declared), notes: String(p.notes ?? "") }, usage, cost_usd: cost });
+  }
   return json({ data: clean(parsed), usage, cost_usd: cost });
 });

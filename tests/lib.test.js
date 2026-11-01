@@ -114,3 +114,25 @@ test("αριθμός εγγράφου: ελληνικά/λατινικά ίδι�
   assert.equal(cleanIdDoc("ak-123456"), "AK123456");
   assert.equal(cleanIdDoc("Χ 00112233"), "X00112233");
 });
+import { reconcile, tripsOf as _t } from "../src/lib.js";
+test("σύγκριση κατάστασης: απόδειξη, όνομα, λείπει, επιπλέον", () => {
+  const dep = new Date(2026, 9, 31, 17, 0).toISOString();
+  const P = [
+    { id: "a", receipt_no: "258-341-23682", recipient_name: "ΧΑΤΖΗΣ", origin_city: "ΠΑΤΡΑ", departure_at: dep },
+    { id: "b", receipt_no: null, recipient_name: "ΓΑΛΑΝΟΣ ΝΙΚΟΣ", origin_city: "ΠΑΤΡΑ", departure_at: dep },
+    { id: "c", receipt_no: "258-341-99999", recipient_name: "ΔΗΜΟΥ", origin_city: "ΠΑΤΡΑ", departure_at: dep },
+    { id: "d", receipt_no: "1-1-1", recipient_name: "ΠΑΠΑΣ", origin_city: "ΠΑΤΡΑ", departure_at: dep },
+    { id: "e", receipt_no: "1-1-2", recipient_name: "ΠΑΠΑΣ", origin_city: "ΠΑΤΡΑ", departure_at: dep },
+  ];
+  const items = [
+    { receipt_no: "258 341 23682", recipient: "Χατζής" },  // απόδειξη
+    { receipt_no: "", recipient: "Γαλανός" },              // όνομα (μοναδικό)
+    { receipt_no: "", recipient: "Παπάς" },                // δύο ΠΑΠΑΣ → αβέβαιο → λείπει
+    { receipt_no: "258-341-00000", recipient: "Κώστα" },   // δεν υπάρχει
+  ];
+  const trip = { origin: "ΠΑΤΡΑ", key: tripsOf(P[0])[0] };
+  const r = reconcile(items, P, trip);
+  assert.deepEqual(r.found.map(f => [f.parcel.id, f.how]), [["a", "receipt"], ["b", "name"]]);
+  assert.deepEqual(r.missing.map(m => m.recipient), ["Παπάς", "Κώστα"]);
+  assert.deepEqual(r.extra.map(x => x.id).sort(), ["c", "d", "e"]);
+});

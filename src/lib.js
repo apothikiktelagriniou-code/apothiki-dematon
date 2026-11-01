@@ -176,3 +176,29 @@ export function extractedToParcel(d) {
     damaged: !!d.damage_visible, notes: d.notes || null,
   };
 }
+
+/**
+ * Σύγκριση κατάστασης πρακτορείου με τα καταχωρημένα δέματα.
+ * items: γραμμές κατάστασης. parcels: υποψήφια δέματα (π.χ. ίδιας πόλης, τελευταίες μέρες).
+ * Ταίριασμα: 1) αριθμός απόδειξης (σίγουρο) 2) επώνυμο + πόλη (πιθανό, μόνο αν μοναδικό).
+ * extra: δέματα του ίδιου δρομολογίου που δεν υπάρχουν στην κατάσταση.
+ */
+export function reconcile(items, parcels, trip = null) {
+  const used = new Set(), found = [], missing = [];
+  const digits = s => String(s || "").replace(/\D/g, "");
+  const surname = s => norm(s).split(" ")[0] || "";
+  for (const it of items) {
+    let p = null, how = "";
+    const rd = digits(it.receipt_no);
+    if (rd.length >= 8) { p = parcels.find(x => !used.has(x.id) && digits(x.receipt_no) === rd); if (p) how = "receipt"; }
+    if (!p && surname(it.recipient)) {
+      const c = parcels.filter(x => !used.has(x.id) && surname(x.recipient_name) === surname(it.recipient) && (!trip || !trip.origin || x.origin_city === trip.origin));
+      const full = c.filter(x => norm(x.recipient_name) === norm(it.recipient));
+      const pick = full.length === 1 ? full : c;
+      if (pick.length === 1) { p = pick[0]; how = "name"; }
+    }
+    if (p) { used.add(p.id); found.push({ item: it, parcel: p, how }); } else missing.push(it);
+  }
+  const extra = trip && trip.key ? parcels.filter(x => !used.has(x.id) && tripsOf(x)[0] === trip.key) : [];
+  return { found, missing, extra };
+}

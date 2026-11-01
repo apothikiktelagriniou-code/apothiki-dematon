@@ -1,0 +1,76 @@
+// Έλεγχος κατάστασης πρακτορείου: φωτογραφίες λίστας → AI → σύγκριση με τα καταχωρημένα δέματα.
+import { norm, parseGrDate, fmtGr, tripsOf, reconcile, fmtPhone } from "./lib.js";
+
+const $ = id => document.getElementById(id);
+const el = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
+
+async function toB64(file, max = 2000, q = 0.82) {
+  const u = URL.createObjectURL(file); const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = u; });
+  URL.revokeObjectURL(u); const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+  const c = document.createElement("canvas"); c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+  c.getContext("2d").drawImage(img, 0, 0, c.width, c.height); return c.toDataURL("image/jpeg", q).split(",")[1];
+}
+
+export function openManifest(D) {
+  const body = $("dlgBody"); body.textContent = "";
+  body.append(el("h2", null, "Έλεγχος κατάστασης πρακτορείου"),
+    el("div", "hint", "Φωτογράφισε την κατάσταση (έως 4 σελίδες). Θα σου δείξω ποια δέματα της λίστας έχουν καταχωρηθεί, ποια λείπουν, και ποια καταχωρήθηκαν χωρίς να είναι στη λίστα."));
+  const lbl = el("label", "btn primary big", "📄 Φωτογραφίες κατάστασης"); const inp = el("input"); inp.type = "file"; inp.accept = "image/*"; inp.multiple = true; inp.hidden = true; lbl.append(inp);
+  const info = el("div", "hint"); const go = el("button", "btn primary", "Έλεγχος"); go.type = "button"; go.hidden = true;
+  const msg = el("div", "msg info"); msg.hidden = true; const out = el("div", "mres");
+  let files = [];
+  inp.onchange = () => { files = [...inp.files].slice(0, 4); info.textContent = files.length + " σελίδες επιλέχθηκαν" + (inp.files.length > 4 ? " (κρατήθηκαν οι 4 πρώτες)" : ""); go.hidden = !files.length; };
+  go.onclick = async () => {
+    go.disabled = true; msg.hidden = false; msg.className = "msg info"; msg.textContent = "Διαβάζω την κατάσταση… (μπορεί να πάρει έως 1 λεπτό)"; out.textContent = "";
+    try {
+      const images = await Promise.all(files.map(f => toB64(f).then(d => ({ data: d, media_type: "image/jpeg" }))));
+      const { data, error } = await D.sb.functions.invoke("extract-receipt", { body: { mode: "manifest", images } });
+      if (error) { let b = {}; try { b = await error.context.json(); } catch {} throw new Error(b.detail || b.error || error.message); }
+      msg.hidden = true; show(data.data);
+    } catch (e) { msg.className = "msg bad"; msg.textContent = "Δεν διαβάστηκε η κατάσταση: " + (e.message || e); }
+    finally { go.disabled = false; }
+  };
+  body.append(lbl, info, go, msg, out);
+  $("dlg").showModal();
+
+  function show(m) {
+    out.textContent = "";
+    const dep = parseGrDate(m.departure);
+    let origin = norm(m.origin_city);
+    // υποψήφια δέματα: τελευταίες 7 μέρες (και ίδια πόλη αν είναι γνωστή)
+    const since = Date.now() - 7 * 864e5;
+    const all = D.rows().filter(p => new Date(p.created_at).getTime() >= since);
+    const cand = origin ? all.filter(p => p.origin_city === origin) : all;
+    const trip = dep && origin ? { origin, key: tripsOf({ origin_city: origin, departure_at: dep.toISOString() })[0] } : origin ? { origin } : null;
+    const r = reconcile(m.items || [], cand.length ? cand : all, trip);
+
+    const head = el("div", "msg info");
+    head.textContent = "Κατάσταση: " + (origin || "πόλη;") + (dep ? " · " + fmtGr(dep) : "") + (m.agency ? " · " + m.agency : "") + " · " + (m.items || []).length + " γραμμές" +
+      (m.total_declared != null ? " (γράφει σύνολο " + m.total_declared + ")" : "");
+    out.append(head);
+    if (m.total_declared != null && m.total_declared !== (m.items || []).length) out.append(el("div", "msg warn", "⚠ Η κατάσταση γράφει σύνολο " + m.total_declared + " αλλά διάβασα " + (m.items || []).length + " γραμμές. Έλεγξε μήπως λείπει σελίδα ή κάποια γραμμή δεν διαβάστηκε."));
+    if (!origin) out.append(el("div", "msg warn", "Δεν διαβάστηκε η πόλη αναχώρησης — η σύγκριση έγινε με όλα τα δέματα των τελευταίων 7 ημερών."));
+
+    const sec = (title, cls, rowsEls) => { const s = el("section", "msec"); s.append(el("h3", cls, title)); rowsEls.forEach(x => s.append(x)); if (!rowsEls.length) s.append(el("div", "hint", "—")); out.append(s); };
+    const line = (t, sub) => { const d = el("div", "mline"); d.append(el("b", null, t)); if (sub) d.append(el("span", "hint", " " + sub)); return d; };
+
+    sec("✗ Λείπουν — στην κατάσταση αλλά ΔΕΝ έχουν καταχωρηθεί (" + r.missing.length + ")", "bad", r.missing.map(it =>
+      line(it.recipient || "(χωρίς όνομα)", [it.receipt_no && "Απόδ. " + it.receipt_no, it.destination_city && it.destination_city !== "ΑΓΡΙΝΙΟ" && "→ " + it.destination_city, it.pieces > 1 && it.pieces + " τεμ.", it.unsure && "⚠ αβέβαιη ανάγνωση"].filter(Boolean).join(" · "))));
+    if (r.missing.length) {
+      const txt = "Κατάσταση " + (origin || "") + (dep ? " " + fmtGr(dep) : "") + " — ΔΕΝ παραλήφθηκαν στο Αγρίνιο:\n" +
+        r.missing.map((it, i) => (i + 1) + ". " + (it.recipient || "—") + (it.receipt_no ? " (απόδ. " + it.receipt_no + ")" : "")).join("\n") + "\nΑποθήκη Ασυνοδεύτων ΚΤΕΛ Αγρινίου · 26410 24446";
+      const cp = el("button", "btn small", "Αντιγραφή λίστας για το πρακτορείο"); cp.type = "button";
+      cp.onclick = async () => { try { await navigator.clipboard.writeText(txt); cp.textContent = "Αντιγράφηκε ✓"; } catch { cp.textContent = "Δεν αντιγράφηκε"; } };
+      out.lastChild.append(cp);
+    }
+    const weak = r.found.filter(f => f.how === "name");
+    sec("✓ Βρέθηκαν (" + r.found.length + ")" + (weak.length ? " — " + weak.length + " μόνο με το όνομα, έλεγξέ τα" : ""), "ok", r.found.map(f =>
+      line((f.how === "name" ? "⚠ " : "") + (f.parcel.recipient_name || "—"), [f.parcel.shelf && "Ράφι " + f.parcel.shelf, f.parcel.receipt_no && "Απόδ. " + f.parcel.receipt_no,
+        f.how === "name" ? "ταίριαξε μόνο με όνομα (κατάσταση: " + (f.item.recipient || "") + ")" : "", f.parcel.status === "done" ? "ήδη παραδόθηκε" : ""].filter(Boolean).join(" · "))));
+    if (trip && trip.key) sec("⚠ Καταχωρημένα σε αυτό το δρομολόγιο αλλά ΟΧΙ στην κατάσταση (" + r.extra.length + ")", "warn", r.extra.map(p =>
+      line(p.recipient_name || "—", [p.receipt_no && "Απόδ. " + p.receipt_no, p.recipient_phone && fmtPhone(p.recipient_phone)].filter(Boolean).join(" · "))));
+
+    D.sb.from("manifests").insert({ origin_city: origin || null, departure_at: dep ? dep.toISOString() : null, agency: m.agency || null, items: m.items || [],
+      total_declared: m.total_declared, found: r.found.length, missing: r.missing.length, extra: r.extra.length, operator: D.operator() }).then(() => {});
+  }
+}
