@@ -46,11 +46,22 @@ async function boot() {
 }
 $("loginForm").onsubmit = async e => {
   e.preventDefault(); $("lgBtn").disabled = true; show($("lgMsg"), "", "bad");
-  const { error } = await sb.auth.signInWithPassword({ email: $("lgEmail").value.trim(), password: $("lgPass").value });
+  const email = $("lgEmail").value.trim().toLowerCase(), password = $("lgPass").value;
+  let error = null;
+  try { ({ error } = await sb.auth.signInWithPassword({ email, password })); } catch (e) { error = e; }
   $("lgBtn").disabled = false;
-  if (error) { show($("lgMsg"), "Λάθος email ή κωδικός.", "bad"); return; }
+  if (error) {
+    const code = error.code || "", st = error.status;
+    const txt = code === "invalid_credentials" || st === 400 ? "Λάθος email ή κωδικός. Πάτα «Εμφάνιση κωδικού» και έλεγξε κεφαλαία/μικρά και γλώσσα πληκτρολογίου (ελληνικά/αγγλικά)."
+      : code === "email_not_confirmed" ? "Ο λογαριασμός δεν έχει επιβεβαιωθεί. Στο Supabase → Authentication → Users, επιβεβαίωσέ τον."
+      : !navigator.onLine || st === 0 || /fetch|network|Failed/i.test(error.message || "") ? "Δεν υπάρχει σύνδεση με τον διακομιστή. Έλεγξε το internet του κινητού (Wi-Fi/δεδομένα) και δοκίμασε ξανά."
+      : st === 429 ? "Πολλές προσπάθειες. Περίμενε 1–2 λεπτά και δοκίμασε ξανά."
+      : "Η σύνδεση απέτυχε: " + (error.message || "άγνωστο σφάλμα") + (st ? " (" + st + ")" : "");
+    show($("lgMsg"), txt, "bad"); return;
+  }
   boot();
 };
+$("lgShow").onchange = e => { $("lgPass").type = e.target.checked ? "text" : "password"; };
 $("logoutBtn").onclick = async () => { await sb.auth.signOut(); location.reload(); };
 
 async function loadSettings() {

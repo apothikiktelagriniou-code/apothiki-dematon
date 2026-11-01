@@ -19,8 +19,9 @@
     <img src="./icon-192.png" alt="" width="64" height="64">
     <h1>Αποθήκη Δεμάτων</h1>
     <div class="sub">Αποθήκη Ασυνοδεύτων · ΚΤΕΛ Αγρινίου</div>
-    <div class="f"><label for="lgEmail">Email</label><input id="lgEmail" type="email" autocomplete="username" required></div>
-    <div class="f"><label for="lgPass">Κωδικός</label><input id="lgPass" type="password" autocomplete="current-password" required></div>
+    <div class="f"><label for="lgEmail">Email</label><input id="lgEmail" type="email" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" inputmode="email" required></div>
+    <div class="f"><label for="lgPass">Κωδικός</label><input id="lgPass" type="password" autocomplete="current-password" autocapitalize="none" autocorrect="off" spellcheck="false" required>
+      <label class="check"><input type="checkbox" id="lgShow"> Εμφάνιση κωδικού</label></div>
     <button class="btn primary" type="submit" id="lgBtn">Σύνδεση</button>
     <div id="lgMsg" class="msg bad" hidden></div>
   </form>
