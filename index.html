@@ -116,7 +116,7 @@
       <div class="tripday">
         <label for="tripDay">Δρομολόγια ημέρας</label>
         <div class="toolbar"><button class="btn small" type="button" id="dayPrev" aria-label="Προηγούμενη μέρα">◀</button><input id="tripDay" type="date"><button class="btn small" type="button" id="dayNext" aria-label="Επόμενη μέρα">▶</button><button class="btn small" type="button" id="dayToday">Σήμερα</button></div>
-        <div id="tripList" class="triplist"></div>
+        <select id="tripSel" aria-label="Δρομολόγιο"></select>
       </div>
       <div class="msg info" id="tripSum" hidden></div>
       <div class="cities" id="cityBar" role="group" aria-label="Πόλη αναχώρησης"></div>
@@ -135,7 +135,6 @@
   </nav>
   <dialog id="editDlg" class="sheet" aria-labelledby="editTitle">
     <div class="sheet-head"><h2 id="editTitle">Επεξεργασία δέματος</h2><button type="button" class="btn small" id="editClose" aria-label="Κλείσιμο">✕</button></div>
-    <button type="button" class="btn" id="sameTripBtn" hidden>↻ Ίδιο δρομολόγιο</button>
     <div id="editMsg" class="msg info" hidden role="status"></div>
     <form id="form" autocomplete="off">
       <fieldset><legend>Παραλήπτης</legend>
@@ -156,8 +155,10 @@
       <fieldset><legend>Διαδρομή</legend>
         <div class="f"><label for="origin_city">Από</label><input id="origin_city" list="cities"></div>
         <div class="f"><label for="destination_city">Προορισμός</label><input id="destination_city" list="cities" placeholder="ΑΓΡΙΝΙΟ"><div class="hint" id="destHint"></div></div>
-        <div class="f"><label for="issued">Ημ/νία έκδοσης</label><input id="issued" class="mono" placeholder="ΗΗ/ΜΜ/ΕΕΕΕ ΩΩ:ΛΛ"></div>
-        <div class="f"><label for="departure">Αναχώρηση από πόλη</label><input id="departure" class="mono" placeholder="ΗΗ/ΜΜ/ΕΕΕΕ ΩΩ:ΛΛ"></div>
+        <div class="f"><label for="departure_d">Αναχώρηση από πόλη — ημερομηνία</label><input id="departure_d" type="date"></div>
+        <div class="f"><label for="departure_t">Αναχώρηση — ώρα</label><input id="departure_t" type="time"></div>
+        <div class="f"><label for="issued_d">Έκδοση απόδειξης — ημερομηνία</label><input id="issued_d" type="date"></div>
+        <div class="f"><label for="issued_t">Έκδοση — ώρα</label><input id="issued_t" type="time"></div>
       </fieldset>
       <fieldset><legend>Άλλα</legend>
         <div class="f"><label for="sender_name">Αποστολέας</label><input id="sender_name"></div>

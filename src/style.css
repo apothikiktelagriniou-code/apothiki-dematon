@@ -143,3 +143,4 @@ dialog.sheet[open]{display:flex;flex-direction:column;gap:10px}
 .tripbtn{font:inherit;text-align:left;display:flex;justify-content:space-between;gap:8px;align-items:center;border:1px solid var(--line);border-left:6px solid var(--cc,#57534e);border-radius:10px;background:var(--surface);color:var(--fg);padding:8px 10px;cursor:pointer;min-height:44px}
 .tripbtn[aria-pressed="true"]{background:var(--info-soft);border-color:var(--navy);border-left-color:var(--cc,#57534e)}
 .tripbtn b{font-family:var(--mono)}.tripbtn .tcount{font-size:12.5px;color:var(--muted);white-space:nowrap}
+.tripday select{font-size:16px;min-height:48px}
