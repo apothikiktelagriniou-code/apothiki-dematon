@@ -22,12 +22,15 @@ let bulk = false, shelfManual = false, customerChoice = null;
 
 // ---------------------------------------------------------------- χειριστής
 const operator = () => store.get("operator");
+const STAFF = [...$("opInput").options].map(o => o.value).filter(Boolean);
 function renderOperator() {
+  if (operator() && !STAFF.includes(operator())) store.set("operator", "");
   $("opName").textContent = operator() || "όνομα;";
   $("opForm").hidden = !!operator();
 }
 $("opBtn").onclick = () => { $("opForm").hidden = false; $("opInput").value = operator(); $("opInput").focus(); };
-$("opForm").onsubmit = e => { e.preventDefault(); const v = $("opInput").value.trim(); if (!v) return; store.set("operator", v); renderOperator(); };
+$("opForm").onsubmit = e => { e.preventDefault(); const v = $("opInput").value; if (!v) return; store.set("operator", v); renderOperator(); };
+$("opInput").addEventListener("change", () => { if ($("opInput").value) $("opForm").requestSubmit(); });
 function needOperator() {
   if (operator()) return false;
   $("opForm").hidden = false; $("opInput").focus();
@@ -406,15 +409,20 @@ function card(p) {
   if (pt > 1) top.append(el("span", pin < pt ? "codb" : "tag", "📦 " + pin + "/" + pt + " τεμ."));
   if (p.damaged) top.append(el("span", "codb", "⚠ ΖΗΜΙΑ"));
   if (away(p)) top.append(isTransit(p) ? el("span", "transit", "⇄ ΑΠΕΥΘΕΙΑΣ ΜΕΤΑΦΟΡΤΩΣΗ") : el("span", "codb", "🚫 ΔΕΝ ΗΡΘΕ ΣΤΗΝ ΑΠΟΘΗΚΗ"));
-  tags.filter(t => t !== "Στο υπόγειο" && t !== "Παραλήφθηκε με φθορά").forEach(t => top.append(el("span", "tag", t)));
-  const meta = el("div", "meta"); const add = t => t && meta.append(el("span", null, t));
-  add(p.departure_at ? "Αναχ. " + fmtGr(p.departure_at) : ""); add("Καταχ. " + fmtGr(p.created_at));
-  add(p.receipt_no ? "Απόδ. " + p.receipt_no : "");
-  if (p.recipient_phone) { const s = el("span", null, fmtPhone(p.recipient_phone)); if (p.phone_source === "handwritten") s.append(" ", el("span", "badge", p.phone_confirmed ? "✍ ✓" : "✍ χειρόγραφο")); if (p.phone_source === "customer_db") s.append(" ", el("span", "badge", "📇")); meta.append(s); }
-  add(p.kind); add(money(p.fare_eur));
-  if (p.notified_at && !isClosed(p)) add("Ειδοπ. " + fmtGr(p.notified_at) + (p.notify_count > 1 ? " (" + p.notify_count + "×)" : ""));
-  if (p.operator) add("👤 " + p.operator);
-  left.append(top, meta);
+
+  // πληροφορίες σε σειρές: αναχώρηση / καταχώρηση / απόδειξη / ασυνόδευτο+κόμιστρο / υπάλληλος / παρατηρήσεις
+  const info = el("div", "info"); const line = (k, ...parts) => { const d = el("div", "iline"); d.append(el("span", "ik", k)); parts.filter(Boolean).forEach(x => d.append(typeof x === "string" ? el("span", null, x) : x)); info.append(d); return d; };
+  line("Αναχώρηση", p.origin_city ? "από " + p.origin_city : "", p.departure_at ? fmtGr(p.departure_at) : "—");
+  line("Καταχώρηση", fmtGr(p.created_at), p.notified_at && !isClosed(p) ? "· Ειδοπ. " + fmtGr(p.notified_at) + (p.notify_count > 1 ? " (" + p.notify_count + "×)" : "") : "");
+  let ph = null;
+  if (p.recipient_phone) { ph = el("span", null, "📞 " + fmtPhone(p.recipient_phone)); if (p.phone_source === "handwritten") ph.append(" ", el("span", "badge", p.phone_confirmed ? "✍ ✓" : "✍ χειρόγραφο")); if (p.phone_source === "customer_db") ph.append(" ", el("span", "badge", "📇")); }
+  line("Απόδειξη", el("span", "mono", p.receipt_no || "—"));
+  if (ph) line("Τηλέφωνο", ph);
+  line("Είδος", "Ασυνόδευτο", p.fare_eur != null ? "· " + money(p.fare_eur) : "");
+  line("Υπάλληλος", p.operator ? "👤 " + p.operator : "—");
+  const remarks = tags.filter(t => t !== "Στο υπόγειο" && t !== "Παραλήφθηκε με φθορά");
+  if (remarks.length || p.notes) { const d = line("Παρατηρήσεις"); const w = el("span", "iremarks"); remarks.forEach(t => w.append(el("span", "tag", t))); if (p.notes) w.append(el("span", "inote", p.notes)); d.append(w); }
+  left.append(top, info);
   const acts = el("div", "acts");
   const mk = (t, fn, cls) => { const b = el("button", "btn small" + (cls ? " " + cls : ""), t); b.type = "button"; b.onclick = fn; acts.append(b); return b; };
   const toggle = kind => () => { openBox = openBox.id === p.id && openBox.kind === kind ? { id: null } : { id: p.id, kind }; render(); const r = $("row-" + p.id); r && r.scrollIntoView({ behavior: "smooth", block: "nearest" }); };
@@ -440,7 +448,6 @@ function card(p) {
   }
   if (p.status === "forwarded") row.append(el("div", "meta note", [(away(p) ? "Απευθείας μεταφόρτωση → " : "Προωθήθηκε → ") + (p.fwd_destination || p.destination_city), p.fwd_departure_at ? "δρομολόγιο " + fmtGr(p.fwd_departure_at) : "", p.fwd_bus ? "λεωφορείο " + p.fwd_bus : "", p.fwd_note || ""].filter(Boolean).join(" · ")));
   if (p.status === "returned") row.append(el("div", "meta note", ["↩ Επιστροφή → " + (p.fwd_destination || p.origin_city || "αποστολέα"), p.fwd_departure_at ? "δρομολόγιο " + fmtGr(p.fwd_departure_at) : "", p.fwd_bus ? "λεωφορείο " + p.fwd_bus : "", p.fwd_note || ""].filter(Boolean).join(" · ")));
-  if (p.notes) row.append(el("div", "meta note", p.notes));
   if (!acts.childNodes.length) acts.remove(); row.append(sec);
   if (openBox.id === p.id) row.append(openBox.kind === "notify" ? notifyBox(p) : openBox.kind === "pickup" ? pickupBox(p) : openBox.kind === "tags" ? tagsBox(p) : openBox.kind === "ret" ? retBox(p) : fwdBox(p));
   return row;
