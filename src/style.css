@@ -296,3 +296,5 @@ header .btn{white-space:nowrap}
 .inote{color:var(--fg);font-size:13px;line-height:1.4}
 @media (max-width:640px){.ik{flex-basis:84px;font-size:10.5px}.info{font-size:13px}}
 #opInput{min-width:200px;flex:1 1 200px}
+.inote{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;cursor:pointer}
+.inote.open{-webkit-line-clamp:unset;display:inline}

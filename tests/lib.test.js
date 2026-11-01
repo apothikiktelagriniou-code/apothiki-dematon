@@ -151,3 +151,11 @@ test("σταθμός → πόλη", () => {
   assert.equal(cityFromStation("ΘΕΣΣΑΛΟΝΙΚΗ_ΣΤΑΘΜΟΣ"), "ΘΕΣΣΑΛΟΝΙΚΗ");
   assert.equal(cityFromStation("ΣΤΑΘΜΟΣ ΑΓΡΙΝΙ"), "ΑΓΡΙΝΙΟ");
 });
+
+import { shortNote } from "../src/lib.js";
+test("shortNote κόβει τις μεγάλες περιγραφές", () => {
+  assert.equal(shortNote(""), null);
+  assert.equal(shortNote("Χειρόγραφη απόδειξη μεταφοράς ασυνόδευτου μικροδέματος (έντυπο ΚΤΕΛ Ν. Αιτωλοακαρνανίας, αποθήκη Μεσολογγίου). Πεδία γραμμένα με στυλό."), null);
+  assert.equal(shortNote("Ο κωδικός δέματος έχει αμφιβολία μεταξύ 0 και Ο στις θέσεις 4 και 8."), "Ο κωδικός δέματος έχει αμφιβολία μεταξύ 0 και Ο στις θέσεις 4 και 8");
+  assert.ok(shortNote("α ".repeat(80)).length <= 90);
+});

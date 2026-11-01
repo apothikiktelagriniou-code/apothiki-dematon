@@ -174,7 +174,7 @@ export function extractedToParcel(d) {
     phone_confirmed: !!phone && !d.phone_is_handwritten,
     shelf: dest === HOME ? (shelfFor(d.recipient) || null) : null,
     status: dest === HOME ? "arrived" : "transit",
-    damaged: !!d.damage_visible, notes: d.notes || null,
+    damaged: !!d.damage_visible, notes: shortNote(d.notes),
     pieces_total: Math.max(1, Number(d.pieces) || 1), pieces_in: 1,
   };
 }
@@ -220,4 +220,12 @@ export function reconcile(items, parcels, trip = null) {
   }
   const extra = trip && trip.key ? parcels.filter(x => !used.has(x.id) && tripsOf(x)[0] === trip.key) : [];
   return { found, missing, extra };
+}
+
+/** Σύντομη σημείωση AI: πρώτη πρόταση, έως 90 χαρακτήρες· περιγραφές εντύπου πετιούνται. */
+export function shortNote(s) {
+  let t = String(s || "").replace(/\s+/g, " ").trim(); if (!t) return null;
+  t = t.split(/(?<=[.;!])\s+/)[0].replace(/[.;]$/, "");
+  if (/^(Χειρόγραφη|Τυπωμένη|Θερμική|Εκτυπωμένη) (απόδειξη|ετικέτα)/i.test(t) && !/αμφιβολ|δυσανάγν|ασαφ|λείπ|δεν (φαίν|διαβ)|ζημι|σκισ|βρεγ/i.test(t)) return null;
+  return t.length > 90 ? t.slice(0, 87).replace(/\s\S*$/, "") + "…" : t;
 }

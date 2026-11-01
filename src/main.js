@@ -421,7 +421,7 @@ function card(p) {
   line("Είδος", "Ασυνόδευτο", p.fare_eur != null ? "· " + money(p.fare_eur) : "");
   line("Υπάλληλος", p.operator ? "👤 " + p.operator : "—");
   const remarks = tags.filter(t => t !== "Στο υπόγειο" && t !== "Παραλήφθηκε με φθορά");
-  if (remarks.length || p.notes) { const d = line("Παρατηρήσεις"); const w = el("span", "iremarks"); remarks.forEach(t => w.append(el("span", "tag", t))); if (p.notes) w.append(el("span", "inote", p.notes)); d.append(w); }
+  if (remarks.length || p.notes) { const d = line("Παρατηρήσεις"); const w = el("span", "iremarks"); remarks.forEach(t => w.append(el("span", "tag", t))); if (p.notes) { const n = el("span", "inote", p.notes); n.title = "Πάτα για όλο το κείμενο"; n.onclick = () => n.classList.toggle("open"); w.append(n); } d.append(w); }
   left.append(top, info);
   const acts = el("div", "acts");
   const mk = (t, fn, cls) => { const b = el("button", "btn small" + (cls ? " " + cls : ""), t); b.type = "button"; b.onclick = fn; acts.append(b); return b; };
