@@ -262,7 +262,8 @@ const phoneOk = p => !!p.recipient_phone;
 const away = p => !!p.bypassed;
 function matches(p) {
   const qq = $("q").value.trim();
-  if (filter === "bypassed") { if (!away(p)) return false; }
+  if (filter === "bypassed") { if (!(away(p) && !isTransit(p))) return false; }
+  else if (filter === "direct") { if (!(away(p) && isTransit(p))) return false; }
   else if (away(p) && !qq) return false;
   if (cityFilter && p.origin_city !== cityFilter) return false;
   if (tripFilter && !tripsOf(p).includes(tripFilter)) return false;
@@ -354,7 +355,7 @@ function card(p) {
   if (tr) top.append(el("span", "transit", "⇄ → " + (p.fwd_destination || p.destination_city)));
   if (p.cod_amount_eur > 0 && !p.cod_collected) top.append(el("span", "codb", "💶 ΕΙΣΠΡΑΞΗ " + money(p.cod_amount_eur)));
   if (p.damaged) top.append(el("span", "codb", "⚠ ΖΗΜΙΑ"));
-  if (away(p)) top.append(el("span", "codb", "🚫 ΔΕΝ ΠΕΡΑΣΕ ΑΠΟ ΑΠΟΘΗΚΗ"));
+  if (away(p)) top.append(isTransit(p) ? el("span", "transit", "⇄ ΑΠΕΥΘΕΙΑΣ ΜΕΤΑΦΟΡΤΩΣΗ") : el("span", "codb", "🚫 ΔΕΝ ΗΡΘΕ ΣΤΗΝ ΑΠΟΘΗΚΗ"));
   tags.filter(t => t !== "Στο υπόγειο" && t !== "Παραλήφθηκε με φθορά").forEach(t => top.append(el("span", "tag", t)));
   const meta = el("div", "meta"); const add = t => t && meta.append(el("span", null, t));
   add(p.departure_at ? "Αναχ. " + fmtGr(p.departure_at) : ""); add("Καταχ. " + fmtGr(p.created_at));
@@ -368,8 +369,8 @@ function card(p) {
   const mk = (t, fn, cls) => { const b = el("button", "btn small" + (cls ? " " + cls : ""), t); b.type = "button"; b.onclick = fn; acts.append(b); return b; };
   const toggle = kind => () => { openBox = openBox.id === p.id && openBox.kind === kind ? { id: null } : { id: p.id, kind }; render(); const r = $("row-" + p.id); r && r.scrollIntoView({ behavior: "smooth", block: "nearest" }); };
   if (p.status === "not_arrived") {
-    mk("Μεταφόρτωση σε δρομολόγιο", toggle("fwd"), "primary");
-    mk("Ήρθε τελικά", async () => { if (needOperator()) return; const dest = p.destination_city || HOME;
+    if (isTransit(p)) mk("Μεταφόρτωση σε δρομολόγιο", toggle("fwd"), "primary");
+    mk(isTransit(p) ? "Ήρθε στην αποθήκη" : "Ήρθε τελικά", async () => { if (needOperator()) return; const dest = p.destination_city || HOME;
       await updateParcel(p.id, { bypassed: false, status: dest === HOME ? "arrived" : "transit", status_at: new Date().toISOString(), shelf: dest === HOME ? (p.shelf || shelfFor(p.recipient_name) || null) : null }).catch(() => {}); });
   } else if (p.status === "transit") mk("Προώθηση", toggle("fwd"), "primary");
   else if (!isClosed(p)) { mk(p.status === "notified" ? "Υπενθύμιση" : "Ειδοποίηση", toggle("notify")); mk("Παράδοση", toggle("pickup"), "primary"); }
@@ -381,7 +382,7 @@ function card(p) {
     row.append(el("div", "meta note", ["Παρέλαβε: " + (p.picked_by_name || "—"), p.id_doc_number ? (p.id_doc_type || "Έγγραφο") + " " + p.id_doc_number : p.id_doc_last4 ? (p.id_doc_type || "Έγγραφο") + " ••••" + p.id_doc_last4 : "", p.picked_by_phone ? fmtPhone(p.picked_by_phone) : "", fmtGr(p.picked_up_at), p.home_delivery ? "🏠 Delivery" : "", p.cod_collected ? "💶 Εισπράχθηκε " + money(p.cod_amount_eur) : ""].filter(Boolean).join(" · ")));
     if (p.signature_path) { const holder = el("div", "note"); const b = mk("Υπογραφή", () => showSignature(p, holder, b)); row.append(holder); }
   }
-  if (p.status === "forwarded") row.append(el("div", "meta note", [(away(p) ? "Μεταφορτώθηκε → " : "Προωθήθηκε → ") + (p.fwd_destination || p.destination_city), p.fwd_departure_at ? "δρομολόγιο " + fmtGr(p.fwd_departure_at) : "", p.fwd_bus ? "λεωφορείο " + p.fwd_bus : "", p.fwd_note || ""].filter(Boolean).join(" · ")));
+  if (p.status === "forwarded") row.append(el("div", "meta note", [(away(p) ? "Απευθείας μεταφόρτωση → " : "Προωθήθηκε → ") + (p.fwd_destination || p.destination_city), p.fwd_departure_at ? "δρομολόγιο " + fmtGr(p.fwd_departure_at) : "", p.fwd_bus ? "λεωφορείο " + p.fwd_bus : "", p.fwd_note || ""].filter(Boolean).join(" · ")));
   if (p.notes) row.append(el("div", "meta note", p.notes));
   if (openBox.id === p.id) row.append(openBox.kind === "notify" ? notifyBox(p) : openBox.kind === "pickup" ? pickupBox(p) : openBox.kind === "tags" ? tagsBox(p) : fwdBox(p));
   return row;
