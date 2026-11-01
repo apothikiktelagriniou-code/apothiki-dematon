@@ -10,8 +10,10 @@
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" href="./icon-192.png">
 <link rel="apple-touch-icon" href="./icon-192.png">
-  <script type="module" crossorigin src="./assets/index-Cn7ziMQL.js"></script>
-  <link rel="stylesheet" crossorigin href="./assets/index-C8IG_rFg.css">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+  <script type="module" crossorigin src="./assets/index-DMZX67Fc.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-DbHFpwo8.css">
 </head>
 <body>
 <!-- ΣΥΝΔΕΣΗ -->
@@ -34,7 +36,7 @@
       <div><h1>Αποθήκη Δεμάτων</h1><div class="sub">Αποθήκη Ασυνοδεύτων · ΚΤΕΛ Αγρινίου</div></div>
     </div>
     <div class="hdr-right">
-      <button class="btn small op" id="opBtn" type="button">👤 <span id="opName">—</span> · αλλαγή</button>
+      <button class="btn small op" id="opBtn" type="button">👤 <span id="opName">—</span><span class="opchg"> · αλλαγή</span></button>
       <details class="menu">
         <summary class="btn small">☰ Μενού</summary>
         <div class="menu-pop">
@@ -85,7 +87,7 @@
     <section class="panel" aria-labelledby="hNew">
       <h2 id="hNew">Νέα καταχώρηση</h2>
       <div class="capture" id="captureBox">
-        <label class="btn primary big" for="photos">📷 Φωτογραφίες δεμάτων</label>
+        <label class="btn primary big" for="photos"><span class="cam">📷</span> Φωτογραφίες δεμάτων</label>
         <input id="photos" type="file" accept="image/*" multiple hidden>
         <div class="hint">Τράβα όσες αποδείξεις θέλεις και πάτα «Αποστολή». Στον υπολογιστή: σύρε τις φωτογραφίες εδώ ή Ctrl+V.</div>
         <div id="tray" class="tray"></div>
@@ -116,7 +118,7 @@
       </div>
       <div class="tripday">
         <label for="tripDay">Δρομολόγια ημέρας</label>
-        <div class="toolbar"><button class="btn small" type="button" id="dayPrev" aria-label="Προηγούμενη μέρα">◀</button><input id="tripDay" type="date"><button class="btn small" type="button" id="dayNext" aria-label="Επόμενη μέρα">▶</button><button class="btn small" type="button" id="dayToday">Σήμερα</button></div>
+        <div class="toolbar daynav"><button class="btn small" type="button" id="dayPrev" aria-label="Προηγούμενη μέρα">◀</button><input id="tripDay" type="date"><button class="btn small" type="button" id="dayNext" aria-label="Επόμενη μέρα">▶</button><button class="btn small" type="button" id="dayToday">Σήμερα</button></div>
         <select id="tripSel" aria-label="Δρομολόγιο"></select>
       </div>
       <div class="msg info" id="tripSum" hidden></div>
