@@ -257,10 +257,11 @@ function matches(p) {
     case "cod": if (!(p.cod_amount_eur > 0 && !p.cod_collected)) return false; break;
     case "today": if (!sameDay(p.created_at, new Date().toDateString())) return false; break;
     case "done": if (!isClosed(p)) return false; break;
+    case "tags": if (!(p.tags || []).length && !p.notes) return false; break;
   }
   const q = norm($("q").value); if (!q) return true;
   if (p.id_doc_number && p.id_doc_number.includes(cleanIdDoc(q)) && cleanIdDoc(q).length >= 3) return true;
-  return norm([p.receipt_no, p.parcel_code, p.recipient_name, p.sender_name, p.recipient_phone, p.origin_city, p.destination_city, p.shelf, p.pickup_code, p.picked_by_name, p.picked_by_phone, p.id_doc_number].join(" ")).includes(q);
+  return norm([p.receipt_no, p.parcel_code, p.recipient_name, p.sender_name, p.recipient_phone, p.origin_city, p.destination_city, p.shelf, (p.tags || []).join(" "), p.notes, p.pickup_code, p.picked_by_name, p.picked_by_phone, p.id_doc_number].join(" ")).includes(q);
 }
 
 function render() {
@@ -329,10 +330,13 @@ function card(p) {
   const late = lateTransit(p); const rem = needsRemind(p);
   top.append(el("span", "pill " + (old || late ? "s-old" : "s-" + p.status),
     late ? "Μεταφόρτωση · " + Math.floor(hoursSince(p.created_at)) + " ώρες" : old ? STATUS[p.status] + " · " + daysSince(p.created_at) + " μέρες" : rem ? "Θέλει υπενθύμιση" : STATUS[p.status] || p.status));
+  const tags = p.tags || [];
+  if (tags.includes("Στο υπόγειο") && !isClosed(p)) top.append(el("span", "shelf", "📍 ΥΠΟΓΕΙΟ"));
   if (p.shelf && !isClosed(p)) top.append(el("span", "shelf", "Ράφι " + p.shelf));
   if (tr) top.append(el("span", "transit", "⇄ → " + (p.fwd_destination || p.destination_city)));
   if (p.cod_amount_eur > 0 && !p.cod_collected) top.append(el("span", "codb", "💶 ΕΙΣΠΡΑΞΗ " + money(p.cod_amount_eur)));
   if (p.damaged) top.append(el("span", "codb", "⚠ ΖΗΜΙΑ"));
+  tags.filter(t => t !== "Στο υπόγειο" && t !== "Παραλήφθηκε με φθορά").forEach(t => top.append(el("span", "tag", t)));
   const meta = el("div", "meta"); const add = t => t && meta.append(el("span", null, t));
   add(p.departure_at ? "Αναχ. " + fmtGr(p.departure_at) : ""); add("Καταχ. " + fmtGr(p.created_at));
   add(p.receipt_no ? "Απόδ. " + p.receipt_no : "");
@@ -347,6 +351,7 @@ function card(p) {
   if (p.status === "transit") mk("Προώθηση", toggle("fwd"), "primary");
   else if (!isClosed(p)) { mk(p.status === "notified" ? "Υπενθύμιση" : "Ειδοποίηση", toggle("notify")); mk("Παράδοση", toggle("pickup"), "primary"); }
   mk("Επεξεργασία", () => startEdit(p));
+  mk("Παρατηρήσεις" + (tags.length || p.notes ? " (" + (tags.length + (p.notes ? 1 : 0)) + ")" : ""), toggle("tags"));
   mk("Ιστορικό", () => showHistory(p));
   row.append(left, acts);
   if (p.status === "done") {
@@ -355,7 +360,7 @@ function card(p) {
   }
   if (p.status === "forwarded") row.append(el("div", "meta note", ["Προωθήθηκε → " + (p.fwd_destination || p.destination_city), p.fwd_departure_at ? "με δρομολόγιο " + fmtGr(p.fwd_departure_at) : "", p.fwd_note || ""].filter(Boolean).join(" · ")));
   if (p.notes) row.append(el("div", "meta note", p.notes));
-  if (openBox.id === p.id) row.append(openBox.kind === "notify" ? notifyBox(p) : openBox.kind === "pickup" ? pickupBox(p) : fwdBox(p));
+  if (openBox.id === p.id) row.append(openBox.kind === "notify" ? notifyBox(p) : openBox.kind === "pickup" ? pickupBox(p) : openBox.kind === "tags" ? tagsBox(p) : fwdBox(p));
   return row;
 }
 
@@ -501,6 +506,29 @@ function fwdBox(p) {
     try { const now = new Date().toISOString(); await updateParcel(p.id, { status: "forwarded", status_at: now, fwd_at: now, fwd_destination: d, fwd_departure_at: new Date(when.value).toISOString(), fwd_note: note.value.trim() || null });
       openBox = { id: null }; show($("formMsg"), "Καταχωρήθηκε η αποστολή προς " + d + ".", "ok"); render(); }
     catch { ok.disabled = false; msg.textContent = "Δεν αποθηκεύτηκε. Δοκίμασε ξανά."; msg.hidden = false; } };
+  return box;
+}
+
+// ---------------------------------------------------------------- παρατηρήσεις
+const DEFAULT_TAGS = ["Παραλήφθηκε ανοιχτό", "Παραλήφθηκε με φθορά", "Έγινε εκκαθάριση", "Στο υπόγειο", "Βρεγμένο", "Εύθραυστο",
+  "Ογκώδες / βαρύ", "Ευπαθές / τρόφιμα", "Λείπει τεμάχιο", "Θα το παραλάβει τρίτος", "Ειδοποιήθηκε τηλεφωνικά", "Επιστροφή στον αποστολέα"];
+function tagsBox(p) {
+  const box = el("form", "box"); const sel = new Set(p.tags || []);
+  const wrap = el("div", "chips wide"); wrap.setAttribute("role", "group"); wrap.setAttribute("aria-label", "Παρατηρήσεις");
+  const opts = [...new Set([...(settings.tag_options || DEFAULT_TAGS), ...sel])];
+  opts.forEach(t => { const b = el("button", "chip", t); b.type = "button"; b.setAttribute("aria-pressed", String(sel.has(t)));
+    b.onclick = () => { sel.has(t) ? sel.delete(t) : sel.add(t); b.setAttribute("aria-pressed", String(sel.has(t))); }; wrap.append(b); });
+  box.append(wrap);
+  const notes = el("textarea", "wide"); notes.value = p.notes || ""; notes.placeholder = "Άλλη παρατήρηση (ελεύθερο κείμενο)"; notes.style.minHeight = "70px";
+  const w = el("div", "f wide"); w.append(el("label", null, "Σημειώσεις"), notes); box.append(w);
+  const acts = el("div", "formactions"); const ok = el("button", "btn primary", "Αποθήκευση"); ok.type = "submit";
+  const cancel = el("button", "btn", "Κλείσιμο"); cancel.type = "button"; cancel.onclick = () => { openBox = { id: null }; render(); };
+  acts.append(ok, cancel); box.append(acts);
+  box.onsubmit = async e => { e.preventDefault(); if (needOperator()) return; ok.disabled = true;
+    const tags = [...sel]; const patch = { tags, notes: notes.value.trim() || null };
+    if (tags.includes("Παραλήφθηκε με φθορά")) patch.damaged = true;
+    try { await updateParcel(p.id, patch); openBox = { id: null }; render(); }
+    catch (err) { console.error(err); ok.disabled = false; ok.textContent = "Δεν αποθηκεύτηκε — ξαναδοκίμασε"; } };
   return box;
 }
 
