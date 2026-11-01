@@ -96,7 +96,7 @@ async function processOne(it) {
     if (st === 401) { show($("capMsg"), "Η σύνδεση έληξε. Αποσυνδέσου και ξαναμπές — οι φωτογραφίες περιμένουν.", "bad"); return "offline"; }
     let body = {}; try { body = await error.context.json(); } catch {}
     if (body.error === "missing_key") { show($("capMsg"), "Λείπει το κλειδί Anthropic στο Supabase (Edge Functions → Secrets → ANTHROPIC_API_KEY).", "bad"); return "offline"; }
-    await toQueue(it, {}, ["ai_unavailable"]); stats.review++; await obDel(it.id); return "review";
+    await toQueue(it, { notes: "Σφάλμα ανάγνωσης: " + (body.detail || body.error || ("HTTP " + st)) }, ["ai_unavailable"]); stats.review++; await obDel(it.id); return "review";
   }
   const d = data.data;
   // τηλέφωνο από αρχείο πελατών
@@ -146,6 +146,7 @@ function reviewCard(q, idx) {
   img.onclick = () => img.classList.toggle("zoom");
   const right = el("div", "rfields");
   const probs = el("div", "rprobs"); q.problems.forEach(p => probs.append(el("span", "codb", problemText(p)))); right.append(probs);
+  if (d.notes) right.append(el("div", "hint", d.notes));
   const bad = new Set(q.problems.map(fieldOfProblem));
   const inputs = {};
   const g = el("div", "rgrid");

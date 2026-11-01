@@ -51,6 +51,15 @@ Deno.serve(async req => {
   const url = new URL(req.url);
   const key = Deno.env.get("ANTHROPIC_API_KEY");
   if (url.searchParams.get("health") === "1") return json({ ok: true, hasKey: !!key, model: MODEL });
+  if (url.searchParams.get("health") === "2") {
+    // διαγνωστικό: μια μικρή κλήση στο AI για να φανεί αν δουλεύουν κλειδί/μοντέλο/πίστωση (δεν επιστρέφει το κλειδί)
+    if (!key) return json({ ok: false, error: "missing_key" });
+    const r = await fetch("https://api.anthropic.com/v1/messages", { method: "POST",
+      headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+      body: JSON.stringify({ model: MODEL, max_tokens: 5, messages: [{ role: "user", content: "Απάντησε μόνο: OK" }] }) });
+    const j = await r.json().catch(() => ({}));
+    return json({ ok: r.ok, status: r.status, model: MODEL, error: j?.error?.message || null, type: j?.error?.type || null });
+  }
 
   // μόνο συνδεδεμένοι χρήστες της εφαρμογής
   const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY") ?? req.headers.get("apikey") ?? "", {
@@ -74,7 +83,7 @@ Deno.serve(async req => {
     const r = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: { "x-api-key": key!, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-      body: JSON.stringify({ model: MODEL, max_tokens: 700, temperature: 0, system: SYSTEM, messages: [{ role: "user", content }] }),
+      body: JSON.stringify({ model: MODEL, max_tokens: 700, system: SYSTEM, messages: [{ role: "user", content }] }),
     });
     const j = await r.json();
     if (!r.ok) throw new Error("anthropic " + r.status + ": " + (j?.error?.message || ""));
@@ -88,11 +97,12 @@ Deno.serve(async req => {
       usage.input_tokens += j.usage?.input_tokens || 0; usage.output_tokens += j.usage?.output_tokens || 0;
       const text = (j.content || []).map((c: { text?: string }) => c.text || "").join("");
       const m = text.match(/\{[\s\S]*\}/);
-      if (m) parsed = JSON.parse(m[0]);
+      if (m) { try { parsed = JSON.parse(m[0]); } catch { err = "invalid_json: " + text.slice(0, 200); } }
+      else err = "no_json: " + text.slice(0, 200);
     } catch (e) { err = String(e); }
   }
   const cost = usage.input_tokens * PRICE_IN + usage.output_tokens * PRICE_OUT;
   await sb.from("ai_usage").insert({ input_tokens: usage.input_tokens, output_tokens: usage.output_tokens, cost_usd: cost, ok: !!parsed });
-  if (!parsed) return json({ error: "extract_failed", detail: err.slice(0, 300) }, 502);
+  if (!parsed) { console.error("extract_failed", err); return json({ error: "extract_failed", detail: err.slice(0, 300) }, 502); }
   return json({ data: clean(parsed), usage, cost_usd: cost });
 });
