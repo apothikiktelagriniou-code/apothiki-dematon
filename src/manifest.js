@@ -45,6 +45,7 @@ export function openManifest(D) {
     const trip = dep && origin ? { origin, key: tripsOf({ origin_city: origin, departure_at: dep.toISOString() })[0] } : origin ? { origin } : null;
     const r = reconcile(m.items || [], cand.length ? cand : all, trip);
 
+    if (D.pendingReview && D.pendingReview() > 0) out.append(el("div", "msg warn", "⚠ Υπάρχουν " + D.pendingReview() + " φωτογραφίες στο «Για έλεγχο» που δεν έχουν καταχωρηθεί. Μέχρι να τις αποθηκεύσεις, μπορεί να εμφανίζονται εδώ ως «λείπουν»."));
     const head = el("div", "msg info");
     head.textContent = "Κατάσταση: " + (origin || "πόλη;") + (dep ? " · " + fmtGr(dep) : "") + (m.agency ? " · " + m.agency : "") + " · " + (m.items || []).length + " γραμμές" +
       (m.total_declared != null ? " (γράφει σύνολο " + m.total_declared + ")" : "");
@@ -58,29 +59,8 @@ export function openManifest(D) {
     const sec = (title, cls, rowsEls) => { const s = el("section", "msec"); s.append(el("h3", cls, title)); rowsEls.forEach(x => s.append(x)); if (!rowsEls.length) s.append(el("div", "hint", "—")); out.append(s); };
     const line = (t, sub) => { const d = el("div", "mline"); d.append(el("b", null, t)); if (sub) d.append(el("span", "hint", " " + sub)); return d; };
 
-    const checks = [];
-    sec("✗ Λείπουν — στην κατάσταση αλλά ΔΕΝ έχουν καταχωρηθεί (" + r.missing.length + ")", "bad", r.missing.map(it => {
-      const l = line(it.recipient || "(χωρίς όνομα)", [it.receipt_no && "Φορτ. " + it.receipt_no, it.destination_city && it.destination_city !== HOME && "⇄ → " + it.destination_city, it.pieces > 1 && it.pieces + " τεμ.", it.fare_eur != null && money(it.fare_eur), it.unsure && "⚠ αβέβαιη ανάγνωση"].filter(Boolean).join(" · "));
-      const c = el("input"); c.type = "checkbox"; c.checked = !it.unsure; c.setAttribute("aria-label", "Ήρθε: " + (it.recipient || "")); checks.push([c, it]); l.prepend(c, " "); return l; }));
-    if (r.missing.length) {
-      const reg = el("button", "btn small primary", "Καταχώρηση τσεκαρισμένων (ήρθαν)"); reg.type = "button";
-      const rm = el("div", "hint"); out.lastChild.append(el("div", "hint", "Τσέκαρε όσα ήρθαν πράγματι στην αποθήκη — καταχωρούνται με ράφι από το επώνυμο, χωρίς φωτογραφία."), reg, rm);
-      reg.onclick = async () => {
-        if (D.needOperator && D.needOperator()) return;
-        const sel = checks.filter(([c]) => c.checked).map(([, it]) => it); if (!sel.length) { rm.textContent = "Δεν τσέκαρες κανένα."; return; }
-        reg.disabled = true; rm.textContent = "Καταχώρηση " + sel.length + "…"; let ok = 0, dup = 0;
-        for (const it of sel) {
-          const dest = it.destination_city || HOME;
-          const row = { receipt_no: it.receipt_no || null, recipient_name: (it.recipient || "").trim(), origin_city: origin || null, destination_city: dest,
-            departure_at: dep ? dep.toISOString() : null, fare_eur: it.fare_eur ?? null, kind: "Ασυνόδευτο", item: "Απλό δέμα",
-            shelf: dest === HOME ? (shelfFor(it.recipient) || null) : null, status: dest === HOME ? "arrived" : "transit", source: "manifest", operator: D.operator() };
-          row.customer_id = D.linkCustomer ? await D.linkCustomer(row.recipient_name, null) : null;
-          const res = await D.sb.from("parcels").insert(row).select().single();
-          if (res.error) { if (res.error.code === "23505") dup++; } else { ok++; D.onSaved && D.onSaved(res.data); }
-        }
-        rm.textContent = "Καταχωρήθηκαν " + ok + (dup ? " · " + dup + " υπήρχαν ήδη" : "") + "."; reg.textContent = "✓ Έγινε";
-      };
-    }
+    sec("✗ Λείπουν — στην κατάσταση αλλά ΔΕΝ έχουν καταχωρηθεί (" + r.missing.length + ")", "bad", r.missing.map(it =>
+      line(it.recipient || "(χωρίς όνομα)", [it.receipt_no && "Φορτ. " + it.receipt_no, it.destination_city && it.destination_city !== HOME && "⇄ → " + it.destination_city, it.pieces > 1 && it.pieces + " τεμ.", it.fare_eur != null && money(it.fare_eur), it.unsure && "⚠ αβέβαιη ανάγνωση"].filter(Boolean).join(" · "))));
     if (r.missing.length) {
       const txt = "Κατάσταση " + (origin || "") + (dep ? " " + fmtGr(dep) : "") + " — ΔΕΝ παραλήφθηκαν στο Αγρίνιο:\n" +
         r.missing.map((it, i) => (i + 1) + ". " + (it.recipient || "—") + (it.receipt_no ? " (απόδ. " + it.receipt_no + ")" : "")).join("\n") + "\nΑποθήκη Ασυνοδεύτων ΚΤΕΛ Αγρινίου · 26410 24446";

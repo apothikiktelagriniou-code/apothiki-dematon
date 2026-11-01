@@ -124,6 +124,7 @@ async function toQueue(it, d, problems) {
 
 // ---------- λίστα ελέγχου ----------
 let queue = [];
+export const pendingReviewCount = () => queue.length;
 export async function loadQueue() {
   const { data } = await D.sb.from("extraction_queue").select("*").eq("status", "pending").order("created_at").limit(100);
   queue = data || []; renderQueue();
