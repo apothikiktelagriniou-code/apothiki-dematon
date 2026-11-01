@@ -144,3 +144,5 @@ dialog.sheet[open]{display:flex;flex-direction:column;gap:10px}
 .tripbtn[aria-pressed="true"]{background:var(--info-soft);border-color:var(--navy);border-left-color:var(--cc,#57534e)}
 .tripbtn b{font-family:var(--mono)}.tripbtn .tcount{font-size:12.5px;color:var(--muted);white-space:nowrap}
 .tripday select{font-size:16px;min-height:48px}
+.chk{display:flex;align-items:center;gap:10px;font-size:16px;cursor:pointer}.chk input{width:24px;height:24px}
+.retfields{display:contents}

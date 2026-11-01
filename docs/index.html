@@ -10,8 +10,8 @@
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" href="./icon-192.png">
 <link rel="apple-touch-icon" href="./icon-192.png">
-  <script type="module" crossorigin src="./assets/index-CQgPl6WR.js"></script>
-  <link rel="stylesheet" crossorigin href="./assets/index-DH751B3T.css">
+  <script type="module" crossorigin src="./assets/index-Dwl1R1ep.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-C8IG_rFg.css">
 </head>
 <body>
 <!-- ΣΥΝΔΕΣΗ -->
@@ -160,6 +160,15 @@
         <div class="f"><label for="departure_t">Αναχώρηση — ώρα</label><input id="departure_t" class="mono t24" inputmode="numeric" maxlength="5" placeholder="ΩΩ:ΛΛ (π.χ. 17:30)" autocomplete="off"></div>
         <div class="f"><label for="issued_d">Έκδοση απόδειξης — ημερομηνία</label><input id="issued_d" type="date"></div>
         <div class="f"><label for="issued_t">Έκδοση — ώρα</label><input id="issued_t" class="mono t24" inputmode="numeric" maxlength="5" placeholder="ΩΩ:ΛΛ (π.χ. 17:30)" autocomplete="off"></div>
+      </fieldset>
+      <fieldset id="retSet" hidden><legend>↩ Επιστροφή στο σταθμό αποστολής</legend>
+        <label class="f wide chk"><input type="checkbox" id="ret_on"> <span>Επιστρέφεται στον αποστολέα <b id="retTo"></b></span></label>
+        <div id="retFields" class="retfields" hidden>
+          <div class="f"><label for="ret_d">Δρομολόγιο — ημερομηνία</label><input id="ret_d" type="date"></div>
+          <div class="f"><label for="ret_t">Ώρα αναχώρησης</label><input id="ret_t" class="mono t24" inputmode="numeric" maxlength="5" placeholder="ΩΩ:ΛΛ (π.χ. 17:30)" autocomplete="off"></div>
+          <div class="f"><label for="ret_bus">Αριθμός λεωφορείου</label><input id="ret_bus" class="mono" autocapitalize="characters" placeholder="π.χ. ΑΙΑ 1234 ή 25"></div>
+          <div class="f"><label for="ret_note">Αιτία / σημείωση</label><input id="ret_note" placeholder="π.χ. δεν το παρέλαβε, λάθος προορισμός"></div>
+        </div>
       </fieldset>
       <fieldset><legend>Άλλα</legend>
         <div class="f"><label for="sender_name">Αποστολέας</label><input id="sender_name"></div>

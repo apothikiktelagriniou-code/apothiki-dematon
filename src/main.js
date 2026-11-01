@@ -158,7 +158,7 @@ const FIELDS = ["receipt_no", "parcel_code", "kind", "origin_city", "destination
 function clearForm() {
   for (const f of FIELDS) { const e = $(f); e.classList.remove("ai"); if (e.tagName === "SELECT") e.selectedIndex = 0; else e.value = ""; delete e.dataset.src; }
   editingId = null; shelfManual = false; customerChoice = null; $("custHint").textContent = ""; $("destHint").textContent = "";
-  $("saveBtn").textContent = "Αποθήκευση"; show($("editMsg"), "", "info"); ["departure_d", "departure_t", "issued_d", "issued_t"].forEach(i => { $(i).value = ""; });
+  $("saveBtn").textContent = "Αποθήκευση"; show($("editMsg"), "", "info"); ["departure_d", "departure_t", "issued_d", "issued_t", "ret_d", "ret_t", "ret_bus", "ret_note"].forEach(i => { $(i).value = ""; }); $("ret_on").checked = false; $("retSet").hidden = true; $("retFields").hidden = true;
 }
 function fillForm(o, ai) {
   for (const f of FIELDS) if (o[f] != null && o[f] !== "") { $(f).value = o[f]; if (ai) $(f).classList.add("ai"); }
@@ -202,7 +202,7 @@ function readForm() {
 }
 $("form").addEventListener("submit", async e => {
   e.preventDefault();
-  for (const id of ["departure_t", "issued_t"]) if (parseT24($(id).value) === null) { show($("editMsg"), "Λάθος ώρα: γράψε 24ωρη μορφή, π.χ. 17:30.", "bad"); $(id).focus(); return; } if (needOperator()) return;
+  for (const id of ["departure_t", "issued_t", "ret_t"]) if (parseT24($(id).value) === null) { show($("editMsg"), "Λάθος ώρα: γράψε 24ωρη μορφή, π.χ. 17:30.", "bad"); $(id).focus(); return; } if (needOperator()) return;
   const o = readForm();
   if (!o.receipt_no && !o.recipient_name) { show($("editMsg"), "Γράψε τουλάχιστον αριθμό απόδειξης ή παραλήπτη.", "warn"); return; }
   if ($("recipient_phone").value.trim() && !o.recipient_phone) { show($("editMsg"), "Το τηλέφωνο δεν μοιάζει σωστό (10 ψηφία, κινητό από 69). Διόρθωσέ το ή άφησέ το κενό.", "warn"); return; }
@@ -212,6 +212,17 @@ $("form").addEventListener("submit", async e => {
   try {
     o.customer_id = customerChoice || (o.recipient_name ? await linkCustomer(o.recipient_name, o.recipient_phone) : null);
     if (editingId) {
+      const cur = rows.get(editingId) || {};
+      if ($("ret_on").checked) {
+        const when = getDT("ret");
+        if (!when || !$("ret_t").value.trim()) { show($("editMsg"), "Για την επιστροφή βάλε ημερομηνία και ώρα δρομολογίου.", "warn"); $(!$("ret_d").value ? "ret_d" : "ret_t").focus(); return; }
+        if (!o.origin_city) { show($("editMsg"), "Συμπλήρωσε το «Από» (σταθμό αποστολής) για να ξέρουμε πού επιστρέφει.", "warn"); $("origin_city").focus(); return; }
+        const now = new Date().toISOString();
+        Object.assign(o, { status: "returned", status_at: cur.status === "returned" ? cur.status_at : now, fwd_at: cur.status === "returned" ? cur.fwd_at : now,
+          fwd_destination: o.origin_city, fwd_departure_at: when, fwd_bus: $("ret_bus").value.trim().toUpperCase() || null, fwd_note: $("ret_note").value.trim() || null });
+      } else if (cur.status === "returned") {
+        Object.assign(o, { status: o.destination_city === HOME ? "arrived" : "transit", status_at: new Date().toISOString(), fwd_at: null, fwd_destination: null, fwd_departure_at: null, fwd_bus: null, fwd_note: null });
+      }
       await updateParcel(editingId, o);
       clearForm(); $("editDlg").close(); show($("formMsg"), "Ενημερώθηκε.", "ok");
     } else {
@@ -255,10 +266,16 @@ function getDT(prefix) {
   const [y, m, d] = dv.split("-").map(Number); const [hh, mm] = (parseT24(tv) || "00:00").split(":").map(Number);
   return new Date(y, m - 1, d, hh, mm).toISOString();
 }
+function syncRet() { $("retFields").hidden = !$("ret_on").checked; $("retTo").textContent = norm($("origin_city").value) ? "→ " + norm($("origin_city").value) : ""; }
+$("ret_on").addEventListener("change", () => { syncRet(); if ($("ret_on").checked) $("ret_t").focus(); });
+$("origin_city").addEventListener("input", syncRet);
 function startEdit(p) {
   clearForm(); editingId = p.id;
   fillForm({ ...p, fare_eur: p.fare_eur ?? "", cod_amount_eur: p.cod_amount_eur ?? "" }, false);
   setDT("departure", p.departure_at); setDT("issued", p.issued_at);
+  const isRet = p.status === "returned"; $("retSet").hidden = false; $("ret_on").checked = isRet;
+  setDT("ret", isRet ? p.fwd_departure_at : null); if (!isRet) $("ret_d").value = dayKey(new Date());
+  $("ret_bus").value = isRet ? p.fwd_bus || "" : ""; $("ret_note").value = isRet ? p.fwd_note || "" : ""; syncRet();
   shelfManual = !!p.shelf_manual; if (p.phone_source) $("recipient_phone").dataset.src = p.phone_source;
   $("saveBtn").textContent = "Αποθήκευση αλλαγών"; $("editTitle").textContent = "Επεξεργασία · " + (p.recipient_name || p.receipt_no || "δέμα");
   $("editDlg").showModal();
@@ -338,7 +355,7 @@ function render() {
   if (dayKeys.length) sel.append(new Option("Όλα τα δρομολόγια της ημέρας (" + dayKeys.length + " δρομ. · " + dayAll.length + " δέματα)", "__day"));
   dayKeys.forEach(t => {
     const [c, k] = t.split("|"); const out = c[0] === ">"; const city = out ? c.slice(1) : c; const g = trips[t]; const open = g.filter(p => !isClosed(p)).length;
-    sel.append(new Option(k.split(" ")[1] + " · " + (out ? "Αποστολή → " + city : "από " + city) + " — " + g.length + " δέματα" + (open ? ", " + open + " εκκρεμούν" : " ✓"), t));
+    sel.append(new Option(k.split(" ")[1] + " · " + (out ? (g.every(x => x.status === "returned") ? "↩ Επιστροφή → " : "Αποστολή → ") + city : "από " + city) + " — " + g.length + " δέματα" + (open ? ", " + open + " εκκρεμούν" : " ✓"), t));
   });
   if (trips.__none && trips.__none.some(p => !isClosed(p))) sel.append(new Option("Χωρίς δρομολόγιο — " + trips.__none.length + " δέματα", "__none"));
   sel.value = tripFilter;
@@ -412,6 +429,7 @@ function card(p) {
     if (p.signature_path) { const holder = el("div", "note"); const b = mk("Υπογραφή", () => showSignature(p, holder, b)); row.append(holder); }
   }
   if (p.status === "forwarded") row.append(el("div", "meta note", [(away(p) ? "Απευθείας μεταφόρτωση → " : "Προωθήθηκε → ") + (p.fwd_destination || p.destination_city), p.fwd_departure_at ? "δρομολόγιο " + fmtGr(p.fwd_departure_at) : "", p.fwd_bus ? "λεωφορείο " + p.fwd_bus : "", p.fwd_note || ""].filter(Boolean).join(" · ")));
+  if (p.status === "returned") row.append(el("div", "meta note", ["↩ Επιστροφή → " + (p.fwd_destination || p.origin_city || "αποστολέα"), p.fwd_departure_at ? "δρομολόγιο " + fmtGr(p.fwd_departure_at) : "", p.fwd_bus ? "λεωφορείο " + p.fwd_bus : "", p.fwd_note || ""].filter(Boolean).join(" · ")));
   if (p.notes) row.append(el("div", "meta note", p.notes));
   if (openBox.id === p.id) row.append(openBox.kind === "notify" ? notifyBox(p) : openBox.kind === "pickup" ? pickupBox(p) : openBox.kind === "tags" ? tagsBox(p) : fwdBox(p));
   return row;
