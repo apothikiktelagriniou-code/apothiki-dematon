@@ -108,3 +108,9 @@ test("αποτέλεσμα AI → δέμα (χειρόγραφο τηλέφων�
   const t = extractedToParcel({ ...good, destination_city: "Ιωάννινα" });
   assert.equal(t.status, "transit"); assert.equal(t.shelf, null); assert.equal(t.destination_city, "ΙΩΑΝΝΙΝΑ");
 });
+import { cleanIdDoc } from "../src/lib.js";
+test("αριθμός εγγράφου: ελληνικά/λατινικά ίδια", () => {
+  assert.equal(cleanIdDoc("ΑΚ 123456"), "AK123456");
+  assert.equal(cleanIdDoc("ak-123456"), "AK123456");
+  assert.equal(cleanIdDoc("Χ 00112233"), "X00112233");
+});

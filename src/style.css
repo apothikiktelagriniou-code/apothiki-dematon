@@ -94,7 +94,7 @@ input.ai{background:var(--teal-soft);border-color:var(--teal)}
 .note-item span{flex:1}
 .login{min-height:90vh;display:grid;place-items:center}
 .login-box{width:min(380px,100%);align-items:stretch;text-align:center}
-.login-box img{margin:0 auto;border-radius:14px}
+.login-logo{width:100%;max-width:300px;margin:0 auto 6px;border-radius:12px;background:#fff;padding:6px}
 dialog{border:1px solid var(--line);border-radius:14px;background:var(--surface);color:var(--fg);max-width:min(640px,94vw);width:100%}
 dialog::backdrop{background:rgba(0,0,0,.4)}
 .hist{display:flex;flex-direction:column;gap:4px;font-size:13.5px;margin-bottom:10px}
@@ -120,3 +120,6 @@ dialog::backdrop{background:rgba(0,0,0,.4)}
 .rgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
 input.bad{border:2px solid var(--bad);background:var(--bad-soft)}
 @media (max-width:700px){.rcard{grid-template-columns:minmax(0,1fr)}}
+.brand{display:flex;align-items:center;gap:12px}
+.hdr-logo{height:58px;width:auto;background:#fff;border-radius:10px;padding:3px}
+@media (max-width:560px){.hdr-logo{height:46px}}

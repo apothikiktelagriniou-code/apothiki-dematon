@@ -112,6 +112,12 @@ export function parseLabel(raw) {
   return o;
 }
 
+/** Αριθμός εγγράφου: κεφαλαία, χωρίς κενά, ελληνικά γράμματα που μοιάζουν → λατινικά (ΑΚ123456 = AK123456). */
+export function cleanIdDoc(s) {
+  const m = { Α: "A", Β: "B", Ε: "E", Ζ: "Z", Η: "H", Ι: "I", Κ: "K", Μ: "M", Ν: "N", Ο: "O", Ρ: "P", Τ: "T", Υ: "Y", Χ: "X" };
+  return norm(s).replace(/[^A-Z0-9Α-Ω]/g, "").replace(/[ΑΒΕΖΗΙΚΜΝΟΡΤΥΧ]/g, c => m[c]);
+}
+
 /** Κείμενο ειδοποίησης από πρότυπο. */
 export function fillTemplate(tpl, p) {
   return String(tpl)

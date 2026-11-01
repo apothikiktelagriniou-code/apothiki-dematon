@@ -2,7 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { SUPABASE_URL, SUPABASE_KEY } from "./config.js";
 import {
   HOME, norm, shelfFor, cleanPhone, fmtPhone, parseGrDate, fmtGr, toLocalInput, money, hoursSince, daysSince,
-  tripsOf, tripLabel, sortTrips, isClosed, isTransit, parseLabel, fillTemplate, toCSV,
+  tripsOf, tripLabel, sortTrips, isClosed, isTransit, parseLabel, fillTemplate, toCSV, cleanIdDoc,
 } from "./lib.js";
 import { initCapture } from "./capture.js";
 
@@ -259,7 +259,8 @@ function matches(p) {
     case "done": if (!isClosed(p)) return false; break;
   }
   const q = norm($("q").value); if (!q) return true;
-  return norm([p.receipt_no, p.parcel_code, p.recipient_name, p.sender_name, p.recipient_phone, p.origin_city, p.destination_city, p.shelf, p.pickup_code, p.picked_by_name].join(" ")).includes(q);
+  if (p.id_doc_number && p.id_doc_number.includes(cleanIdDoc(q)) && cleanIdDoc(q).length >= 3) return true;
+  return norm([p.receipt_no, p.parcel_code, p.recipient_name, p.sender_name, p.recipient_phone, p.origin_city, p.destination_city, p.shelf, p.pickup_code, p.picked_by_name, p.picked_by_phone, p.id_doc_number].join(" ")).includes(q);
 }
 
 function render() {
@@ -349,7 +350,7 @@ function card(p) {
   mk("Ιστορικό", () => showHistory(p));
   row.append(left, acts);
   if (p.status === "done") {
-    row.append(el("div", "meta note", ["Παρέλαβε: " + (p.picked_by_name || "—"), p.id_doc_type && p.id_doc_last4 ? p.id_doc_type + " ••••" + p.id_doc_last4 : "", p.picked_by_phone ? fmtPhone(p.picked_by_phone) : "", fmtGr(p.picked_up_at), p.home_delivery ? "🏠 Delivery" : "", p.cod_collected ? "💶 Εισπράχθηκε " + money(p.cod_amount_eur) : ""].filter(Boolean).join(" · ")));
+    row.append(el("div", "meta note", ["Παρέλαβε: " + (p.picked_by_name || "—"), p.id_doc_number ? (p.id_doc_type || "Έγγραφο") + " " + p.id_doc_number : p.id_doc_last4 ? (p.id_doc_type || "Έγγραφο") + " ••••" + p.id_doc_last4 : "", p.picked_by_phone ? fmtPhone(p.picked_by_phone) : "", fmtGr(p.picked_up_at), p.home_delivery ? "🏠 Delivery" : "", p.cod_collected ? "💶 Εισπράχθηκε " + money(p.cod_amount_eur) : ""].filter(Boolean).join(" · ")));
     if (p.signature_path) { const holder = el("div", "note"); const b = mk("Υπογραφή", () => showSignature(p, holder, b)); row.append(holder); }
   }
   if (p.status === "forwarded") row.append(el("div", "meta note", ["Προωθήθηκε → " + (p.fwd_destination || p.destination_city), p.fwd_departure_at ? "με δρομολόγιο " + fmtGr(p.fwd_departure_at) : "", p.fwd_note || ""].filter(Boolean).join(" · ")));
@@ -367,7 +368,7 @@ $("tripSel").addEventListener("change", e => { tripFilter = e.target.value; rend
 let qT = null;
 $("q").addEventListener("input", () => { clearTimeout(qT); const q = $("q").value.trim(); if (q.length < 3) return;
   qT = setTimeout(async () => { const s = q.replace(/[%,()]/g, " ");
-    const { data } = await sb.from("parcels").select("*").or(`recipient_name.ilike.%${s}%,receipt_no.ilike.%${s}%,recipient_phone.ilike.%${s}%,pickup_code.eq.${s}`).limit(50);
+    const { data } = await sb.from("parcels").select("*").or(`recipient_name.ilike.%${s}%,receipt_no.ilike.%${s}%,recipient_phone.ilike.%${s}%,picked_by_phone.ilike.%${s}%,id_doc_number.ilike.%${s}%,picked_by_name.ilike.%${s}%,pickup_code.eq.${s}`).limit(50);
     if (data && data.length) { data.forEach(p => rows.set(p.id, p)); render(); } }, 400); });
 
 // ---------------------------------------------------------------- ειδοποίηση
@@ -412,18 +413,17 @@ function field(box, label, input, wide) { const w = el("div", "f" + (wide ? " wi
 function inp(v, attrs) { const i = el("input"); i.value = v || ""; Object.assign(i, attrs || {}); return i; }
 function pickupBox(p) {
   const box = el("form", "box"); box.autocomplete = "off";
-  const name = field(box, "Ονοματεπώνυμο παραλήπτη", inp(p.recipient_name), true);
-  const phone = field(box, "Τηλέφωνο", inp(p.recipient_phone, { inputMode: "tel", className: "mono" }));
+  const phone = field(box, "Τηλέφωνο παραλήπτη (υποχρεωτικό)", inp(p.recipient_phone, { inputMode: "tel", className: "mono", autocomplete: "off" }), true);
+  const name = field(box, "Ονοματεπώνυμο (προαιρετικό)", inp(p.recipient_name), true);
   const when = field(box, "Ημέρα & ώρα παραλαβής", inp(toLocalInput(), { type: "datetime-local" }));
   const sel = el("select"); ["Ταυτότητα", "Δίπλωμα", "Διαβατήριο"].forEach(t => sel.append(new Option(t))); field(box, "Έγγραφο", sel);
-  const idn = field(box, "Αριθμός εγγράφου", inp("", { className: "mono", autocapitalize: "characters" }));
-  box.append(el("div", "hint wide", "Αποθηκεύονται μόνο τα 4 τελευταία ψηφία του εγγράφου (ΓΚΠΔ)."));
+  const idn = field(box, "Αριθμός εγγράφου (προαιρετικό)", inp("", { className: "mono", autocapitalize: "characters" }));
   const chk = (text) => { const l = el("label", "check wide"); const c = el("input"); c.type = "checkbox"; l.append(c, document.createTextNode(text)); box.append(l); return c; };
   const home = chk("Παράδοση στο σπίτι (delivery 3,50 €)");
   const codC = p.cod_amount_eur > 0 ? chk("Εισπράχθηκε " + money(p.cod_amount_eur) + " από τον παραλήπτη") : null;
   const sw = el("div", "f wide"); const cv = el("canvas", "sig"); cv.setAttribute("aria-label", "Πλαίσιο υπογραφής");
   const clr = el("button", "btn small", "Καθαρισμός υπογραφής"); clr.type = "button";
-  sw.append(el("label", null, "Υπογραφή παραλήπτη (με το δάχτυλο)"), cv, clr);
+  sw.append(el("label", null, "Υπογραφή παραλήπτη (προαιρετική)"), cv, clr);
   if (matchMedia("(pointer:fine)").matches) sw.append(el("div", "hint", "Η υπογραφή γίνεται πιο εύκολα από το κινητό."));
   box.append(sw);
   const msg = el("div", "msg info wide"); msg.hidden = true; box.append(msg);
@@ -442,22 +442,22 @@ function pickupBox(p) {
   box.onsubmit = async e => {
     e.preventDefault(); if (needOperator()) return;
     const say = (t, c) => { msg.textContent = t; msg.className = "msg " + c + " wide"; msg.hidden = false; };
-    const nm = name.value.trim(), pn = cleanPhone(phone.value), id4 = idn.value.replace(/[^A-Za-z0-9Α-Ωα-ω]/g, "");
-    if (!nm) return say("Γράψε το ονοματεπώνυμο.", "warn");
-    if (id4.length < 4) return say("Γράψε τον αριθμό του εγγράφου (τουλάχιστον 4 χαρακτήρες).", "warn");
-    if (phone.value.trim() && !pn) return say("Το τηλέφωνο δεν μοιάζει σωστό (10 ψηφία).", "warn");
-    if (codC && !codC.checked) return say("Τσέκαρε ότι εισπράχθηκε το ποσό.", "warn");
-    if (!drawn) return say("Λείπει η υπογραφή.", "warn");
+    const nm = name.value.trim() || p.recipient_name || "", pn = cleanPhone(phone.value), idNo = cleanIdDoc(idn.value);
+    if (!pn) { phone.focus(); return say("Γράψε το κινητό του παραλήπτη (10 ψηφία, π.χ. 6941234567).", "warn"); }
+    if (codC && !codC.checked) return say("Τσέκαρε ότι εισπράχθηκε το ποσό " + money(p.cod_amount_eur) + ".", "warn");
     ok.disabled = true; say("Αποθήκευση…", "info");
     try {
-      const blob = await signatureBlob(cv);
-      const path = p.id + ".png";
-      const up = await sb.storage.from("signatures").upload(path, blob, { upsert: true, contentType: "image/png" });
-      if (up.error) throw up.error;
+      let path = null;
+      if (drawn) {
+        const blob = await signatureBlob(cv); path = p.id + ".png";
+        const up = await sb.storage.from("signatures").upload(path, blob, { upsert: true, contentType: "image/png" });
+        if (up.error) throw up.error;
+      }
       const at = when.value ? new Date(when.value).toISOString() : new Date().toISOString();
       await updateParcel(p.id, { status: "done", status_at: new Date().toISOString(), picked_up_at: at, picked_by_name: nm, picked_by_phone: pn || null,
-        id_doc_type: sel.value, id_doc_last4: id4.slice(-4).toUpperCase(), signature_path: path, home_delivery: home.checked, cod_collected: codC ? true : p.cod_collected });
-      if (pn) linkCustomer(nm, pn).catch(() => {});
+        id_doc_type: idNo ? sel.value : null, id_doc_number: idNo || null, id_doc_last4: idNo ? idNo.slice(-4) : null,
+        signature_path: path, home_delivery: home.checked, cod_collected: codC ? true : p.cod_collected });
+      if (nm) linkCustomer(nm, pn).catch(() => {});
       openBox = { id: null }; show($("formMsg"), "Παραδόθηκε: " + (p.receipt_no || nm) + ".", "ok"); render();
     } catch (err) { console.error(err); ok.disabled = false; say("Δεν αποθηκεύτηκε. Δοκίμασε ξανά.", "bad"); }
   };
@@ -549,7 +549,7 @@ $("exportBtn").onclick = async () => {
     ["kind", "Τύπος"], ["item", "Είδος"], ["origin_city", "Από"], ["destination_city", "Προορισμός"], ["sender_name", "Αποστολέας"], ["recipient_name", "Παραλήπτης"],
     ["recipient_phone", "Τηλέφωνο"], ["phone_source", "Πηγή τηλεφώνου"], ["fare_eur", "Κόμιστρο €", eur("fare_eur")], ["shelf", "Ράφι"], ["status", "Κατάσταση", r => STATUS[r.status] || r.status],
     ["created_at", "Καταχώρηση", d("created_at")], ["notified_at", "Ειδοποίηση", d("notified_at")], ["picked_up_at", "Παραλαβή", d("picked_up_at")], ["picked_by_name", "Παρέλαβε"],
-    ["picked_by_phone", "Τηλ. παραλαβής"], ["id_doc_type", "Έγγραφο"], ["id_doc_last4", "Έγγραφο (4 τελ.)"], ["signature_path", "Υπογραφή", r => r.signature_path ? "Ναι" : ""],
+    ["picked_by_phone", "Τηλ. παραλαβής"], ["id_doc_type", "Έγγραφο"], ["id_doc_number", "Αριθμός εγγράφου"], ["signature_path", "Υπογραφή", r => r.signature_path ? "Ναι" : ""],
     ["home_delivery", "Delivery", yes("home_delivery")], ["cod_amount_eur", "Είσπραξη €", eur("cod_amount_eur")], ["cod_collected", "Εισπράχθηκε", yes("cod_collected")],
     ["fwd_departure_at", "Αποστολή από Αγρίνιο", d("fwd_departure_at")], ["fwd_note", "Σημ. αποστολής"], ["damaged", "Ζημιά", yes("damaged")], ["notes", "Σημειώσεις"], ["operator", "Τελευταίος χειριστής"]];
   const blob = new Blob([toCSV(data, cols)], { type: "text/csv;charset=utf-8" });
