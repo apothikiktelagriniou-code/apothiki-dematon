@@ -31,6 +31,9 @@ const SYSTEM = `Διαβάζεις φωτογραφίες από αποδείξ�
 Απάντησε ΜΟΝΟ με ένα JSON αντικείμενο, χωρίς άλλο κείμενο, με ακριβώς αυτά τα κλειδιά:
 {"receipt_no":"","parcel_code":"","kind":"Συνοδευτικό|Ασυνόδευτο|","item":"","fare_eur":null,"issued":"","departure":"","sender":"","recipient":"","phone":"","phone_is_handwritten":false,"pieces":1,"origin_city":"","destination_city":"","is_handwritten_receipt":false,"damage_visible":false,"unsure":[],"notes":"","package_desc":"","pair_mismatch":false}`;
 
+const SYSTEM_DESCRIBE = `Βλέπεις φωτογραφία ενός δέματος σε αποθήκη ΚΤΕΛ. Δώσε σύντομη περιγραφή έως 8 λέξεις: τι είναι (κουτί, φάκελος, σακούλα, βαλίτσα κ.λπ.), χρώμα, μέγεθος (μικρό/μεσαίο/μεγάλο), φίρμα ή λογότυπο ΜΟΝΟ αν φαίνεται καθαρά. Π.χ. «Καφέ κουτί JUMBO, μεσαίο», «Λευκός φάκελος A4», «Μαύρη σακούλα, μαλακή». Αν φαίνεται χειρόγραφο κινητό τηλέφωνο πάνω στο δέμα, γράψ' το στο phone, αλλιώς "".
+Απάντησε ΜΟΝΟ με JSON: {"package_desc":"","phone":"","damage_visible":false}`;
+
 const SYSTEM_CLASSIFY = `Σου δίνω μικρές φωτογραφίες από αποθήκη δεμάτων ΚΤΕΛ, με τη σειρά. Για ΚΑΘΕ φωτογραφία, με την ίδια σειρά, πες τι δείχνει:
 - "label": κυρίως ετικέτα/απόδειξη από κοντά (ΔΕΛΤΙΟ ΑΠΟΣΚΕΥΩΝ, θερμικό χαρτάκι ή χειρόγραφη απόδειξη) — το κείμενο πιάνει μεγάλο μέρος της εικόνας.
 - "parcel": ολόκληρο δέμα/συσκευασία (κουτί, φάκελος, σακούλα κ.λπ.) από πιο μακριά, ακόμα κι αν φαίνεται μικρή ετικέτα πάνω του.
@@ -116,7 +119,7 @@ Deno.serve(async req => {
 
   let body: { mode?: string; images?: { data: string; media_type?: string }[] };
   try { body = await req.json(); } catch { return json({ error: "bad_request" }, 400); }
-  const manifest = body.mode === "manifest", classify = body.mode === "classify";
+  const manifest = body.mode === "manifest", classify = body.mode === "classify", describe = body.mode === "describe";
   const pkgIdx = typeof (body as { package_index?: number }).package_index === "number" ? (body as { package_index: number }).package_index : -1;
   const imgs = (body.images || []).slice(0, manifest ? 4 : classify ? 30 : 3).filter(i => i && typeof i.data === "string" && i.data.length < 6_000_000);
   if (!imgs.length) return json({ error: "no_image" }, 400);
@@ -125,6 +128,7 @@ Deno.serve(async req => {
     ...imgs.map(i => ({ type: "image", source: { type: "base64", media_type: i.media_type || "image/jpeg", data: i.data } })),
     { type: "text", text: manifest ? (imgs.length > 1 ? imgs.length + " σελίδες της ίδιας κατάστασης. " : "") + "Επέστρεψε το JSON."
       : classify ? imgs.length + " φωτογραφίες. Επέστρεψε το JSON."
+      : describe ? "Περιέγραψε το δέμα. Επέστρεψε το JSON."
       : pkgIdx >= 0 && pkgIdx < imgs.length ? "Φωτογραφίες του ΙΔΙΟΥ δέματος. Η φωτογραφία νούμερο " + (pkgIdx + 1) + " δείχνει ΟΛΟΚΛΗΡΟ το δέμα (για package_desc και έλεγχο pair_mismatch)" + (pkgIdx === 0 ? " — δεν υπάρχει ξεχωριστή ετικέτα από κοντά, διάβασε ό,τι φαίνεται." : "; οι υπόλοιπες είναι η ετικέτα.") + " Επέστρεψε το JSON."
       : imgs.length > 1 ? "Δύο φωτογραφίες του ΙΔΙΟΥ δέματος (η 2η συνήθως δείχνει χειρόγραφο τηλέφωνο). Επέστρεψε το JSON." : "Επέστρεψε το JSON." },
   ];
@@ -133,7 +137,7 @@ Deno.serve(async req => {
     const r = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: { "x-api-key": key!, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-      body: JSON.stringify({ model: MODEL, max_tokens: manifest ? 16000 : MAX_TOKENS, system: manifest ? SYSTEM_MANIFEST : classify ? SYSTEM_CLASSIFY : SYSTEM, messages: [{ role: "user", content }] }),
+      body: JSON.stringify({ model: MODEL, max_tokens: manifest ? 16000 : MAX_TOKENS, system: manifest ? SYSTEM_MANIFEST : classify ? SYSTEM_CLASSIFY : describe ? SYSTEM_DESCRIBE : SYSTEM, messages: [{ role: "user", content }] }),
     });
     const j = await r.json();
     if (!r.ok) throw new Error("anthropic " + r.status + ": " + (j?.error?.message || ""));
@@ -154,6 +158,11 @@ Deno.serve(async req => {
   const cost = usage.input_tokens * PRICE_IN + usage.output_tokens * PRICE_OUT;
   await sb.from("ai_usage").insert({ input_tokens: usage.input_tokens, output_tokens: usage.output_tokens, cost_usd: cost, ok: !!parsed });
   if (!parsed) { console.error("extract_failed", err); return json({ error: "extract_failed", detail: err.slice(0, 300) }, 502); }
+  if (describe) {
+    const p = parsed as Record<string, unknown>;
+    const ph = String(p.phone ?? "").replace(/\D/g, "").replace(/^0030(?=\d{10}$)/, "").replace(/^30(?=\d{10}$)/, "");
+    return json({ data: { package_desc: String(p.package_desc ?? "").replace(/\s+/g, " ").trim().slice(0, 80), phone: ph, damage_visible: p.damage_visible === true }, usage, cost_usd: cost });
+  }
   if (classify) {
     const t = Array.isArray((parsed as { types?: unknown[] }).types) ? (parsed as { types: unknown[] }).types : [];
     return json({ data: { types: imgs.map((_, i) => (t[i] === "parcel" ? "parcel" : "label")) }, usage, cost_usd: cost });

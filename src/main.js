@@ -4,7 +4,7 @@ import {
   HOME, norm, shelfFor, cleanPhone, fmtPhone, parseGrDate, fmtGr, toLocalInput, money, hoursSince, daysSince,
   tripsOf, tripLabel, sortTrips, isClosed, isTransit, parseLabel, fillTemplate, toCSV, cleanIdDoc, sameReceipt,
 } from "./lib.js";
-import { initCapture, pendingReviewCount } from "./capture.js";
+import { initCapture, pendingReviewCount, toJpegB64 } from "./capture.js";
 import { openManifest } from "./manifest.js";
 
 const sb = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true } });
@@ -145,6 +145,29 @@ async function purgePackage(p) {
   } catch (e) { console.warn("purge", e); } finally { purging.delete(p.id); }
 }
 function purgeAllClosed() { [...rows.values()].filter(p => p.package_photo_path && isClosed(p)).forEach(purgePackage); }
+// «📷 Φωτο δέματος» από την κάρτα: φωτογραφία → σύντομη περιγραφή από AI → αποθήκευση
+function pickPackagePhoto(p, btn) {
+  if (needOperator()) return;
+  const f = el("input"); f.type = "file"; f.accept = "image/*"; f.capture = "environment";
+  f.onchange = async () => {
+    const file = f.files[0]; if (!file) return;
+    const lbl = btn.querySelector(".gl"); const old = lbl.textContent; lbl.textContent = "⏳ Ανάλυση…"; btn.disabled = true;
+    try {
+      const b64 = await toJpegB64(file, 1200, 0.72);
+      let desc = "";
+      try {
+        const { data } = await sb.functions.invoke("extract-receipt", { body: { mode: "describe", images: [{ data: b64, media_type: "image/jpeg" }] } });
+        desc = (data && data.data && data.data.package_desc) || "";
+        const ph = data && data.data && cleanPhone(data.data.phone);
+        if (ph && !p.recipient_phone) await updateParcel(p.id, { recipient_phone: ph, phone_source: "handwritten", phone_confirmed: false });
+      } catch { /* χωρίς περιγραφή — η φωτογραφία κρατιέται */ }
+      if (desc) { const { data } = await sb.from("parcels").update({ package_desc: desc }).eq("id", p.id).select().single(); if (data) rows.set(p.id, data); }
+      await attachPackage(p.id, b64, desc);
+      show($("formMsg"), "📷 " + (p.recipient_name || "Δέμα") + ": " + (desc || "η φωτογραφία αποθηκεύτηκε (χωρίς περιγραφή)"), "ok");
+    } catch { lbl.textContent = old; btn.disabled = false; show($("formMsg"), "Δεν αποθηκεύτηκε η φωτογραφία. Δοκίμασε ξανά.", "bad"); }
+  };
+  f.click();
+}
 async function showPackage(p) {
   const { data } = await sb.storage.from("packages").createSignedUrl(p.package_photo_path, 300);
   const b = $("dlgBody"); b.textContent = "";
@@ -449,7 +472,12 @@ function card(p) {
   if (p.recipient_phone) { ph = el("span", null, "📞 " + fmtPhone(p.recipient_phone)); if (p.phone_source === "handwritten") ph.append(" ", el("span", "badge", p.phone_confirmed ? "✍ ✓" : "✍ χειρόγραφο")); if (p.phone_source === "customer_db") ph.append(" ", el("span", "badge", "📇")); }
   line("Απόδειξη", el("span", "mono", p.receipt_no || "—"));
   if (ph) line("Τηλέφωνο", ph);
-  if (p.package_desc || p.package_photo_path) { const d = line("Συσκευασία", p.package_desc || ""); if (p.package_photo_path) { const b = el("button", "btn small pkgbtn", "📷 Φωτο"); b.type = "button"; b.onclick = () => showPackage(p); d.append(b); } }
+  const canPhoto = !isClosed(p) && p.status !== "not_arrived";
+  if (p.package_desc || p.package_photo_path || canPhoto) {
+    const d = line("Συσκευασία", p.package_desc || "");
+    if (p.package_photo_path) { const b = el("button", "btn small pkgbtn", "📷 Προβολή"); b.type = "button"; b.onclick = () => showPackage(p); d.append(b); }
+    if (canPhoto) { const b = el("button", "btn small pkgbtn" + (p.package_photo_path ? "" : " pkgadd")); b.type = "button"; b.append(el("span", "gl", p.package_photo_path ? "↻ Νέα" : "📷 + Φωτο δέματος")); b.onclick = () => pickPackagePhoto(p, b); d.append(b); }
+  }
   line("Είδος", "Ασυνόδευτο", p.fare_eur != null ? "· " + money(p.fare_eur) : "");
   line("Υπάλληλος", p.operator ? "👤 " + p.operator : "—");
   const remarks = tags.filter(t => t !== "Στο υπόγειο" && t !== "Παραλήφθηκε με φθορά");

@@ -16,7 +16,7 @@ const obDel = id => ob("readwrite", s => s.delete(id));
 
 // ---------- εικόνες ----------
 function loadImg(file) { return new Promise((res, rej) => { const u = URL.createObjectURL(file); const i = new Image(); i.onload = () => { URL.revokeObjectURL(u); res(i); }; i.onerror = rej; i.src = u; }); }
-async function toJpegB64(file, max, q) {
+export async function toJpegB64(file, max, q) {
   const img = await loadImg(file); const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
   const c = document.createElement("canvas"); c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
   c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
@@ -25,9 +25,9 @@ async function toJpegB64(file, max, q) {
 
 // ---------- δίσκος (πριν την αποστολή) ----------
 // Κάθε φωτογραφία έχει τύπο: "label" (ετικέτα από κοντά) ή "parcel" (ολόκληρο δέμα).
-// Σειρά = ώρα λήψης. Ζευγάρι = ετικέτα + η αμέσως επόμενη φωτογραφία δέματος.
+// Κάθε φωτογραφία του δίσκου = ετικέτα. Η φωτογραφία δέματος μπαίνει μόνο με «＋ δέμα» δίπλα στην ετικέτα.
 let tray = []; // [{id, file, url, type, extra:[{file,url}]}]
-let classifying = 0, classifyFailed = false;
+const classifying = 0;
 export function pairUp(photos) {
   const out = []; let cur = null;
   for (const ph of photos) {
@@ -43,10 +43,7 @@ function slot(ph, role, idx) {
   const i = el("img"); i.src = ph.url; i.alt = (role === "pkg" ? "Δέμα " : "Ετικέτα ") + (idx + 1); s.append(i);
   ph.extra.forEach(x => { const j = el("img", "textra"); j.src = x.url; j.alt = "2η φωτογραφία"; s.append(j); });
   const bar = el("div", "tbar");
-  const t = el("button", "btn small ttype", ph.type == null ? "…" : ph.type === "parcel" ? "📦 Δέμα" : "🏷 Ετικέτα"); t.type = "button";
-  t.title = "Πάτα αν το AI το μπέρδεψε"; t.disabled = ph.type == null;
-  t.onclick = () => { ph.type = ph.type === "parcel" ? "label" : "parcel"; renderTray(); };
-  bar.append(t);
+  bar.append(el("span", "ttype", ph.type === "parcel" ? "📦 Δέμα" : "🏷 Ετικέτα"));
   if (ph.type !== "parcel" && ph.extra.length < 1) { const add = el("label", "btn small", "＋ τηλ."); add.title = "2η φωτογραφία της ετικέτας (π.χ. χειρόγραφο τηλέφωνο)";
     const f = el("input"); f.type = "file"; f.accept = "image/*"; f.hidden = true;
     f.onchange = () => { const x = f.files[0]; if (x) { ph.extra.push({ file: x, url: URL.createObjectURL(x) }); renderTray(); } }; add.append(f); bar.append(add); }
@@ -60,8 +57,7 @@ function renderTray() {
   pairs.forEach((pr, idx) => {
     const box = el("div", "tpair" + (!pr.label ? " orphan" : ""));
     box.append(el("div", "tnum", String(idx + 1)));
-    if (pr.label) box.append(slot(pr.label, "lbl", idx));
-    else box.append(el("div", "tslot empty", "Χωρίς ετικέτα — θα διαβαστεί από τη φωτογραφία του δέματος"));
+    box.append(slot(pr.label, "lbl", idx));
     if (pr.pkg) box.append(slot(pr.pkg, "pkg", idx));
     else { const add = el("label", "tslot empty addpkg", "＋ δέμα"); add.title = "Φωτογραφία ολόκληρου του δέματος";
       const f = el("input"); f.type = "file"; f.accept = "image/*"; f.hidden = true;
@@ -74,28 +70,13 @@ function renderTray() {
   $("sendBtn").hidden = !tray.length; $("sendBtn").disabled = classifying > 0;
   $("sendBtn").textContent = classifying ? "Αναγνώριση φωτογραφιών…" : "Αποστολή (" + pairs.length + " δέματα" + (nPkg ? ", " + nPkg + " με φωτο δέματος" : "") + ")";
   $("trayHint").hidden = !tray.length;
-  $("trayHint").textContent = classifyFailed ? "⚠ Δεν έγινε αυτόματη αναγνώριση ετικέτας/δέματος (σύνδεση;). Έλεγξε τα κουμπιά 🏷/📦." : "Έλεγξε τα ζευγάρια. Αν κάτι μπερδεύτηκε, πάτα 🏷/📦 για να αλλάξεις τον τύπο.";
-}
-async function classify(list) {
-  classifying++; renderTray();
-  try {
-    for (let i = 0; i < list.length; i += 30) {
-      const part = list.slice(i, i + 30);
-      const imgs = await Promise.all(part.map(ph => toJpegB64(ph.file, 512, 0.6)));
-      const { data, error } = await D.sb.functions.invoke("extract-receipt", { body: { mode: "classify", images: imgs.map(d => ({ data: d, media_type: "image/jpeg" })) } });
-      const types = !error && data && data.data && data.data.types;
-      if (!types) { classifyFailed = true; part.forEach(ph => { if (ph.type == null) ph.type = "label"; }); continue; }
-      part.forEach((ph, k) => { if (ph.type == null) ph.type = types[k] === "parcel" ? "parcel" : "label"; });
-    }
-  } catch { classifyFailed = true; list.forEach(ph => { if (ph.type == null) ph.type = "label"; }); }
-  finally { classifying--; renderTray(); }
+  $("trayHint").textContent = "Κάθε φωτογραφία = μία ετικέτα. Φωτογραφία δέματος (προαιρετικά): «＋ δέμα» εδώ ή αργότερα από την κάρτα του δέματος.";
 }
 function addFiles(files) {
   const add = [...files].filter(f => f.type.startsWith("image/")).sort((a, b) => a.lastModified - b.lastModified)
-    .map(f => ({ id: crypto.randomUUID(), file: f, url: URL.createObjectURL(f), type: null, extra: [] }));
+    .map(f => ({ id: crypto.randomUUID(), file: f, url: URL.createObjectURL(f), type: "label", extra: [] }));
   if (!add.length) return;
-  if (!tray.length) classifyFailed = false;
-  tray.push(...add); renderTray(); classify(add);
+  tray.push(...add); renderTray();
 }
 
 async function send() {

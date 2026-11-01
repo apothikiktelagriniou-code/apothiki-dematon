@@ -316,3 +316,4 @@ header .btn{white-space:nowrap}
 .pkgimg{max-width:100%;max-height:70vh;border-radius:12px;display:block;margin-top:8px}
 .tbar label.btn,.tslot.addpkg{text-transform:none;letter-spacing:0}
 .iline .btn.pkgbtn{min-height:26px;padding:1px 8px;font-size:12px;border-radius:8px;margin-left:2px}
+.iline .btn.pkgadd{border-style:dashed;color:var(--navy)}
