@@ -4,6 +4,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.49.4";
 
 const MODEL = "claude-haiku-5-5";
+const MAX_TOKENS = 4096; // αρκετό και αν το μοντέλο «σκεφτεί» πριν απαντήσει
 const PRICE_IN = 0.10 / 1e6, PRICE_OUT = 0.50 / 1e6; // USD ανά token
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -60,6 +61,17 @@ Deno.serve(async req => {
     const j = await r.json().catch(() => ({}));
     return json({ ok: r.ok, status: r.status, model: MODEL, error: j?.error?.message || null, type: j?.error?.type || null });
   }
+  if (url.searchParams.get("health") === "3") {
+    // διαγνωστικό: η πλήρης οδηγία ανάγνωσης χωρίς εικόνα — δείχνει αν βγαίνει JSON και γιατί σταματά
+    if (!key) return json({ ok: false, error: "missing_key" });
+    const r = await fetch("https://api.anthropic.com/v1/messages", { method: "POST",
+      headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+      body: JSON.stringify({ model: MODEL, max_tokens: MAX_TOKENS, system: SYSTEM,
+        messages: [{ role: "user", content: "Δοκιμή χωρίς εικόνα: Αρ. Απόδειξης: 258-341-23682, ΚΟΜΙΣΤΡΟ: 5 €, Παραλήπτης: ΧΑΤΖΗΣ, Απο-From: ΠΑΤΡΑ, Προς-Το: ΑΓΡΙΝΙΟ, Ημ/νία Αναχώρησης: 31/10/2026 17:00. Επέστρεψε το JSON." }] }) });
+    const j = await r.json().catch(() => ({}));
+    const text = (j.content || []).filter((c: { type: string }) => c.type === "text").map((c: { text: string }) => c.text).join("");
+    return json({ ok: r.ok, status: r.status, stop_reason: j.stop_reason, blocks: (j.content || []).map((c: { type: string }) => c.type), usage: j.usage, text: text.slice(0, 600), error: j?.error?.message || null });
+  }
 
   // μόνο συνδεδεμένοι χρήστες της εφαρμογής
   const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY") ?? req.headers.get("apikey") ?? "", {
@@ -83,7 +95,7 @@ Deno.serve(async req => {
     const r = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: { "x-api-key": key!, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-      body: JSON.stringify({ model: MODEL, max_tokens: 700, system: SYSTEM, messages: [{ role: "user", content }] }),
+      body: JSON.stringify({ model: MODEL, max_tokens: MAX_TOKENS, system: SYSTEM, messages: [{ role: "user", content }] }),
     });
     const j = await r.json();
     if (!r.ok) throw new Error("anthropic " + r.status + ": " + (j?.error?.message || ""));
@@ -95,10 +107,10 @@ Deno.serve(async req => {
     try {
       const j = await call();
       usage.input_tokens += j.usage?.input_tokens || 0; usage.output_tokens += j.usage?.output_tokens || 0;
-      const text = (j.content || []).map((c: { text?: string }) => c.text || "").join("");
+      const text = (j.content || []).filter((c: { type: string }) => c.type === "text").map((c: { text?: string }) => c.text || "").join("");
       const m = text.match(/\{[\s\S]*\}/);
       if (m) { try { parsed = JSON.parse(m[0]); } catch { err = "invalid_json: " + text.slice(0, 200); } }
-      else err = "no_json: " + text.slice(0, 200);
+      else err = "no_json (stop=" + j.stop_reason + ", blocks=" + (j.content || []).map((c: { type: string }) => c.type).join("+") + ", out=" + (j.usage?.output_tokens ?? "?") + "): " + text.slice(0, 200);
     } catch (e) { err = String(e); }
   }
   const cost = usage.input_tokens * PRICE_IN + usage.output_tokens * PRICE_OUT;
