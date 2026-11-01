@@ -10,8 +10,8 @@
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" href="./icon-192.png">
 <link rel="apple-touch-icon" href="./icon-192.png">
-  <script type="module" crossorigin src="./assets/index-Dg1e6or_.js"></script>
-  <link rel="stylesheet" crossorigin href="./assets/index-IVkn5UvE.css">
+  <script type="module" crossorigin src="./assets/index-BOqXRyLD.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-BZW-Dx_E.css">
 </head>
 <body>
 <!-- ΣΥΝΔΕΣΗ -->
@@ -72,9 +72,25 @@
     <form id="noteForm" class="toolbar"><input id="noteInput" placeholder="π.χ. ο ΠΑΠΑΔΟΠΟΥΛΟΣ θα περάσει αύριο 9:00" autocomplete="off"><button class="btn small" type="submit">Προσθήκη</button></form>
   </section>
 
+  <section class="panel" id="reviewPanel" hidden aria-labelledby="hReview">
+    <h2 id="hReview">📋 Για έλεγχο (<span id="reviewCount">0</span>)</h2>
+    <div class="hint">Διόρθωσε τα κόκκινα πεδία και πάτα Αποθήκευση (Enter). Πάτα τη φωτογραφία για μεγέθυνση. Esc = απόρριψη.</div>
+    <div id="reviewList" class="rlist"></div>
+  </section>
+
   <div class="grid">
     <section class="panel" aria-labelledby="hNew">
       <h2 id="hNew">Νέα καταχώρηση</h2>
+      <div class="capture" id="captureBox">
+        <label class="btn primary big" for="photos">📷 Φωτογραφίες δεμάτων</label>
+        <input id="photos" type="file" accept="image/*" multiple hidden>
+        <div class="hint">Τράβα όσες αποδείξεις θέλεις και πάτα «Αποστολή». Στον υπολογιστή: σύρε τις φωτογραφίες εδώ ή Ctrl+V.</div>
+        <div id="tray" class="tray"></div>
+        <button type="button" class="btn primary" id="sendBtn" hidden>Αποστολή</button>
+        <div id="capMsg" class="msg info" hidden role="status"></div>
+        <div id="queueInfo" class="hint"></div>
+      </div>
+      <details class="manual"><summary>Σάρωση κειμένου / καταχώρηση με το χέρι</summary>
       <div class="scan">
         <label for="scanText">Κείμενο απόδειξης (σάρωση με το κινητό)</label>
         <textarea id="scanText" placeholder="Πάτα εδώ και σάρωσε την ετικέτα με την κάμερα του πληκτρολογίου, ή επικόλλησε το κείμενο"></textarea>
@@ -107,6 +123,7 @@
           <button type="button" class="btn" id="clearBtn">Καθαρισμός</button>
         </div>
       </form>
+      </details>
     </section>
 
     <section class="panel" aria-labelledby="hLog">

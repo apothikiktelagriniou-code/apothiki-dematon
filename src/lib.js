@@ -126,3 +126,47 @@ export function toCSV(rows, cols) {
   const esc = v => { v = v == null ? "" : String(v); return /[;"\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
   return "﻿" + [cols.map(c => esc(c[1])).join(";"), ...rows.map(r => cols.map(c => esc(c[2] ? c[2](r) : r[c[0]])).join(";"))].join("\r\n");
 }
+
+/**
+ * Κανόνας αυτόματης καταχώρησης (§6.3 προδιαγραφής).
+ * d = καθαρισμένο αποτέλεσμα AI. exists(receipt_no) → boolean.
+ * Επιστρέφει { auto: boolean, problems: string[] }.
+ */
+export function autoSaveDecision(d, exists, maxFare = 40) {
+  const p = [];
+  if (!/^\d{3}-\d{3}-\d{4,7}$/.test(d.receipt_no || "")) p.push("missing_receipt_no");
+  else if (exists(d.receipt_no)) p.push("duplicate");
+  if (!String(d.recipient || "").trim()) p.push("missing_recipient");
+  if (!d.origin_city) p.push("missing_origin");
+  if (d.fare_eur == null || d.fare_eur === "") p.push("missing_fare");
+  else if (!(Number(d.fare_eur) > 0 && Number(d.fare_eur) <= maxFare)) p.push("fare_out_of_range");
+  if (!parseGrDate(d.departure)) p.push("missing_departure");
+  if (d.phone && !cleanPhone(d.phone)) p.push("invalid_phone");
+  for (const u of d.unsure || []) p.push("unsure:" + u);
+  if (d.is_handwritten_receipt) p.push("handwritten_receipt");
+  return { auto: p.length === 0, problems: p };
+}
+export const PROBLEM_TEXT = {
+  missing_receipt_no: "Δεν διαβάστηκε αριθμός απόδειξης", duplicate: "Υπάρχει ήδη στη βάση", missing_recipient: "Λείπει παραλήπτης",
+  missing_origin: "Λείπει πόλη", missing_fare: "Λείπει κόμιστρο", fare_out_of_range: "Περίεργο κόμιστρο", missing_departure: "Λείπει ώρα αναχώρησης",
+  invalid_phone: "Λάθος μορφή τηλεφώνου", handwritten_receipt: "Χειρόγραφη απόδειξη", ai_unavailable: "Δεν διαβάστηκε αυτόματα",
+};
+export const problemText = k => k.startsWith("unsure:") ? "Αβέβαιο: " + ({ receipt_no: "αριθμός απόδειξης", phone: "τηλέφωνο", fare_eur: "κόμιστρο", recipient: "παραλήπτης", departure: "αναχώρηση", origin_city: "πόλη", parcel_code: "κωδικός" }[k.slice(7)] || k.slice(7)) : (PROBLEM_TEXT[k] || k);
+
+/** Αποτέλεσμα AI → εγγραφή parcels. */
+export function extractedToParcel(d) {
+  const dest = norm(d.destination_city) || HOME;
+  const phone = cleanPhone(d.phone);
+  return {
+    receipt_no: d.receipt_no || null, parcel_code: d.parcel_code || null, kind: d.kind || "Ασυνόδευτο", item: d.item || null,
+    origin_city: norm(d.origin_city) || null, destination_city: dest,
+    issued_at: parseGrDate(d.issued)?.toISOString() || null, departure_at: parseGrDate(d.departure)?.toISOString() || null,
+    fare_eur: d.fare_eur == null || d.fare_eur === "" ? null : Number(d.fare_eur),
+    sender_name: d.sender || null, recipient_name: String(d.recipient || "").trim(),
+    recipient_phone: phone || null, phone_source: phone ? (d.phone_is_handwritten ? "handwritten" : "label") : null,
+    phone_confirmed: !!phone && !d.phone_is_handwritten,
+    shelf: dest === HOME ? (shelfFor(d.recipient) || null) : null,
+    status: dest === HOME ? "arrived" : "transit",
+    damaged: !!d.damage_visible, notes: d.notes || null,
+  };
+}

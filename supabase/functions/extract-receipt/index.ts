@@ -1,0 +1,98 @@
+// Supabase Edge Function: extract-receipt
+// Διαβάζει 1–2 φωτογραφίες απόδειξης ΚΤΕΛ με Claude Haiku και επιστρέφει τα πεδία σε JSON.
+// Το κλειδί ANTHROPIC_API_KEY ζει ΜΟΝΟ στα Secrets του Supabase — ποτέ στην εφαρμογή.
+import { createClient } from "npm:@supabase/supabase-js@2.49.4";
+
+const MODEL = "claude-haiku-5-5";
+const PRICE_IN = 0.10 / 1e6, PRICE_OUT = 0.50 / 1e6; // USD ανά token
+const cors = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
+};
+const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...cors, "content-type": "application/json" } });
+
+const SYSTEM = `Διαβάζεις φωτογραφίες από αποδείξεις δεμάτων (ΔΕΛΤΙΟ ΑΠΟΣΚΕΥΩΝ) του ΚΤΕΛ Αιτωλοακαρνανίας. Μπορεί να είναι τυπωμένη θερμική ετικέτα ή χειρόγραφη απόδειξη. Μπορεί να υπάρχει και χειρόγραφο κινητό τηλέφωνο πάνω στην ετικέτα ή κάπου αλλού στο δέμα (δεύτερη φωτογραφία).
+
+Τυπική διάταξη τυπωμένης ετικέτας:
+ΚΤΕΛ ΑΙΤΩΛΟΑΚΑΡΝΑΝΙΑΣ ΑΕ / Εκδότης:258 / ΔΕΛΤΙΟ ΑΠΟΣΚΕΥΩΝ / ΣΥΝΟΔΕΥΤΙΚΟ (ή ΑΣΥΝΟΔΕΥΤΟ) / ΚΟΜΙΣΤΡΟ: 5 € / Είδος: Απλό δέμα / Ημ/νία έκδοσης: Σαβ 31/10/2026 Ωρα:16:40 / Ημ/νία Αναχώρησης: Σαβ 31/10/2026 Ωρα:17:00 / Αρ. Απόδειξης: 258-341-23682 / Κωδ. Δέματος: 8CAM5U8B / Αποστολέας : / Παραλήπτης: ΧΑΤΖΗΣ / Τηλ: / Απο-From: ΠΑΤΡΑ / Προς-Το: ΑΓΡΙΝΙΟ / [QR] — Το QR αγνόησέ το.
+
+ΚΑΝΟΝΕΣ:
+- Διάβασε ΜΟΝΟ ό,τι φαίνεται. ΜΗΝ μαντεύεις. Ό,τι λείπει ή δεν διαβάζεται → κενό string "".
+- Αν κάποιο πεδίο διαβάζεται αλλά υπάρχει αμφιβολία (π.χ. 0/8, 1/7, 5/6, Ο/0, θολό, τσαλακωμένο, βρεγμένο), βάλε το κλειδί του στη λίστα "unsure".
+- Οι χειρόγραφοι αριθμοί τηλεφώνου είναι πάντα επικίνδυνοι: αν το τηλέφωνο είναι χειρόγραφο, phone_is_handwritten=true.
+- Πόλεις: κεφαλαία χωρίς τόνους (π.χ. ΠΑΤΡΑ, ΑΘΗΝΑ, ΙΩΑΝΝΙΝΑ).
+- Ημερομηνίες: DD/MM/YYYY HH:MM.
+
+Απάντησε ΜΟΝΟ με ένα JSON αντικείμενο, χωρίς άλλο κείμενο, με ακριβώς αυτά τα κλειδιά:
+{"receipt_no":"","parcel_code":"","kind":"Συνοδευτικό|Ασυνόδευτο|","item":"","fare_eur":null,"issued":"","departure":"","sender":"","recipient":"","phone":"","phone_is_handwritten":false,"origin_city":"","destination_city":"","is_handwritten_receipt":false,"damage_visible":false,"unsure":[],"notes":""}`;
+
+const GR2LAT: Record<string, string> = { Α: "A", Β: "B", Ε: "E", Ζ: "Z", Η: "H", Ι: "I", Κ: "K", Μ: "M", Ν: "N", Ο: "O", Ρ: "P", Τ: "T", Υ: "Y", Χ: "X" };
+const up = (s: unknown) => String(s ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toUpperCase().replace(/\s+/g, " ").trim();
+
+function clean(d: Record<string, unknown>) {
+  const o: Record<string, unknown> = { ...d };
+  o.receipt_no = String(d.receipt_no ?? "").replace(/\s/g, "");
+  o.parcel_code = up(d.parcel_code).replace(/[Α-Ω]/g, c => GR2LAT[c] || c).replace(/\s/g, "");
+  o.origin_city = up(d.origin_city);
+  o.destination_city = up(d.destination_city);
+  let ph = String(d.phone ?? "").replace(/\D/g, "").replace(/^0030(?=\d{10}$)/, "").replace(/^30(?=\d{10}$)/, "");
+  o.phone = ph;
+  const f = d.fare_eur;
+  o.fare_eur = f === null || f === "" || f === undefined ? null : Number(String(f).replace(",", "."));
+  if (o.fare_eur !== null && isNaN(o.fare_eur as number)) o.fare_eur = null;
+  o.kind = /ΑΣΥΝ/.test(up(d.kind)) ? "Ασυνόδευτο" : /ΣΥΝ/.test(up(d.kind)) ? "Συνοδευτικό" : "";
+  o.unsure = Array.isArray(d.unsure) ? d.unsure.map(String) : [];
+  return o;
+}
+
+Deno.serve(async req => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
+  const url = new URL(req.url);
+  const key = Deno.env.get("ANTHROPIC_API_KEY");
+  if (url.searchParams.get("health") === "1") return json({ ok: true, hasKey: !!key, model: MODEL });
+
+  // μόνο συνδεδεμένοι χρήστες της εφαρμογής
+  const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY") ?? req.headers.get("apikey") ?? "", {
+    global: { headers: { Authorization: req.headers.get("Authorization") ?? "" } },
+  });
+  const { data: { user } } = await sb.auth.getUser();
+  if (!user) return json({ error: "unauthorized" }, 401);
+  if (!key) return json({ error: "missing_key" }, 500);
+
+  let body: { images?: { data: string; media_type?: string }[] };
+  try { body = await req.json(); } catch { return json({ error: "bad_request" }, 400); }
+  const imgs = (body.images || []).slice(0, 2).filter(i => i && typeof i.data === "string" && i.data.length < 6_000_000);
+  if (!imgs.length) return json({ error: "no_image" }, 400);
+
+  const content = [
+    ...imgs.map(i => ({ type: "image", source: { type: "base64", media_type: i.media_type || "image/jpeg", data: i.data } })),
+    { type: "text", text: imgs.length > 1 ? "Δύο φωτογραφίες του ΙΔΙΟΥ δέματος (η 2η συνήθως δείχνει χειρόγραφο τηλέφωνο). Επέστρεψε το JSON." : "Επέστρεψε το JSON." },
+  ];
+
+  async function call() {
+    const r = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "x-api-key": key!, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+      body: JSON.stringify({ model: MODEL, max_tokens: 700, temperature: 0, system: SYSTEM, messages: [{ role: "user", content }] }),
+    });
+    const j = await r.json();
+    if (!r.ok) throw new Error("anthropic " + r.status + ": " + (j?.error?.message || ""));
+    return j;
+  }
+
+  let parsed: Record<string, unknown> | null = null, usage = { input_tokens: 0, output_tokens: 0 }, err = "";
+  for (let attempt = 0; attempt < 2 && !parsed; attempt++) {
+    try {
+      const j = await call();
+      usage.input_tokens += j.usage?.input_tokens || 0; usage.output_tokens += j.usage?.output_tokens || 0;
+      const text = (j.content || []).map((c: { text?: string }) => c.text || "").join("");
+      const m = text.match(/\{[\s\S]*\}/);
+      if (m) parsed = JSON.parse(m[0]);
+    } catch (e) { err = String(e); }
+  }
+  const cost = usage.input_tokens * PRICE_IN + usage.output_tokens * PRICE_OUT;
+  await sb.from("ai_usage").insert({ input_tokens: usage.input_tokens, output_tokens: usage.output_tokens, cost_usd: cost, ok: !!parsed });
+  if (!parsed) return json({ error: "extract_failed", detail: err.slice(0, 300) }, 502);
+  return json({ data: clean(parsed), usage, cost_usd: cost });
+});

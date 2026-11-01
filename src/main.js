@@ -4,6 +4,7 @@ import {
   HOME, norm, shelfFor, cleanPhone, fmtPhone, parseGrDate, fmtGr, toLocalInput, money, hoursSince, daysSince,
   tripsOf, tripLabel, sortTrips, isClosed, isTransit, parseLabel, fillTemplate, toCSV,
 } from "./lib.js";
+import { initCapture } from "./capture.js";
 
 const sb = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true } });
 const $ = id => document.getElementById(id);
@@ -43,6 +44,9 @@ async function boot() {
   await loadParcels();
   subscribe();
   loadNotes();
+  initCapture({ sb, operator, needOperator, findCustomers, linkCustomer, lastTrip, settings: () => settings,
+    receiptExists: rn => [...rows.values()].some(p => p.receipt_no === rn),
+    onSaved: p => { rows.set(p.id, p); scheduleRender(); } });
 }
 $("loginForm").onsubmit = async e => {
   e.preventDefault(); $("lgBtn").disabled = true; show($("lgMsg"), "", "bad");

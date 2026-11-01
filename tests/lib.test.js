@@ -83,3 +83,28 @@ test("CSV για Excel", () => {
 });
 
 test("norm", () => { assert.equal(norm("  Ιωάννινα "), "ΙΩΑΝΝΙΝΑ"); });
+
+import { autoSaveDecision, extractedToParcel } from "../src/lib.js";
+const good = { receipt_no: "258-341-23682", recipient: "ΧΑΤΖΗΣ", origin_city: "ΠΑΤΡΑ", fare_eur: 5, departure: "31/10/2026 17:00", unsure: [], phone: "" };
+test("αυτόματη καταχώρηση: καλή ετικέτα χωρίς τηλέφωνο περνά", () => {
+  assert.deepEqual(autoSaveDecision(good, () => false), { auto: true, problems: [] });
+});
+test("αυτόματη καταχώρηση: κάθε πρόβλημα στέλνει σε έλεγχο", () => {
+  const chk = (patch, prob, exists = false) => { const r = autoSaveDecision({ ...good, ...patch }, () => exists); assert.equal(r.auto, false); assert.ok(r.problems.includes(prob), prob + " → " + r.problems); };
+  chk({ receipt_no: "" }, "missing_receipt_no");
+  chk({}, "duplicate", true);
+  chk({ recipient: "" }, "missing_recipient");
+  chk({ origin_city: "" }, "missing_origin");
+  chk({ fare_eur: null }, "missing_fare");
+  chk({ fare_eur: 50 }, "fare_out_of_range");
+  chk({ departure: "" }, "missing_departure");
+  chk({ phone: "12345" }, "invalid_phone");
+  chk({ unsure: ["phone"] }, "unsure:phone");
+  chk({ is_handwritten_receipt: true }, "handwritten_receipt");
+});
+test("αποτέλεσμα AI → δέμα (χειρόγραφο τηλέφωνο, μεταφόρτωση)", () => {
+  const a = extractedToParcel({ ...good, phone: "6941234567", phone_is_handwritten: true });
+  assert.equal(a.shelf, "Χ"); assert.equal(a.status, "arrived"); assert.equal(a.phone_source, "handwritten"); assert.equal(a.phone_confirmed, false);
+  const t = extractedToParcel({ ...good, destination_city: "Ιωάννινα" });
+  assert.equal(t.status, "transit"); assert.equal(t.shelf, null); assert.equal(t.destination_city, "ΙΩΑΝΝΙΝΑ");
+});
