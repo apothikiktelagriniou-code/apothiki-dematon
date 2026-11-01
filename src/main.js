@@ -257,10 +257,18 @@ function parseT24(s) {
   const h = d.length <= 2 ? d : d.slice(0, d.length - 2), m = d.length <= 2 ? "00" : d.slice(-2);
   return +h <= 23 && +m <= 59 ? p2_(+h) + ":" + m : null;
 }
-document.querySelectorAll(".t24").forEach(el => {
+function t24(el) {
   el.addEventListener("input", () => { const d = el.value.replace(/\D/g, "").slice(0, 4); el.value = d.length > 2 ? d.slice(0, d.length - 2) + ":" + d.slice(-2) : d; });
   el.addEventListener("blur", () => { const t = parseT24(el.value); if (t) el.value = t; });
-});
+}
+document.querySelectorAll(".t24").forEach(t24);
+// ημερομηνία + 24ωρη ώρα για τα κουτιά πάνω στην κάρτα
+function dtFields(box, dLabel, tLabel, iso) {
+  const d = field(box, dLabel, inp("", { type: "date" })); const t = field(box, tLabel, inp("", { className: "mono", inputMode: "numeric", maxLength: 5, placeholder: "ΩΩ:ΛΛ (π.χ. 17:30)", autocomplete: "off" })); t24(t);
+  const set = v => { const x = v ? new Date(v) : null; d.value = x && !isNaN(x) ? dayKey(x) : dayKey(new Date()); t.value = x && !isNaN(x) ? p2_(x.getHours()) + ":" + p2_(x.getMinutes()) : ""; };
+  set(iso);
+  return { set, get() { const tt = parseT24(t.value); if (!d.value || !tt) return null; const [y, m, dd] = d.value.split("-").map(Number); const [h, mi] = tt.split(":").map(Number); return new Date(y, m - 1, dd, h, mi).toISOString(); } };
+}
 function getDT(prefix) {
   const dv = $(prefix + "_d").value, tv = $(prefix + "_t").value; if (!dv) return null;
   const [y, m, d] = dv.split("-").map(Number); const [hh, mm] = (parseT24(tv) || "00:00").split(":").map(Number);
@@ -421,6 +429,7 @@ function card(p) {
     mk("Ήρθαν όλα (" + p.pieces_total + ")", () => updateParcel(p.id, { pieces_in: p.pieces_total }).catch(() => {}));
   }
   mk("Επεξεργασία", () => startEdit(p));
+  if (!isClosed(p) && p.status !== "not_arrived") mk("↩ Επιστροφή", toggle("ret"));
   mk("Παρατηρήσεις" + (tags.length || p.notes ? " (" + (tags.length + (p.notes ? 1 : 0)) + ")" : ""), toggle("tags"));
   mk("Ιστορικό", () => showHistory(p));
   row.append(left, acts);
@@ -431,7 +440,7 @@ function card(p) {
   if (p.status === "forwarded") row.append(el("div", "meta note", [(away(p) ? "Απευθείας μεταφόρτωση → " : "Προωθήθηκε → ") + (p.fwd_destination || p.destination_city), p.fwd_departure_at ? "δρομολόγιο " + fmtGr(p.fwd_departure_at) : "", p.fwd_bus ? "λεωφορείο " + p.fwd_bus : "", p.fwd_note || ""].filter(Boolean).join(" · ")));
   if (p.status === "returned") row.append(el("div", "meta note", ["↩ Επιστροφή → " + (p.fwd_destination || p.origin_city || "αποστολέα"), p.fwd_departure_at ? "δρομολόγιο " + fmtGr(p.fwd_departure_at) : "", p.fwd_bus ? "λεωφορείο " + p.fwd_bus : "", p.fwd_note || ""].filter(Boolean).join(" · ")));
   if (p.notes) row.append(el("div", "meta note", p.notes));
-  if (openBox.id === p.id) row.append(openBox.kind === "notify" ? notifyBox(p) : openBox.kind === "pickup" ? pickupBox(p) : openBox.kind === "tags" ? tagsBox(p) : fwdBox(p));
+  if (openBox.id === p.id) row.append(openBox.kind === "notify" ? notifyBox(p) : openBox.kind === "pickup" ? pickupBox(p) : openBox.kind === "tags" ? tagsBox(p) : openBox.kind === "ret" ? retBox(p) : fwdBox(p));
   return row;
 }
 
@@ -575,7 +584,7 @@ function pickupBox(p) {
   const box = el("form", "box"); box.autocomplete = "off";
   const phone = field(box, "Τηλέφωνο παραλήπτη (υποχρεωτικό)", inp(p.recipient_phone, { inputMode: "tel", className: "mono", autocomplete: "off" }), true);
   const name = field(box, "Ονοματεπώνυμο (προαιρετικό)", inp(p.recipient_name), true);
-  const when = field(box, "Ημέρα & ώρα παραλαβής", inp(toLocalInput(), { type: "datetime-local" }));
+  const when = dtFields(box, "Ημέρα παραλαβής", "Ώρα (24ωρη)", new Date().toISOString());
   const sel = el("select"); ["Ταυτότητα", "Δίπλωμα", "Διαβατήριο"].forEach(t => sel.append(new Option(t))); field(box, "Έγγραφο", sel);
   const idn = field(box, "Αριθμός εγγράφου (προαιρετικό)", inp("", { className: "mono", autocapitalize: "characters" }));
   const chk = (text) => { const l = el("label", "check wide"); const c = el("input"); c.type = "checkbox"; l.append(c, document.createTextNode(text)); box.append(l); return c; };
@@ -616,7 +625,7 @@ function pickupBox(p) {
         const up = await sb.storage.from("signatures").upload(path, blob, { upsert: true, contentType: "image/png" });
         if (up.error) throw up.error;
       }
-      const at = when.value ? new Date(when.value).toISOString() : new Date().toISOString();
+      const at = when.get() || new Date().toISOString();
       await updateParcel(p.id, { status: "done", status_at: new Date().toISOString(), picked_up_at: at, picked_by_name: nm, picked_by_phone: pn || null,
         id_doc_type: idNo ? sel.value : null, id_doc_number: idNo || null, id_doc_last4: idNo ? idNo.slice(-4) : null,
         signature_path: path, home_delivery: home.checked, cod_collected: codC ? true : p.cod_collected });
@@ -651,15 +660,34 @@ async function showSignature(p, holder, btn) {
 }
 
 // ---------------------------------------------------------------- προώθηση μεταφόρτωσης
+function retBox(p) {
+  const box = el("form", "box"); box.autocomplete = "off";
+  const from = field(box, "Επιστροφή στο σταθμό", inp(p.origin_city || "", { placeholder: "π.χ. ΠΑΤΡΑ" })); from.setAttribute("list", "cities");
+  const when = dtFields(box, "Δρομολόγιο — ημερομηνία", "Ώρα αναχώρησης (24ωρη)", null);
+  const bus = field(box, "Αριθμός λεωφορείου", inp("", { className: "mono", placeholder: "π.χ. ΑΙΑ 1234 ή 25", autocapitalize: "characters" }));
+  const note = field(box, "Αιτία / σημείωση", inp("", { placeholder: "π.χ. δεν το παρέλαβε" }));
+  const msg = el("div", "msg warn wide"); msg.hidden = true; box.append(msg);
+  const acts = el("div", "formactions"); const ok = el("button", "btn primary", "↩ Καταχώρηση επιστροφής"); ok.type = "submit";
+  const cancel = el("button", "btn", "Ακύρωση"); cancel.type = "button"; cancel.onclick = () => { openBox = { id: null }; render(); };
+  acts.append(ok, cancel); box.append(acts);
+  box.onsubmit = async e => { e.preventDefault(); if (needOperator()) return;
+    const d = norm(from.value); if (!d) { msg.textContent = "Γράψε τον σταθμό αποστολής."; msg.hidden = false; return; }
+    const at = when.get(); if (!at) { msg.textContent = "Βάλε ημερομηνία και ώρα (24ωρη, π.χ. 17:30)."; msg.hidden = false; return; }
+    ok.disabled = true;
+    try { const now = new Date().toISOString(); await updateParcel(p.id, { status: "returned", status_at: now, fwd_at: now, fwd_destination: d, fwd_departure_at: at, fwd_bus: bus.value.trim().toUpperCase() || null, fwd_note: note.value.trim() || null, origin_city: p.origin_city || d });
+      openBox = { id: null }; show($("formMsg"), "Καταχωρήθηκε η επιστροφή προς " + d + ".", "ok"); render(); }
+    catch { ok.disabled = false; msg.textContent = "Δεν αποθηκεύτηκε. Δοκίμασε ξανά."; msg.hidden = false; } };
+  return box;
+}
 function fwdBox(p) {
   const box = el("form", "box"); box.autocomplete = "off";
   const dest = field(box, "Προορισμός", inp(p.fwd_destination || p.destination_city)); dest.setAttribute("list", "cities");
-  const when = field(box, away(p) ? "Ημέρα & ώρα δρομολογίου" : "Αναχώρηση από Αγρίνιο", inp(toLocalInput(p.fwd_departure_at || undefined), { type: "datetime-local" }));
+  const when = dtFields(box, away(p) ? "Δρομολόγιο — ημερομηνία" : "Αναχώρηση από Αγρίνιο — ημερομηνία", "Ώρα (24ωρη)", p.fwd_departure_at);
   const bus = field(box, "Αριθμός λεωφορείου", inp(p.fwd_bus || "", { className: "mono", placeholder: "π.χ. ΑΙΑ 1234 ή 25", autocapitalize: "characters" }));
   const note = field(box, "Σημείωση", inp(p.fwd_note || "", { placeholder: "π.χ. οδηγός" }));
   const seen = new Set(); const q = el("div", "quick wide");
   [...rows.values()].filter(x => x.fwd_departure_at && norm(x.fwd_destination) === norm(dest.value)).sort((a, b) => String(b.fwd_at).localeCompare(String(a.fwd_at)))
-    .forEach(x => { const k = fmtGr(x.fwd_departure_at) + (x.fwd_bus ? " · " + x.fwd_bus : ""); if (seen.size < 3 && !seen.has(k)) { seen.add(k); const b = el("button", "btn small", "↻ " + k); b.type = "button"; b.onclick = () => { when.value = toLocalInput(x.fwd_departure_at); if (x.fwd_bus) bus.value = x.fwd_bus; }; q.append(b); } });
+    .forEach(x => { const k = fmtGr(x.fwd_departure_at) + (x.fwd_bus ? " · " + x.fwd_bus : ""); if (seen.size < 3 && !seen.has(k)) { seen.add(k); const b = el("button", "btn small", "↻ " + k); b.type = "button"; b.onclick = () => { when.set(x.fwd_departure_at); if (x.fwd_bus) bus.value = x.fwd_bus; }; q.append(b); } });
   if (q.childNodes.length) box.append(el("div", "hint wide", "Ίδιο δρομολόγιο με προηγούμενα δέματα:"), q);
   const msg = el("div", "msg warn wide"); msg.hidden = true; box.append(msg);
   const acts = el("div", "formactions"); const ok = el("button", "btn primary", "Καταχώρηση αποστολής"); ok.type = "submit";
@@ -667,9 +695,9 @@ function fwdBox(p) {
   acts.append(ok, cancel); box.append(acts);
   box.onsubmit = async e => { e.preventDefault(); if (needOperator()) return;
     const d = norm(dest.value); if (!d || d === HOME) { msg.textContent = "Γράψε τον προορισμό."; msg.hidden = false; return; }
-    if (!when.value) { msg.textContent = "Διάλεξε ημέρα και ώρα."; msg.hidden = false; return; }
+    const at = when.get(); if (!at) { msg.textContent = "Βάλε ημερομηνία και ώρα (24ωρη, π.χ. 17:30)."; msg.hidden = false; return; }
     ok.disabled = true;
-    try { const now = new Date().toISOString(); await updateParcel(p.id, { status: "forwarded", status_at: now, fwd_at: now, fwd_destination: d, fwd_departure_at: new Date(when.value).toISOString(), fwd_bus: bus.value.trim().toUpperCase() || null, fwd_note: note.value.trim() || null });
+    try { const now = new Date().toISOString(); await updateParcel(p.id, { status: "forwarded", status_at: now, fwd_at: now, fwd_destination: d, fwd_departure_at: at, fwd_bus: bus.value.trim().toUpperCase() || null, fwd_note: note.value.trim() || null });
       openBox = { id: null }; show($("formMsg"), "Καταχωρήθηκε η αποστολή προς " + d + ".", "ok"); render(); }
     catch { ok.disabled = false; msg.textContent = "Δεν αποθηκεύτηκε. Δοκίμασε ξανά."; msg.hidden = false; } };
   return box;
