@@ -307,7 +307,7 @@ function render() {
 
   // μαζική ειδοποίηση
   const toN = all.filter(p => p.status === "arrived" && phoneOk(p)).length;
-  $("bulkBar").hidden = !toN && !bulk; $("bulkSmsBtn").hidden = !smsReady; $("bulkBtn").textContent = bulk ? "Σταμάτημα" : "Ειδοποίηση όλων (" + toN + ")";
+  $("bulkBar").hidden = !toN && !bulk; $("bulkSmsBtn").hidden = !(smsOn() && smsReady); renderSmsToggle(); $("bulkBtn").textContent = bulk ? "Σταμάτημα" : "Ειδοποίηση όλων (" + toN + ")";
   $("bulkHint").textContent = bulk ? "Πάτα κανάλι και ανοίγει το επόμενο." : "Δέματα με τηλέφωνο που δεν έχουν ειδοποιηθεί.";
 
   const lt = lastTrip(); $("sameTripBtn").hidden = !lt || !!editingId;
@@ -406,7 +406,10 @@ function notifyBox(p) {
     link("WhatsApp", () => "https://wa.me/30" + ph + "?text=" + encodeURIComponent(ta.value), "whatsapp", "primary", () => setChannel(p, "whatsapp"));
     link("Viber", () => "viber://chat?number=%2B30" + ph + "&draft=" + encodeURIComponent(ta.value), "viber", "", async () => { setChannel(p, "viber"); try { await navigator.clipboard.writeText(ta.value); } catch {} });
     const smsText = () => fillTemplate(settings.sms_template || "ΚΤΕΛ Αγρινίου: το δέμα σας{αρ} ήρθε. Κωδ. {κωδ}. Παραλαβή 06:30-21:30 ή delivery 3,50€ στο 6979334186", p);
-    if (smsReady && /^69/.test(ph)) {
+    if (!smsOn()) {
+      const call = el("a", "btn small", "✗ Ούτε WhatsApp ούτε Viber → 📞 Κλήση"); call.href = "tel:+30" + ph;
+      call.onclick = async () => { await setTagCalled(p); }; sms.append(call);
+    } else if (smsReady && /^69/.test(ph)) {
       const auto = el("button", "btn small", "✗ Ούτε WhatsApp ούτε Viber → 📩 SMS αυτόματα"); auto.type = "button";
       auto.onclick = async () => { auto.disabled = true; smsMsg.textContent = "Αποστολή SMS…";
         const r = await sendSms(p, smsText());
@@ -432,7 +435,15 @@ function notifyBox(p) {
 }
 // ---------------------------------------------------------------- κανάλια & SMS
 let smsReady = false; const chCache = new Map();
+const smsOn = () => settings.sms_enabled === true;
+async function setTagCalled(p) {
+  const tags = [...new Set([...(p.tags || []), "Ειδοποιήθηκε τηλεφωνικά"])];
+  await updateParcel(p.id, { tags, status: "notified", status_at: new Date().toISOString(), notified_at: new Date().toISOString(), notify_count: (p.notify_count || 0) + 1, notify_channel: "call" }).catch(() => {});
+  openBox = bulk ? { id: nextToNotify(p.id), kind: "notify" } : { id: null }; if (!openBox.id) bulk = false; render();
+}
+function renderSmsToggle() { $("smsToggle").textContent = smsOn() ? "📩 SMS: ΕΝΕΡΓΑ (πάτα για απενεργοποίηση)" : "📩 SMS: ανενεργά (πάτα για ενεργοποίηση)"; }
 async function checkSms() {
+  if (!smsOn()) { smsReady = false; return; }
   try { const r = await fetch(SUPABASE_URL + "/functions/v1/send-sms?health=1", { headers: { apikey: SUPABASE_KEY } }); const j = await r.json(); smsReady = !!j.ready; } catch { smsReady = false; }
 }
 async function getChannel(p) {
@@ -457,6 +468,16 @@ async function bulkSms() {
   const list = [...rows.values()].filter(p => p.status === "arrived" && /^69/.test(p.recipient_phone || "") && smsIds.has(p.customer_id) && !(p.phone_source === "handwritten" && !p.phone_confirmed));
   return list;
 }
+$("smsToggle").onclick = async () => {
+  const on = !smsOn();
+  if (on && !confirmSms()) return;
+  const { error } = await sb.from("app_settings").update({ sms_enabled: on }).eq("id", 1);
+  if (error) { show($("formMsg"), "Δεν άλλαξε ο διακόπτης SMS. Έχει τρέξει το 0006 στη βάση;", "bad"); return; }
+  settings.sms_enabled = on; await checkSms(); render();
+};
+let smsAsk = 0;
+function confirmSms() { if (Date.now() - smsAsk < 6000) return true; smsAsk = Date.now();
+  $("smsToggle").textContent = "Σίγουρα; Πάτα ξανά για ενεργοποίηση SMS"; return false; }
 $("bulkSmsBtn").onclick = async () => {
   if (needOperator()) return; const b = $("bulkSmsBtn"); b.disabled = true;
   const list = await bulkSms(); if (!list.length) { $("bulkHint").textContent = "Κανένα δέμα για αυτόματο SMS (πελάτες που έχουν μόνο SMS)."; b.disabled = false; return; }
