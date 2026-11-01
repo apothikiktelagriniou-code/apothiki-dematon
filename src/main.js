@@ -2,7 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { SUPABASE_URL, SUPABASE_KEY } from "./config.js";
 import {
   HOME, norm, shelfFor, cleanPhone, fmtPhone, parseGrDate, fmtGr, toLocalInput, money, hoursSince, daysSince,
-  tripsOf, tripLabel, sortTrips, isClosed, isTransit, parseLabel, fillTemplate, toCSV, cleanIdDoc,
+  tripsOf, tripLabel, sortTrips, isClosed, isTransit, parseLabel, fillTemplate, toCSV, cleanIdDoc, sameReceipt,
 } from "./lib.js";
 import { initCapture } from "./capture.js";
 import { openManifest } from "./manifest.js";
@@ -46,7 +46,7 @@ async function boot() {
   subscribe();
   loadNotes();
   initCapture({ sb, operator, needOperator, findCustomers, linkCustomer, lastTrip, settings: () => settings,
-    receiptExists: rn => [...rows.values()].some(p => p.receipt_no === rn),
+    receiptExists: rn => [...rows.values()].some(p => sameReceipt(p.receipt_no, rn)),
     onSaved: p => { rows.set(p.id, p); scheduleRender(); } });
 }
 $("loginForm").onsubmit = async e => {
@@ -579,7 +579,7 @@ $("noteForm").onsubmit = async e => { e.preventDefault(); const t = $("noteInput
   await sb.from("shift_notes").insert({ text: t, operator: operator() || null }); $("noteInput").value = ""; loadNotes(); };
 
 // ---------------------------------------------------------------- πελάτες (προβολή)
-$("manifestBtn").onclick = () => { $("manifestBtn").closest("details").open = false; openManifest({ sb, operator, rows: () => [...rows.values()] }); };
+$("manifestBtn").onclick = () => { $("manifestBtn").closest("details").open = false; openManifest({ sb, operator, needOperator, linkCustomer, rows: () => [...rows.values()], onSaved: p => { rows.set(p.id, p); scheduleRender(); } }); };
 $("customersBtn").onclick = async () => {
   $("customersBtn").closest("details").open = false;
   const body = $("dlgBody"); body.textContent = ""; body.append(el("h2", null, "Πελάτες"));

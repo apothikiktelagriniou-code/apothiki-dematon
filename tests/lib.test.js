@@ -136,3 +136,18 @@ test("σύγκριση κατάστασης: απόδειξη, όνομα, λε�
   assert.deepEqual(r.missing.map(m => m.recipient), ["Παπάς", "Κώστα"]);
   assert.deepEqual(r.extra.map(x => x.id).sort(), ["c", "d", "e"]);
 });
+
+import { sameReceipt, cityFromStation } from "../src/lib.js";
+test("φορτωτική κατάστασης = απόδειξη ετικέτας", () => {
+  assert.equal(sameReceipt("2-255-349-11663", "255-349-11663"), true);
+  assert.equal(sameReceipt("258-341-23682", "258-341-23682"), true);
+  assert.equal(sameReceipt("2-255-349-11663", "255-349-11664"), false);
+  assert.equal(sameReceipt("123", "123"), false);
+  assert.equal(reconcile([{ receipt_no: "2-255-349-11663", recipient: "ΑΠΟΣΤΟΛΟΠΟΥΛΟΣ" }], [{ id: "x", receipt_no: "255-349-11663", recipient_name: "ΑΠΟΣΤΟΛΟΠΟΥΛΟΣ" }]).found.length, 1);
+});
+test("σταθμός → πόλη", () => {
+  assert.equal(cityFromStation("ΣΤΑΘΜΟΣ ΑΓΡΙΝΙΟΥ"), "ΑΓΡΙΝΙΟ");
+  assert.equal(cityFromStation("ΚΤΕΛ ΝΑΥΠΑΚΤΟΥ"), "ΝΑΥΠΑΚΤΟΣ");
+  assert.equal(cityFromStation("ΘΕΣΣΑΛΟΝΙΚΗ_ΣΤΑΘΜΟΣ"), "ΘΕΣΣΑΛΟΝΙΚΗ");
+  assert.equal(cityFromStation("ΣΤΑΘΜΟΣ ΑΓΡΙΝΙ"), "ΑΓΡΙΝΙΟ");
+});

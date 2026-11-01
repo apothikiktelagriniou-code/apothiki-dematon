@@ -183,6 +183,23 @@ export function extractedToParcel(d) {
  * Ταίριασμα: 1) αριθμός απόδειξης (σίγουρο) 2) επώνυμο + πόλη (πιθανό, μόνο αν μοναδικό).
  * extra: δέματα του ίδιου δρομολογίου που δεν υπάρχουν στην κατάσταση.
  */
+/** Ίδιος αριθμός απόδειξης/φορτωτικής; Η κατάσταση γράφει «2-255-349-11663», η ετικέτα «255-349-11663». */
+export function sameReceipt(a, b) {
+  const x = String(a || "").replace(/\D/g, ""), y = String(b || "").replace(/\D/g, "");
+  if (x.length < 8 || y.length < 8) return false;
+  if (x === y) return true;
+  const [s, l] = x.length < y.length ? [x, y] : [y, x];
+  return s.length >= 10 && l.length - s.length <= 2 && l.endsWith(s);
+}
+/** «ΣΤΑΘΜΟΣ ΑΓΡΙΝΙΟΥ» → ΑΓΡΙΝΙΟ, «ΚΤΕΛ ΝΑΥΠΑΚΤΟΥ» → ΝΑΥΠΑΚΤΟΣ, «ΘΕΣΣΑΛΟΝΙΚΗ_ΣΤΑΘΜΟΣ» → ΘΕΣΣΑΛΟΝΙΚΗ */
+export function cityFromStation(s) {
+  const stop = new Set(["ΚΤΕΛ", "ΣΤΑΘΜΟΣ", "ΣΤΑΘΜΟΥ", "ΠΡΑΚΤΟΡΕΙΟ", "ΠΡΑΚΤΟΡΕΙΟΥ"]);
+  const t = norm(String(s || "").replace(/_/g, " ")).split(" ").filter(w => w && !stop.has(w)).join(" ");
+  const known = ["ΑΓΡΙΝΙΟ", "ΑΘΗΝΑ", "ΘΕΣΣΑΛΟΝΙΚΗ", "ΠΑΤΡΑ", "ΙΩΑΝΝΙΝΑ", "ΠΡΕΒΕΖΑ", "ΑΡΤΑ", "ΛΕΥΚΑΔΑ", "ΜΕΣΟΛΟΓΓΙ", "ΝΑΥΠΑΚΤΟΣ", "ΑΜΦΙΛΟΧΙΑ", "ΑΙΤΩΛΙΚΟ", "ΒΟΝΙΤΣΑ", "ΑΣΤΑΚΟΣ", "ΘΕΡΜΟ", "ΛΑΜΙΑ", "ΛΑΡΙΣΑ", "ΒΟΛΟΣ", "ΚΟΖΑΝΗ"];
+  const k = known.find(c => t === c || t.startsWith(c.slice(0, Math.max(4, c.length - 2))));
+  return k || t;
+}
+
 export function reconcile(items, parcels, trip = null) {
   const used = new Set(), found = [], missing = [];
   const digits = s => String(s || "").replace(/\D/g, "");
@@ -190,7 +207,7 @@ export function reconcile(items, parcels, trip = null) {
   for (const it of items) {
     let p = null, how = "";
     const rd = digits(it.receipt_no);
-    if (rd.length >= 8) { p = parcels.find(x => !used.has(x.id) && digits(x.receipt_no) === rd); if (p) how = "receipt"; }
+    if (rd.length >= 8) { p = parcels.find(x => !used.has(x.id) && sameReceipt(x.receipt_no, it.receipt_no)); if (p) how = "receipt"; }
     if (!p && surname(it.recipient)) {
       const c = parcels.filter(x => !used.has(x.id) && surname(x.recipient_name) === surname(it.recipient) && (!trip || !trip.origin || x.origin_city === trip.origin));
       const full = c.filter(x => norm(x.recipient_name) === norm(it.recipient));

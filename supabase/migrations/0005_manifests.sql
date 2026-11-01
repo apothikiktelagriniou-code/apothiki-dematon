@@ -17,4 +17,7 @@ create table if not exists public.manifests (
 alter table public.manifests enable row level security;
 drop policy if exists staff_all on public.manifests;
 create policy staff_all on public.manifests for all to authenticated using (true) with check (true);
+-- δέματα που καταχωρούνται απευθείας από κατάσταση
+alter table public.parcels drop constraint if exists parcels_source_check;
+alter table public.parcels add constraint parcels_source_check check (source in ('photo_auto','photo_reviewed','manual','import','manifest'));
 select 'OK — προστέθηκαν οι καταστάσεις πρακτορείων' as αποτέλεσμα;
