@@ -7,6 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Αποθήκη">
 <title>Αποθήκη Δεμάτων</title>
+<script>try{var t=localStorage.getItem("theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t;}catch(e){}</script>
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" href="./icon-192.png">
 <link rel="apple-touch-icon" href="./icon-192.png">
@@ -36,6 +37,7 @@
     </div>
     <div class="hdr-right">
       <button class="btn small op" id="opBtn" type="button">👤 <span id="opName">—</span><span class="opchg"> · αλλαγή</span></button>
+      <button class="btn small" id="themeBtn" type="button" aria-label="Φωτεινό / σκούρο θέμα" title="Φωτεινό / σκούρο">🌙</button>
       <details class="menu">
         <summary class="btn small">☰ Μενού</summary>
         <div class="menu-pop">

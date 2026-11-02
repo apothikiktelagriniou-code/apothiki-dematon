@@ -6,10 +6,14 @@
   --mono:ui-monospace,"SF Mono","Cascadia Mono","Roboto Mono",monospace;
   color-scheme:light;
 }
-@media (prefers-color-scheme: dark){:root{
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
   --bg:#0E151B; --surface:#16202A; --fg:#E6ECF0; --muted:#9AA8B3; --line:#2A3743;
   --navy:#8FB4DE; --teal:#4FC1D6; --teal-soft:#14303A; --on-accent:#0E151B;
   --ok:#6FD39A; --ok-soft:#163324; --warn:#F2B866; --warn-soft:#3A2B12; --bad:#F2928B; --bad-soft:#3D1B19; --info-soft:#1C2A3A; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0E151B; --surface:#16202A; --fg:#E6ECF0; --muted:#9AA8B3; --line:#2A3743;
+  --navy:#8FB4DE; --teal:#4FC1D6; --teal-soft:#14303A; --on-accent:#0E151B;
+  --ok:#6FD39A; --ok-soft:#163324; --warn:#F2B866; --warn-soft:#3A2B12; --bad:#F2928B; --bad-soft:#3D1B19; --info-soft:#1C2A3A; color-scheme:dark}
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 html,body{margin:0}
@@ -156,10 +160,14 @@ dialog.sheet[open]{display:flex;flex-direction:column;gap:10px}
   --r:16px; --r-sm:10px;
   --display:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans",sans-serif; --body:var(--display);
 }
-@media (prefers-color-scheme: dark){:root{
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
   --bg:#0B1219; --surface:#121C26; --surface-2:#17222E; --fg:#E7EDF3; --muted:#97A5B4; --line:#233140; --line-2:#1C2834;
   --navy:#9CC0EA; --navy-2:#BBD4F2; --teal:#52C6D8; --teal-soft:#123038;
   --shadow-sm:none; --shadow:0 0 0 1px rgba(255,255,255,.02)}}
+:root[data-theme="dark"]{
+  --bg:#0B1219; --surface:#121C26; --surface-2:#17222E; --fg:#E7EDF3; --muted:#97A5B4; --line:#233140; --line-2:#1C2834;
+  --navy:#9CC0EA; --navy-2:#BBD4F2; --teal:#52C6D8; --teal-soft:#123038;
+  --shadow-sm:none; --shadow:0 0 0 1px rgba(255,255,255,.02)}
 body{font-size:15px;-webkit-font-smoothing:antialiased;font-feature-settings:"cv11","ss01"}
 .wrap{gap:16px}
 /* κεφαλίδα */
@@ -179,7 +187,8 @@ h1{font-size:21px;letter-spacing:-.02em;line-height:1.15}
 .btn:hover{border-color:color-mix(in srgb,var(--navy) 35%,var(--line))}
 .btn:active{transform:translateY(1px)}
 .btn.primary{background:linear-gradient(180deg,var(--navy-2),var(--navy));border-color:var(--navy);color:var(--on-accent);box-shadow:0 1px 2px rgba(19,49,92,.3),0 4px 12px -4px rgba(19,49,92,.45)}
-@media (prefers-color-scheme: dark){.btn.primary{background:var(--navy);box-shadow:none}}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .btn.primary{background:var(--navy);box-shadow:none}}
+:root[data-theme="dark"] .btn.primary{background:var(--navy);box-shadow:none}
 .btn.primary:hover{filter:brightness(1.08)}
 .btn.small{border-radius:10px}
 .btn.big{min-height:64px;font-size:17px;letter-spacing:.01em;border-radius:14px}
@@ -323,5 +332,6 @@ header .btn{white-space:nowrap}
 .row.st-done::after{content:"ΠΑΡΑΔΟΘΗΚΕ";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) rotate(-14deg);
   font-family:var(--display);font-weight:900;font-size:clamp(28px,7vw,46px);letter-spacing:.12em;white-space:nowrap;
   color:var(--ok);opacity:.13;border:5px solid currentColor;border-radius:14px;padding:2px 18px;pointer-events:none;z-index:0}
-@media (prefers-color-scheme: dark){.row.st-done::after{opacity:.2}}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .row.st-done::after{opacity:.2}}
+:root[data-theme="dark"] .row.st-done::after{opacity:.2}
 .row.st-done>*{position:relative;z-index:1}

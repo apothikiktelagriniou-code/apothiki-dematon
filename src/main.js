@@ -23,6 +23,11 @@ let bulk = false, shelfManual = false, customerChoice = null;
 // ---------------------------------------------------------------- χειριστής
 const operator = () => store.get("operator");
 const STAFF = [...$("opInput").options].map(o => o.value).filter(Boolean);
+// ---------------------------------------------------------------- θέμα (φωτεινό / σκούρο)
+function curTheme() { const t = document.documentElement.dataset.theme; return t || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"); }
+function paintThemeBtn() { const d = curTheme() === "dark"; $("themeBtn").textContent = d ? "☀️" : "🌙"; $("themeBtn").title = d ? "Φωτεινό θέμα" : "Σκούρο θέμα"; }
+$("themeBtn").onclick = () => { const t = curTheme() === "dark" ? "light" : "dark"; document.documentElement.dataset.theme = t; try { localStorage.setItem("theme", t); } catch {} paintThemeBtn(); };
+paintThemeBtn();
 function renderOperator() {
   if (operator() && !STAFF.includes(operator())) store.set("operator", "");
   $("opName").textContent = operator() || "όνομα;";
