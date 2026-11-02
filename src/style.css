@@ -336,3 +336,8 @@ header .btn{white-space:nowrap}
 :root[data-theme="dark"] .row.st-done::after,:root[data-theme="dark"] .row.st-forwarded::after{opacity:.2}
 .row.st-done>*,.row.st-forwarded>*{position:relative;z-index:1}
 .row.st-forwarded::after{content:"ΠΡΟΩΘΗΘΗΚΕ"}
+/* δέμα από ειδοποίηση: κόκκινο περίγραμμα */
+.row.flag{border:2px solid var(--bad)!important;box-shadow:0 0 0 4px color-mix(in srgb,var(--bad) 18%,transparent)}
+.row.flash{animation:flash 1.2s ease-out 2}
+@keyframes flash{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--bad) 55%,transparent)}100%{box-shadow:0 0 0 14px transparent}}
+@media (prefers-reduced-motion: reduce){.row.flash{animation:none}}

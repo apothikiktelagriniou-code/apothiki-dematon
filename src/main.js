@@ -363,6 +363,13 @@ const sameDay = (iso, d) => iso && new Date(iso).toDateString() === d;
 const phoneOk = p => !!p.recipient_phone;
 
 const away = p => !!p.bypassed;
+let focusKind = null, focusIdx = 0;
+const ALERT_PRED = {
+  transit: p => p.status === "transit",
+  remind: p => needsRemind(p),
+  hw: p => !isClosed(p) && p.phone_source === "handwritten" && !p.phone_confirmed,
+  cod: p => p.cod_amount_eur > 0 && !p.cod_collected && !isClosed(p),
+};
 function matches(p) {
   const qq = $("q").value.trim();
   if (filter === "bypassed") { if (!(away(p) && !isTransit(p))) return false; }
@@ -400,13 +407,19 @@ function render() {
 
   // ειδοποιήσεις κορυφής
   const al = $("alerts"); al.textContent = "";
-  const addAlert = (text, cls, f) => { const b = el("button", "msg " + cls + " alert", text); b.type = "button";
-    b.onclick = () => { setFilter(f); cityFilter = ""; tripFilter = ""; render(); $("list").scrollIntoView({ behavior: "smooth" }); }; al.append(b); };
+  // πάτημα σε ειδοποίηση → πάει στο (επόμενο) δέμα και το σημαδεύει με κόκκινο περίγραμμα
+  const addAlert = (text, cls, kind) => { const n = all.filter(ALERT_PRED[kind]).length;
+    const b = el("button", "msg " + cls + " alert", text + (focusKind === kind && n > 1 ? "  · " + ((focusIdx % n) + 1) + "/" + n + " — πάτα για το επόμενο" : "  ›")); b.type = "button";
+    b.onclick = () => { if (focusKind === kind) focusIdx++; else { focusKind = kind; focusIdx = 0; }
+      setFilter("all"); cityFilter = ""; tripFilter = ""; $("q").value = ""; openBox = { id: null }; render();
+      const t = [...document.querySelectorAll("#list .row.flag")]; if (!t.length) return;
+      const r = t[focusIdx % t.length]; r.scrollIntoView({ behavior: "smooth", block: "center" }); r.classList.remove("flash"); void r.offsetWidth; r.classList.add("flash"); };
+    al.append(b); };
   const pendTr = all.filter(p => p.status === "transit");
   if (pendTr.length) { const late = pendTr.filter(lateTransit); const dests = [...new Set(pendTr.map(p => p.destination_city))].join(", ");
     addAlert((late.length ? "⚠ " : "⇄ ") + pendTr.length + " μεταφορτώσεις περιμένουν προώθηση (" + dests + ")" + (late.length ? " · " + late.length + " καθυστερούν" : "") + ".", late.length ? "bad" : "warn", "transit"); }
   const rem = all.filter(needsRemind).length; if (rem) addAlert("🔔 " + rem + " δέματα θέλουν υπενθύμιση.", "info", "remind");
-  const hw = all.filter(p => !isClosed(p) && p.phone_source === "handwritten" && !p.phone_confirmed).length; if (hw) addAlert("✍ " + hw + " τηλέφωνα από χειρόγραφο θέλουν επιβεβαίωση.", "warn", "tonotify");
+  const hw = all.filter(p => !isClosed(p) && p.phone_source === "handwritten" && !p.phone_confirmed).length; if (hw) addAlert("✍ " + hw + " τηλέφωνα από χειρόγραφο θέλουν επιβεβαίωση.", "warn", "hw");
   const cod = all.filter(p => p.cod_amount_eur > 0 && !p.cod_collected && !isClosed(p)).length; if (cod) addAlert("💶 " + cod + " δέματα με είσπραξη από τον παραλήπτη.", "warn", "cod");
 
   // πόλεις
@@ -453,7 +466,7 @@ function render() {
 
 function card(p) {
   const tr = isTransit(p);
-  const row = el("article", "row st-" + p.status + (p.origin_city ? " has-city" : "") + (tr ? " is-transit" : "")); row.id = "row-" + p.id;
+  const row = el("article", "row" + (focusKind && ALERT_PRED[focusKind](p) ? " flag" : "") + " st-" + p.status + (p.origin_city ? " has-city" : "") + (tr ? " is-transit" : "")); row.id = "row-" + p.id;
   if (p.origin_city) row.style.setProperty("--cc", cityColor(p.origin_city));
   const left = el("div"); left.style.minWidth = "0";
   const top = el("div", "top");
@@ -526,7 +539,7 @@ function card(p) {
 }
 
 function setFilter(f) { filter = f; document.querySelectorAll(".chip").forEach(x => x.setAttribute("aria-pressed", String(x.dataset.f === f))); }
-document.querySelectorAll(".chip").forEach(c => c.onclick = () => { setFilter(c.dataset.f); render(); });
+document.querySelectorAll(".chip").forEach(c => c.onclick = () => { focusKind = null; setFilter(c.dataset.f); render(); });
 $("q").addEventListener("input", scheduleRender);
 const dayKey = d => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
 const shiftDay = n => { const [y, mo, d] = tripDay.split("-").map(Number); tripDay = dayKey(new Date(y, mo - 1, d + n)); tripFilter = ""; render(); };
