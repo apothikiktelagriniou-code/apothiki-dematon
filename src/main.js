@@ -254,7 +254,11 @@ function readForm() {
     sender_name: v("sender_name") || null, package_desc: v("package_desc") || null, item: v("item") || null, cod_amount_eur: cod, notes: v("notes") || null,
     pieces_total: Math.max(1, parseInt(v("pieces_total"), 10) || 1), pieces_in: Math.max(0, parseInt(v("pieces_in"), 10) || 1),
   };
-  o.phone_confirmed = o.phone_source !== "handwritten";
+  // Όποιος αποθηκεύει τη φόρμα έχει δει το τηλέφωνο μπροστά του → μετράει ως επιβεβαίωση.
+  // Αν το άλλαξε με το χέρι, δεν είναι πια «χειρόγραφο από AI».
+  const prev = editingId && rows.get(editingId);
+  if (prev && o.phone_source === "handwritten" && o.recipient_phone !== prev.recipient_phone) o.phone_source = "manual";
+  o.phone_confirmed = true;
   return o;
 }
 $("form").addEventListener("submit", async e => {
@@ -469,7 +473,10 @@ function card(p) {
   line("Αναχώρηση", p.origin_city ? "από " + p.origin_city : "", p.departure_at ? fmtGr(p.departure_at) : "—");
   line("Καταχώρηση", fmtGr(p.created_at), p.notified_at && !isClosed(p) ? "· Ειδοπ. " + fmtGr(p.notified_at) + (p.notify_count > 1 ? " (" + p.notify_count + "×)" : "") : "");
   let ph = null;
-  if (p.recipient_phone) { ph = el("span", null, "📞 " + fmtPhone(p.recipient_phone)); if (p.phone_source === "handwritten") ph.append(" ", el("span", "badge", p.phone_confirmed ? "✍ ✓" : "✍ χειρόγραφο")); if (p.phone_source === "customer_db") ph.append(" ", el("span", "badge", "📇")); }
+  if (p.recipient_phone) { ph = el("span", null, "📞 " + fmtPhone(p.recipient_phone)); if (p.phone_source === "handwritten") {
+    if (p.phone_confirmed) ph.append(" ", el("span", "badge", "✍ ✓"));
+    else { const c = el("button", "btn small pkgbtn hwok", "✍ χειρόγραφο · Σωστό ✓"); c.type = "button"; c.title = "Έλεγξα το τηλέφωνο πάνω στο δέμα"; c.onclick = () => updateParcel(p.id, { phone_confirmed: true }).catch(() => show($("formMsg"), "Δεν αποθηκεύτηκε. Δοκίμασε ξανά.", "bad")); ph.append(" ", c); }
+  } if (p.phone_source === "customer_db") ph.append(" ", el("span", "badge", "📇")); }
   line("Απόδειξη", el("span", "mono", p.receipt_no || "—"));
   if (ph) line("Τηλέφωνο", ph);
   const canPhoto = !isClosed(p) && p.status !== "not_arrived";
