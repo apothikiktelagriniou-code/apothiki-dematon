@@ -247,7 +247,7 @@ const FIELDS = ["receipt_no", "parcel_code", "kind", "origin_city", "destination
 function clearForm() {
   for (const f of FIELDS) { const e = $(f); e.classList.remove("ai"); if (e.tagName === "SELECT") e.selectedIndex = 0; else e.value = ""; delete e.dataset.src; }
   editingId = null; shelfManual = false; customerChoice = null; $("custHint").textContent = ""; $("destHint").textContent = "";
-  $("saveBtn").textContent = "Αποθήκευση"; show($("editMsg"), "", "info"); ["departure_d", "departure_t", "issued_d", "issued_t", "ret_d", "ret_t", "ret_bus", "ret_note"].forEach(i => { $(i).value = ""; }); $("ret_on").checked = false; $("retSet").hidden = true; $("retFields").hidden = true;
+  $("saveBtn").textContent = "Αποθήκευση"; show($("editMsg"), "", "info"); ["departure_d", "departure_t", "issued_d", "issued_t", "ret_d", "ret_t", "ret_bus", "ret_note"].forEach(i => { $(i).value = ""; }); $("delBtn").hidden = true; $("ret_on").checked = false; $("retSet").hidden = true; $("retFields").hidden = true;
 }
 function fillForm(o, ai) {
   for (const f of FIELDS) if (o[f] != null && o[f] !== "") { $(f).value = o[f]; if (ai) $(f).classList.add("ai"); }
@@ -267,6 +267,20 @@ $("shelf").addEventListener("input", () => { shelfManual = !!$("shelf").value.tr
 $("recipient_phone").addEventListener("input", () => { $("recipient_phone").dataset.src = "manual"; });
 for (const f of FIELDS) $(f).addEventListener("input", e => e.target.classList.remove("ai"));
 $("clearBtn").onclick = () => { clearForm(); $("editDlg").close(); };
+// διαγραφή λάθος καταχώρησης (2 πατήματα) — μένει σημείωση στη βάρδια για το ποιος/τι σβήστηκε
+$("delBtn").onclick = async () => {
+  const p = editingId && rows.get(editingId); if (!p || needOperator()) return;
+  const b = $("delBtn");
+  if (!b.dataset.sure) { b.dataset.sure = "1"; b.textContent = "Σίγουρα; Πάτα ξανά για οριστική διαγραφή"; show($("editMsg"), "Η διαγραφή δεν αναιρείται. Θα σβηστεί το δέμα " + (p.recipient_name || "") + (p.receipt_no ? " (" + p.receipt_no + ")" : "") + " και το ιστορικό του.", "bad"); return; }
+  b.disabled = true;
+  try {
+    if (p.package_photo_path) await sb.storage.from("packages").remove([p.package_photo_path]).catch(() => {});
+    const { error } = await sb.from("parcels").delete().eq("id", p.id); if (error) throw error;
+    sb.from("shift_notes").insert({ text: "🗑 Διαγράφηκε λάθος καταχώρηση: " + (p.recipient_name || "—") + (p.receipt_no ? " (απόδ. " + p.receipt_no + ")" : "") + (p.origin_city ? " από " + p.origin_city : "") + (isTransit(p) ? " → " + p.destination_city : "") + " · " + (operator() || ""), operator: operator() || null, done: true }).then(() => {});
+    rows.delete(p.id); clearForm(); $("editDlg").close(); show($("formMsg"), "🗑 Διαγράφηκε: " + (p.recipient_name || p.receipt_no || "δέμα") + ".", "ok"); render();
+  } catch (e) { console.error(e); show($("editMsg"), "Δεν διαγράφηκε. Δοκίμασε ξανά.", "bad"); }
+  finally { b.disabled = false; }
+};
 $("editClose").onclick = () => { clearForm(); $("editDlg").close(); };
 $("newManualBtn").onclick = () => { if (needOperator()) return; clearForm(); setDT("departure", null); $("departure_d").value = tripDay || ""; $("issued_d").value = tripDay || ""; $("editTitle").textContent = "Νέο δέμα (χωρίς φωτογραφία)"; render(); $("editDlg").showModal(); $("recipient_name").focus(); };
 
@@ -379,6 +393,7 @@ function startEdit(p) {
   $("ret_bus").value = isRet ? p.fwd_bus || "" : ""; $("ret_note").value = isRet ? p.fwd_note || "" : ""; syncRet();
   shelfManual = !!p.shelf_manual; if (p.phone_source) $("recipient_phone").dataset.src = p.phone_source;
   $("saveBtn").textContent = "Αποθήκευση αλλαγών"; $("editTitle").textContent = "Επεξεργασία · " + (p.recipient_name || p.receipt_no || "δέμα");
+  const db = $("delBtn"); db.hidden = false; delete db.dataset.sure; db.textContent = "🗑 Διαγραφή δέματος";
   $("editDlg").showModal();
 }
 

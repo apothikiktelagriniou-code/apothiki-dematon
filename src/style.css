@@ -360,3 +360,5 @@ button.codb.dmg{border:0;cursor:pointer;font:inherit;font-size:12px;font-weight:
 .row.st-forwarded.pending::after{content:none}
 .fwdwait{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .fwdalert{display:flex;flex-wrap:wrap;gap:6px;align-items:center;text-align:left}
+.btn.danger{color:var(--bad);border-color:color-mix(in srgb,var(--bad) 45%,var(--line));margin-left:auto}
+.btn.danger:hover{background:var(--bad-soft)}
