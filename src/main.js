@@ -401,7 +401,10 @@ function render() {
   $("stToday").textContent = all.filter(p => sameDay(p.created_at, td)).length;
   $("stWaiting").textContent = open.filter(p => !isTransit(p)).length;
   $("stOld").textContent = open.filter(p => daysSince(p.created_at) >= (settings.old_parcel_days || 5)).length;
-  $("stTr").textContent = all.filter(p => p.status === "transit").length;
+  // μεταφορτώσεις της ημέρας: όσες ήρθαν ή στάλθηκαν σήμερα (και οι απευθείας), + πόσες περιμένουν ακόμα
+  const trToday = all.filter(p => (isTransit(p) || p.status === "forwarded") && p.status !== "returned" && (sameDay(p.created_at, td) || (p.fwd_at && sameDay(p.fwd_at, td))));
+  const trPend = all.filter(p => p.status === "transit").length;
+  $("stTr").textContent = trToday.length; $("stTrL").textContent = "Μεταφορτώσεις σήμερα" + (trPend ? " · " + trPend + " περιμένουν" : "");
   const doneToday = all.filter(p => p.status === "done" && sameDay(p.picked_up_at || p.status_at, td));
   $("stDone").textContent = doneToday.length; $("stHome").textContent = doneToday.filter(p => p.home_delivery).length;
 
