@@ -541,7 +541,9 @@ function card(p) {
   if (p.cod_amount_eur > 0 && !p.cod_collected) top.append(el("span", "codb", "💶 ΕΙΣΠΡΑΞΗ " + money(p.cod_amount_eur)));
   const pt = p.pieces_total || 1, pin = p.pieces_in ?? 1;
   if (pt > 1) top.append(el("span", pin < pt ? "codb" : "tag", "📦 " + pin + "/" + pt + " τεμ."));
-  if (p.damaged) top.append(el("span", "codb", "⚠ ΖΗΜΙΑ"));
+  if (p.damaged) { const ai = !(p.tags || []).includes("Παραλήφθηκε με φθορά");
+    const z = el("button", "codb dmg", ai ? "⚠ ΠΙΘΑΝΗ ΖΗΜΙΑ (AI) — έλεγξε" : "⚠ ΖΗΜΙΑ"); z.type = "button"; z.title = "Πάτα για να το δεις/αφαιρέσεις στις Παρατηρήσεις";
+    z.onclick = () => { openBox = { id: p.id, kind: "tags" }; render(); const r = $("row-" + p.id); r && r.scrollIntoView({ behavior: "smooth", block: "nearest" }); }; top.append(z); }
   if (away(p)) top.append(isTransit(p) ? el("span", "transit", "⇄ ΑΠΕΥΘΕΙΑΣ ΜΕΤΑΦΟΡΤΩΣΗ") : el("span", "codb", "🚫 ΔΕΝ ΗΡΘΕ ΣΤΗΝ ΑΠΟΘΗΚΗ"));
 
   // πληροφορίες σε σειρές: αναχώρηση / καταχώρηση / απόδειξη / ασυνόδευτο+κόμιστρο / υπάλληλος / παρατηρήσεις
@@ -878,6 +880,7 @@ const DEFAULT_TAGS = ["Παραλήφθηκε ανοιχτό", "Παραλήφθ
   "Ογκώδες / βαρύ", "Ευπαθές / τρόφιμα", "Λείπει τεμάχιο", "Θα το παραλάβει τρίτος", "Ειδοποιήθηκε τηλεφωνικά", "Επιστροφή στον αποστολέα"];
 function tagsBox(p) {
   const box = el("form", "box"); const sel = new Set(p.tags || []);
+  if (p.damaged) sel.add("Παραλήφθηκε με φθορά"); // ζημιά (και όταν την έβαλε το AI) → φαίνεται επιλεγμένη και ξετσεκάρεται από εδώ
   const wrap = el("div", "chips wide"); wrap.setAttribute("role", "group"); wrap.setAttribute("aria-label", "Παρατηρήσεις");
   const opts = [...new Set([...(settings.tag_options || DEFAULT_TAGS), ...sel])];
   opts.forEach(t => { const b = el("button", "chip", t); b.type = "button"; b.setAttribute("aria-pressed", String(sel.has(t)));
@@ -906,7 +909,7 @@ function tagsBox(p) {
   acts.append(ok, cancel); box.append(acts);
   box.onsubmit = async e => { e.preventDefault(); if (needOperator()) return; ok.disabled = true;
     const tags = [...sel]; const patch = { tags, notes: notes.value.trim() || null };
-    if (tags.includes("Παραλήφθηκε με φθορά")) patch.damaged = true;
+    patch.damaged = tags.includes("Παραλήφθηκε με φθορά");
     try { await updateParcel(p.id, patch); openBox = { id: null }; render(); }
     catch (err) { console.error(err); ok.disabled = false; ok.textContent = "Δεν αποθηκεύτηκε — ξαναδοκίμασε"; } };
   return box;

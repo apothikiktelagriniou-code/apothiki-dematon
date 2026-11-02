@@ -356,3 +356,4 @@ header .btn{white-space:nowrap}
 .oldstock span{font-size:13px;line-height:1.35}
 .oldstock.on{background:var(--warn-soft);border:2px solid var(--warn);color:var(--warn)}
 .tbar .ttype{flex:1 1 100%;font-size:12px;font-weight:700;color:var(--muted);text-align:left}
+button.codb.dmg{border:0;cursor:pointer;font:inherit;font-size:12px;font-weight:800}
