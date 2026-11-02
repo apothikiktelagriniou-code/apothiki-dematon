@@ -352,3 +352,7 @@ header .btn{white-space:nowrap}
 .dupbox{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-top:10px;display:flex;flex-direction:column;gap:6px}
 .dupa{color:var(--muted)}.dupb{font-weight:600}
 #dlg{max-height:90vh;overflow:auto}
+.oldstock{border:1px dashed var(--line);border-radius:12px;padding:8px 10px;align-items:flex-start;font-weight:500}
+.oldstock span{font-size:13px;line-height:1.35}
+.oldstock.on{background:var(--warn-soft);border:2px solid var(--warn);color:var(--warn)}
+.tbar .ttype{flex:1 1 100%;font-size:12px;font-weight:700;color:var(--muted);text-align:left}

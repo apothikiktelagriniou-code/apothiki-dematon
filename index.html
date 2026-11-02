@@ -23,6 +23,7 @@
     <div class="f"><label for="lgEmail">Email</label><input id="lgEmail" type="email" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" inputmode="email" required></div>
     <div class="f"><label for="lgPass">Κωδικός</label><input id="lgPass" type="password" autocomplete="current-password" autocapitalize="none" autocorrect="off" spellcheck="false" required>
       <label class="check"><input type="checkbox" id="lgShow"> Εμφάνιση κωδικού</label></div>
+    <label class="check"><input type="checkbox" id="lgRemember" checked> Να με θυμάσαι σε αυτή τη συσκευή</label>
     <button class="btn primary" type="submit" id="lgBtn">Σύνδεση</button>
     <div id="lgMsg" class="msg bad" hidden></div>
   </form>
@@ -93,6 +94,7 @@
         <label class="btn primary big" for="photos"><span class="cam">📷</span> Φωτογραφίες δεμάτων</label>
         <input id="photos" type="file" accept="image/*" multiple hidden>
         <div class="hint">Τράβα όσες ετικέτες θέλεις και πάτα «Αποστολή». Φωτογραφία ολόκληρου δέματος (προαιρετικά): «＋ δέμα» δίπλα στην ετικέτα ή αργότερα «📷 Φωτο δέματος» στην κάρτα. Στον υπολογιστή: σύρε τις φωτογραφίες εδώ ή Ctrl+V.</div>
+        <label class="check oldstock" id="oldStockL"><input type="checkbox" id="oldStock"> <span><b>Παλιό απόθεμα</b> — ημέρα άφιξης = ημερομηνία της ετικέτας (για δέματα που ήταν ήδη στην αποθήκη)</span></label>
         <div id="trayHint" class="hint" hidden></div>
         <div id="tray" class="tray"></div>
         <button type="button" class="btn primary" id="sendBtn" hidden>Αποστολή</button>

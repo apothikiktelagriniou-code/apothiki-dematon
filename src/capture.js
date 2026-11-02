@@ -90,7 +90,7 @@ async function send() {
       const imgs = await Promise.all([...lbl, ...(pr.pkg ? [pr.pkg.file] : [])].map(f => toJpegB64(f, 1600, 0.8)));
       const pkg = pr.pkg ? await toJpegB64(pr.pkg.file, 1200, 0.72) : null;
       const thumb = await toJpegB64((pr.label || pr.pkg).file, 1000, 0.6);
-      await obPut({ id: crypto.randomUUID(), batch, imgs, pkgIdx: pr.pkg ? lbl.length : -1, pkg, thumb, at: Date.now(), operator: D.operator() });
+      await obPut({ id: crypto.randomUUID(), batch, imgs, pkgIdx: pr.pkg ? lbl.length : -1, pkg, thumb, at: Date.now(), operator: D.operator(), old: $("oldStock").checked });
     } catch { /* χαλασμένη εικόνα */ }
   }
   all.forEach(ph => { URL.revokeObjectURL(ph.url); ph.extra.forEach(x => URL.revokeObjectURL(x.url)); });
@@ -135,7 +135,7 @@ async function processOne(it) {
     if (body.error === "missing_key") { show($("capMsg"), "Λείπει το κλειδί Anthropic στο Supabase (Edge Functions → Secrets → ANTHROPIC_API_KEY).", "bad"); return "offline"; }
     await toQueue(it, { notes: "Σφάλμα ανάγνωσης: " + (body.detail || body.error || ("HTTP " + st)) }, ["ai_unavailable"]); stats.review++; await obDel(it.id); return "review";
   }
-  const d = data.data;
+  const d = data.data; if (it.old) d.old_stock = true;
   // τηλέφωνο από αρχείο πελατών
   const custs = d.recipient ? (await D.findCustomers(d.recipient)).filter(c => (c.phones || []).length) : [];
   const ph = cleanPhone(d.phone);
@@ -154,7 +154,7 @@ async function processOne(it) {
     if (!ph && custs.length === 1) { p.recipient_phone = custs[0].phones[0]; p.phone_source = "customer_db"; p.phone_confirmed = true; }
     if (ph && d.phone_is_handwritten && custs.some(c => c.phones.includes(ph))) p.phone_confirmed = true;
     if (!ph && custs.length > 1) p.notes = [p.notes, "Βρέθηκαν " + custs.length + " πελάτες με αυτό το όνομα — διάλεξε τηλέφωνο."].filter(Boolean).join(" · ");
-    p.source = "photo_auto"; p.batch_id = it.batch; p.operator = it.operator; p.extraction_confidence = { unsure: d.unsure || [] };
+    applyOld(p, d); p.source = "photo_auto"; p.batch_id = it.batch; p.operator = it.operator; p.extraction_confidence = { unsure: d.unsure || [] };
     p.customer_id = custs.length === 1 ? custs[0].id : await D.linkCustomer(p.recipient_name, p.recipient_phone);
     const ins = await D.saveParcel(p);
     if (ins.error && ins.error.code === "23505" && (Number(d.pieces) || 1) > 1 && await addPiece()) return "ok";
@@ -163,6 +163,14 @@ async function processOne(it) {
   } else { await toQueue(it, d, dec.problems); stats.review++; }
   await obDel(it.id);
   return "ok";
+}
+// «Παλιό απόθεμα»: το δέμα ήταν ήδη στην αποθήκη πριν την εφαρμογή → άφιξη = ημερομηνία ετικέτας
+export const OLD_TAG = "Παλιό απόθεμα";
+function applyOld(p, d) {
+  if (!d || !d.old_stock) return;
+  const t = p.departure_at || p.issued_at; const today = new Date(); today.setHours(0, 0, 0, 0);
+  if (t && new Date(t) < today) { p.created_at = t; p.status_at = t; }
+  p.tags = [...new Set([...(p.tags || []), OLD_TAG])];
 }
 async function toQueue(it, d, problems) {
   await D.sb.from("extraction_queue").insert({ batch_id: null, extracted: d, problems, thumbnail: it.thumb, package_thumb: it.pkg || null });
@@ -238,7 +246,7 @@ function reviewCard(q, idx) {
     const p = extractedToParcel(ed);
     if (p.phone_source === "handwritten") p.phone_confirmed = true; // το είδε άνθρωπος στον έλεγχο
     if (!p.recipient_phone && p.recipient_name) { const cs = (await D.findCustomers(p.recipient_name)).filter(c => (c.phones || []).length); if (cs.length === 1) { p.recipient_phone = cs[0].phones[0]; p.phone_source = "customer_db"; p.phone_confirmed = true; } }
-    p.source = "photo_reviewed"; p.operator = D.operator();
+    applyOld(p, ed); p.source = "photo_reviewed"; p.operator = D.operator();
     p.customer_id = await D.linkCustomer(p.recipient_name, p.recipient_phone);
     const ins = await D.saveParcel(p);
     if (ins.error) { save.disabled = false; return say(ins.error.code === "23505" ? "Αυτή η απόδειξη υπάρχει ήδη." : "Δεν αποθηκεύτηκε. Δοκίμασε ξανά."); }
@@ -257,6 +265,10 @@ export function initCapture(deps) {
   D = deps;
   $("photos").onchange = e => { addFiles(e.target.files); e.target.value = ""; };
   $("sendBtn").onclick = send;
+  // ο διακόπτης «Παλιό απόθεμα» κρατά μόνο για σήμερα (για να μη μείνει ξεχασμένος ανοιχτός)
+  const today = new Date().toDateString(); let on = false; try { on = localStorage.getItem("oldStock") === today; } catch {}
+  const sync = () => { $("oldStockL").classList.toggle("on", $("oldStock").checked); try { localStorage.setItem("oldStock", $("oldStock").checked ? today : ""); } catch {} };
+  $("oldStock").checked = on; $("oldStock").onchange = sync; sync();
   const cap = $("captureBox");
   ["dragenter", "dragover"].forEach(t => cap.addEventListener(t, e => { e.preventDefault(); cap.classList.add("drop"); }));
   ["dragleave", "drop"].forEach(t => cap.addEventListener(t, () => cap.classList.remove("drop")));

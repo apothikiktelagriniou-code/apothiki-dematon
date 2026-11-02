@@ -7,7 +7,15 @@ import {
 import { initCapture, pendingReviewCount, toJpegB64 } from "./capture.js";
 import { openManifest } from "./manifest.js";
 
-const sb = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true } });
+// «Να με θυμάσαι»: η σύνδεση μένει στη συσκευή (localStorage) και ανανεώνεται μόνη της.
+// Χωρίς αυτό (π.χ. ξένος υπολογιστής) κρατιέται μόνο μέχρι να κλείσει ο browser (sessionStorage).
+const remember = () => { try { return localStorage.getItem("remember") !== "0"; } catch { return true; } };
+const authStore = {
+  getItem: k => { try { return localStorage.getItem(k) ?? sessionStorage.getItem(k); } catch { return null; } },
+  setItem: (k, v) => { try { (remember() ? localStorage : sessionStorage).setItem(k, v); (remember() ? sessionStorage : localStorage).removeItem(k); } catch {} },
+  removeItem: k => { try { localStorage.removeItem(k); sessionStorage.removeItem(k); } catch {} },
+};
+const sb = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true, storage: authStore } });
 const $ = id => document.getElementById(id);
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
 const show = (node, text, cls) => { node.textContent = text; node.className = "msg " + cls; node.hidden = !text; };
@@ -45,6 +53,7 @@ function needOperator() {
 }
 
 // ---------------------------------------------------------------- σύνδεση
+try { const le = localStorage.getItem("lastEmail"); if (le) $("lgEmail").value = le; $("lgRemember").checked = remember(); } catch {}
 async function boot() {
   const { data } = await sb.auth.getSession();
   if (!data.session) { $("login").hidden = false; $("app").hidden = true; return; }
@@ -65,6 +74,7 @@ async function boot() {
 $("loginForm").onsubmit = async e => {
   e.preventDefault(); $("lgBtn").disabled = true; show($("lgMsg"), "", "bad");
   const email = $("lgEmail").value.trim().toLowerCase(), password = $("lgPass").value;
+  try { localStorage.setItem("remember", $("lgRemember").checked ? "1" : "0"); if ($("lgRemember").checked) localStorage.setItem("lastEmail", email); else localStorage.removeItem("lastEmail"); } catch {}
   let error = null;
   try { ({ error } = await sb.auth.signInWithPassword({ email, password })); } catch (e) { error = e; }
   $("lgBtn").disabled = false;
@@ -396,7 +406,7 @@ function noListButtons(box, list) {
   box.append(w);
 }
 // δέμα που ήρθε με λεωφορείο τις τελευταίες 7 μέρες και δεν έχει ελεγχθεί με κατάσταση (ούτε το ίδιο ούτε το δρομολόγιό του)
-const needsCheck = p => !away(p) && p.source !== "manifest" && daysSince(p.created_at) <= 7 && !receiptChecked(p) && !(inTrip(p) !== "__none" && tripChecked(inTrip(p)));
+const needsCheck = p => !away(p) && p.source !== "manifest" && !(p.tags || []).includes("Παλιό απόθεμα") && daysSince(p.created_at) <= 7 && !receiptChecked(p) && !(inTrip(p) !== "__none" && tripChecked(inTrip(p)));
 
 let focusKind = null, focusIdx = 0;
 const ALERT_PRED = {
