@@ -43,7 +43,9 @@ export function openManifest(D) {
     const all = D.rows().filter(p => new Date(p.created_at).getTime() >= since);
     const cand = origin ? all.filter(p => p.origin_city === origin) : all;
     const trip = dep && origin ? { origin, key: tripsOf({ origin_city: origin, departure_at: dep.toISOString() })[0] } : origin ? { origin } : null;
-    const r = reconcile(m.items || [], cand.length ? cand : all, trip);
+    // αριθμός απόδειξης: ψάχνει σε ΟΛΑ τα δέματα (κάθε πόλη/μέρα) — αλλιώς ένα δέμα με άλλη γραφή πόλης έβγαινε «λείπει» και καταχωρούνταν 2η φορά.
+    // όνομα: μόνο στα πρόσφατα της ίδιας πόλης.
+    const r = reconcile(m.items || [], D.rows(), trip, cand.length ? cand : all);
 
     if (D.pendingReview && D.pendingReview() > 0) out.append(el("div", "msg warn", "⚠ Υπάρχουν " + D.pendingReview() + " φωτογραφίες στο «Για έλεγχο» που δεν έχουν καταχωρηθεί. Μέχρι να τις αποθηκεύσεις, μπορεί να εμφανίζονται εδώ ως «λείπουν»."));
     const head = el("div", "msg info");

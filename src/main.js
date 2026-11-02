@@ -2,7 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { SUPABASE_URL, SUPABASE_KEY } from "./config.js";
 import {
   HOME, norm, shelfFor, cleanPhone, fmtPhone, parseGrDate, fmtGr, toLocalInput, money, hoursSince, daysSince,
-  tripsOf, tripLabel, sortTrips, isClosed, isTransit, parseLabel, fillTemplate, toCSV, cleanIdDoc, sameReceipt,
+  tripsOf, tripLabel, sortTrips, isClosed, isTransit, parseLabel, fillTemplate, toCSV, cleanIdDoc, sameReceipt, likelySameParcel, sameNameTrip,
 } from "./lib.js";
 import { initCapture, pendingReviewCount, toJpegB64 } from "./capture.js";
 import { openManifest } from "./manifest.js";
@@ -112,7 +112,7 @@ window.addEventListener("offline", () => show($("netMsg"), "Χωρίς σύνδ�
 
 /** Νέο δέμα· αν υπάρχει ήδη στη λίστα «Δεν πέρασαν» (ίδιος αριθμός), το μεταφέρει αντί για διπλή εγγραφή. */
 async function saveParcel(o) {
-  const ex = o.receipt_no && [...rows.values()].find(p => p.bypassed && p.status === "not_arrived" && sameReceipt(p.receipt_no, o.receipt_no));
+  const ex = o.receipt_no && [...rows.values()].find(p => p.source === "manifest" && p.status === "not_arrived" && likelySameParcel(p, o));
   if (ex) {
     const patch = { ...o, bypassed: false, receipt_no: o.receipt_no, status_at: new Date().toISOString() };
     const res = await sb.from("parcels").update(patch).eq("id", ex.id).select().single();
@@ -461,6 +461,7 @@ function render() {
     addAlert((late.length ? "⚠ " : "⇄ ") + pendTr.length + " μεταφορτώσεις περιμένουν προώθηση (" + dests + ")" + (late.length ? " · " + late.length + " καθυστερούν" : "") + ".", late.length ? "bad" : "warn", "transit"); }
   const rem = all.filter(needsRemind).length; if (rem) addAlert("🔔 " + rem + " δέματα θέλουν υπενθύμιση.", "info", "remind");
   const hw = all.filter(p => !isClosed(p) && p.phone_source === "handwritten" && !p.phone_confirmed).length; if (hw) addAlert("✍ " + hw + " τηλέφωνα από χειρόγραφο θέλουν επιβεβαίωση.", "warn", "hw");
+  const dups = findDuplicates().length; if (dups) { const b = el("button", "msg bad alert", "🔁 " + dups + " πιθανές διπλές καταχωρήσεις (κατάσταση + φωτογραφία) ›"); b.type = "button"; b.onclick = openDuplicates; al.append(b); }
   if (new Date().getDay() === 0 && store.get("invDoneDay") !== dayKey(new Date())) { const b = el("button", "msg info alert", "📦 Κυριακή: κάνε απογραφή αποθήκης ›"); b.type = "button"; b.onclick = () => { if (!needOperator()) openInventory(); }; al.append(b); }
   const cod = all.filter(p => p.cod_amount_eur > 0 && !p.cod_collected && !isClosed(p)).length; if (cod) addAlert("💶 " + cod + " δέματα με είσπραξη από τον παραλήπτη.", "warn", "cod");
 
@@ -1015,3 +1016,51 @@ $("invDone").onclick = async () => {
   catch { show($("invProg"), "Δεν αποθηκεύτηκε. Δοκίμασε ξανά.", "bad"); }
   finally { $("invDone").disabled = false; }
 };
+
+
+// ---------------------------------------------------------------- διπλές καταχωρήσεις (κατάσταση + φωτογραφία)
+let dupCache = { at: 0, list: [] };
+const dupIgnored = () => { try { return new Set(JSON.parse(store.get("dupIgnore") || "[]")); } catch { return new Set(); } };
+function findDuplicates(force) {
+  if (!force && Date.now() - dupCache.at < 15000) return dupCache.list;
+  const all = [...rows.values()]; const ign = dupIgnored();
+  const man = all.filter(p => p.source === "manifest"), real = all.filter(p => p.source !== "manifest");
+  const out = [], usedB = new Set();
+  man.forEach(a => {
+    let best = null, why = "";
+    for (const b of real) { if (usedB.has(b.id) || ign.has(a.id + "|" + b.id)) continue;
+      const w = likelySameParcel(a, b); if (w) { best = b; why = w === "receipt" ? "ίδιος αριθμός απόδειξης" : "σχεδόν ίδιος αριθμός + ίδιο επώνυμο"; break; }
+      if (!best && sameNameTrip(a, b)) { best = b; why = "ίδιο επώνυμο, ίδια πόλη και μέρα"; } }
+    if (best) { usedB.add(best.id); out.push({ a, b: best, why }); }
+  });
+  dupCache = { at: Date.now(), list: out }; return out;
+}
+async function mergeDuplicate(a, b) {
+  const patch = {};
+  if (a.status === "forwarded" && !isClosed(b)) Object.assign(patch, { status: "forwarded", status_at: a.status_at, fwd_at: a.fwd_at, fwd_destination: a.fwd_destination, fwd_departure_at: a.fwd_departure_at, fwd_bus: a.fwd_bus, fwd_note: a.fwd_note });
+  if (!b.departure_at && a.departure_at) patch.departure_at = a.departure_at;
+  if (!b.fare_eur && a.fare_eur) patch.fare_eur = a.fare_eur;
+  if ((a.pieces_total || 1) > (b.pieces_total || 1)) patch.pieces_total = a.pieces_total;
+  if (Object.keys(patch).length) await updateParcel(b.id, patch);
+  const { error } = await sb.from("parcels").delete().eq("id", a.id);
+  if (error) throw error;
+  rows.delete(a.id); dupCache.at = 0; render();
+}
+function openDuplicates() {
+  const list = findDuplicates(true); const b0 = $("dlgBody"); b0.textContent = "";
+  b0.append(el("h2", null, "🔁 Πιθανές διπλές καταχωρήσεις (" + list.length + ")"),
+    el("div", "hint", "Αριστερά: γραμμή που μπήκε από την ΚΑΤΑΣΤΑΣΗ. Δεξιά: το δέμα από τη ΦΩΤΟΓΡΑΦΙΑ. «Ένωση» = κρατάει της φωτογραφίας (με ό,τι χρήσιμο είχε η κατάσταση, π.χ. προώθηση) και σβήνει της κατάστασης."));
+  if (!list.length) b0.append(el("div", "empty", "Δεν βρέθηκαν διπλές ✓"));
+  const desc = p => [p.recipient_name || "—", p.receipt_no ? "Απόδ. " + p.receipt_no : "", p.origin_city ? "από " + p.origin_city : "", p.departure_at ? fmtGr(p.departure_at) : "", STATUS[p.status] || p.status].filter(Boolean).join(" · ");
+  list.forEach(d => {
+    const box = el("div", "dupbox");
+    box.append(el("div", "hint", "Λόγος: " + d.why), el("div", "dupa", "📄 " + desc(d.a)), el("div", "dupb", "📷 " + desc(d.b)));
+    const bar = el("div", "quick"); const ok = el("button", "btn small primary", "Ένωση"); ok.type = "button";
+    const no = el("button", "btn small", "Δεν είναι ίδια"); no.type = "button";
+    ok.onclick = async () => { ok.disabled = no.disabled = true; try { await mergeDuplicate(d.a, d.b); box.replaceWith(el("div", "msg ok", "✓ Ενώθηκε: " + (d.b.recipient_name || d.b.receipt_no))); } catch (e) { console.error(e); ok.disabled = no.disabled = false; box.append(el("div", "msg bad", "Δεν έγινε. Δοκίμασε ξανά.")); } };
+    no.onclick = () => { const s = dupIgnored(); s.add(d.a.id + "|" + d.b.id); store.set("dupIgnore", JSON.stringify([...s])); dupCache.at = 0; box.remove(); render(); };
+    bar.append(ok, no); box.append(bar); b0.append(box);
+  });
+  $("dlg").showModal();
+}
+$("dupBtn").onclick = () => { $("dupBtn").closest("details").open = false; openDuplicates(); };

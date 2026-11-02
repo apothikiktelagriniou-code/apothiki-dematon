@@ -159,3 +159,13 @@ test("shortNote κόβει τις μεγάλες περιγραφές", () => {
   assert.equal(shortNote("Ο κωδικός δέματος έχει αμφιβολία μεταξύ 0 και Ο στις θέσεις 4 και 8."), "Ο κωδικός δέματος έχει αμφιβολία μεταξύ 0 και Ο στις θέσεις 4 και 8");
   assert.ok(shortNote("α ".repeat(80)).length <= 90);
 });
+
+import { nearReceipt, likelySameParcel, sameNameTrip } from "../src/lib.js";
+test("διπλά: σχεδόν ίδιος αριθμός μόνο με ίδιο επώνυμο", () => {
+  assert.ok(nearReceipt("258-341-23682", "2-258-341-23682"));
+  assert.ok(nearReceipt("258-341-23682", "258-341-23632"));
+  assert.equal(likelySameParcel({ receipt_no: "258-341-23682", recipient_name: "ΧΑΤΖΗΣ" }, { receipt_no: "258-341-23683", recipient_name: "ΓΑΛΑΝΟΣ" }), "");
+  assert.equal(likelySameParcel({ receipt_no: "258-341-23682", recipient_name: "ΧΑΤΖΗΣ Γ" }, { receipt_no: "258-341-23632", recipient_name: "ΧΑΤΖΗΣ ΓΙΩΡΓΟΣ" }), "near");
+  assert.equal(likelySameParcel({ receipt_no: "2-255-349-11663", recipient_name: "Α" }, { receipt_no: "255-349-11663", recipient_name: "Β" }), "receipt");
+  assert.ok(sameNameTrip({ recipient_name: "ΧΑΤΖΗΣ", origin_city: "ΠΑΤΡΑ", departure_at: "2026-11-02T15:00:00Z" }, { recipient_name: "ΧΑΤΖΗΣ ΝΙΚ", origin_city: "ΠΑΤΡΑ", departure_at: "2026-11-02T17:00:00Z" }));
+});

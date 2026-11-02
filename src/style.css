@@ -349,3 +349,6 @@ header .btn{white-space:nowrap}
 .invrow.ok{background:var(--ok-soft);border-color:color-mix(in srgb,var(--ok) 35%,transparent)}
 .invt{display:flex;flex-direction:column;min-width:0}.invt b{font-size:16px}
 .selfbtn{min-height:56px}
+.dupbox{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-top:10px;display:flex;flex-direction:column;gap:6px}
+.dupa{color:var(--muted)}.dupb{font-weight:600}
+#dlg{max-height:90vh;overflow:auto}

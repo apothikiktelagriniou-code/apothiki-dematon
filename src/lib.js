@@ -202,7 +202,7 @@ export function cityFromStation(s) {
   return k || t;
 }
 
-export function reconcile(items, parcels, trip = null) {
+export function reconcile(items, parcels, trip = null, namePool = null) {
   const used = new Set(), found = [], missing = [];
   const digits = s => String(s || "").replace(/\D/g, "");
   const surname = s => norm(s).split(" ")[0] || "";
@@ -210,8 +210,9 @@ export function reconcile(items, parcels, trip = null) {
     let p = null, how = "";
     const rd = digits(it.receipt_no);
     if (rd.length >= 8) { p = parcels.find(x => !used.has(x.id) && sameReceipt(x.receipt_no, it.receipt_no)); if (p) how = "receipt"; }
+    if (!p && rd.length >= 10) { p = parcels.find(x => !used.has(x.id) && likelySameParcel(x, it) === "near"); if (p) how = "receipt~"; }
     if (!p && surname(it.recipient)) {
-      const c = parcels.filter(x => !used.has(x.id) && surname(x.recipient_name) === surname(it.recipient) && (!trip || !trip.origin || x.origin_city === trip.origin));
+      const c = (namePool || parcels).filter(x => !used.has(x.id) && surname(x.recipient_name) === surname(it.recipient) && (!trip || !trip.origin || x.origin_city === trip.origin));
       const full = c.filter(x => norm(x.recipient_name) === norm(it.recipient));
       const pick = full.length === 1 ? full : c;
       if (pick.length === 1) { p = pick[0]; how = "name"; }
@@ -228,4 +229,32 @@ export function shortNote(s) {
   t = t.split(/(?<=[.;!])\s+/)[0].replace(/[.;]$/, "");
   if (/^(Χειρόγραφη|Τυπωμένη|Θερμική|Εκτυπωμένη) (απόδειξη|ετικέτα)/i.test(t) && !/αμφιβολ|δυσανάγν|ασαφ|λείπ|δεν (φαίν|διαβ)|ζημι|σκισ|βρεγ/i.test(t)) return null;
   return t.length > 90 ? t.slice(0, 87).replace(/\s\S*$/, "") + "…" : t;
+}
+
+/** Απόσταση Levenshtein (μικρά strings). */
+function lev(a, b) {
+  const m = a.length, n = b.length; if (Math.abs(m - n) > 2) return 9;
+  let prev = Array.from({ length: n + 1 }, (_, j) => j);
+  for (let i = 1; i <= m; i++) { const cur = [i]; for (let j = 1; j <= n; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); prev = cur; }
+  return prev[n];
+}
+const surnameOf = s => norm(s).split(" ")[0] || "";
+/** Αριθμοί απόδειξης που διαφέρουν το πολύ ένα ψηφίο (λάθος ανάγνωσης). Μόνο μαζί με ίδιο επώνυμο! */
+export function nearReceipt(a, b) {
+  const x = String(a || "").replace(/\D/g, ""), y = String(b || "").replace(/\D/g, "");
+  if (x.length < 10 || y.length < 10) return false;
+  return sameReceipt(a, b) || lev(x.slice(-11), y.slice(-11)) <= 1;
+}
+/** Το ίδιο δέμα; ίδιος αριθμός, ή σχεδόν ίδιος αριθμός + ίδιο επώνυμο. */
+export function likelySameParcel(a, b) {
+  if (sameReceipt(a.receipt_no, b.receipt_no)) return "receipt";
+  const sa = surnameOf(a.recipient_name || a.recipient), sb = surnameOf(b.recipient_name || b.recipient);
+  if (sa && sa.length >= 3 && sa === sb && nearReceipt(a.receipt_no, b.receipt_no)) return "near";
+  return "";
+}
+/** Ίδιο επώνυμο + ίδια πόλη + ίδια μέρα αναχώρησης (για προτάσεις, όχι αυτόματα). */
+export function sameNameTrip(a, b) {
+  const sa = surnameOf(a.recipient_name), sb = surnameOf(b.recipient_name);
+  if (!sa || sa.length < 3 || sa !== sb || !a.origin_city || a.origin_city !== b.origin_city || !a.departure_at || !b.departure_at) return false;
+  return new Date(a.departure_at).toDateString() === new Date(b.departure_at).toDateString();
 }
