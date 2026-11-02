@@ -51,7 +51,7 @@ async function boot() {
   $("login").hidden = true; $("app").hidden = false;
   renderOperator();
   await loadSettings();
-  await loadParcels();
+  await loadParcels(); loadManifests(); setInterval(loadManifests, 120000);
   subscribe();
   loadNotes();
   checkSms().then(render);
@@ -363,6 +363,26 @@ const sameDay = (iso, d) => iso && new Date(iso).toDateString() === d;
 const phoneOk = p => !!p.recipient_phone;
 
 const away = p => !!p.bypassed;
+// ---------------------------------------------------------------- έλεγχος με καταστάσεις πρακτορείων
+let manifests = [], chkReceipts = new Set(), chkTrips = new Set();
+const rkey = r => { const d = String(r || "").replace(/\D/g, ""); return d.length >= 10 ? d.slice(-10) : ""; };
+async function loadManifests() {
+  const since = new Date(Date.now() - 45 * 864e5).toISOString();
+  const { data } = await sb.from("manifests").select("origin_city,departure_at,items,created_at").gte("created_at", since).limit(2000);
+  manifests = data || []; scheduleRender();
+}
+function computeChecks(all) {
+  chkReceipts = new Set(); chkTrips = new Set();
+  manifests.forEach(m => { (m.items || []).forEach(it => { const k = rkey(it.receipt_no); if (k) chkReceipts.add(k); });
+    if (m.origin_city && m.departure_at) chkTrips.add(tripsOf({ origin_city: m.origin_city, departure_at: m.departure_at })[0]); });
+  all.forEach(p => { if (chkReceipts.has(rkey(p.receipt_no)) && p.departure_at) chkTrips.add(tripsOf(p)[0]); });
+}
+const inTrip = p => tripsOf(p)[0];
+const receiptChecked = p => chkReceipts.has(rkey(p.receipt_no));
+const tripChecked = t => chkTrips.has(t);
+// δέμα που ήρθε με λεωφορείο τις τελευταίες 7 μέρες και δεν έχει ελεγχθεί με κατάσταση (ούτε το ίδιο ούτε το δρομολόγιό του)
+const needsCheck = p => !away(p) && p.source !== "manifest" && daysSince(p.created_at) <= 7 && !receiptChecked(p) && !(inTrip(p) !== "__none" && tripChecked(inTrip(p)));
+
 let focusKind = null, focusIdx = 0;
 const ALERT_PRED = {
   transit: p => p.status === "transit",
@@ -376,7 +396,8 @@ function matches(p) {
   else if (filter === "direct") { if (!(away(p) && isTransit(p))) return false; }
   else if (away(p) && !qq) return false;
   if (cityFilter && p.origin_city !== cityFilter) return false;
-  if (tripFilter === "__day") { if (!tripsOf(p).some(t => t !== "__none" && t.split("|")[1].startsWith(tripDay))) return false; }
+  if (tripFilter === "__nocheck") { const t = inTrip(p); if (t === "__none" || !t.split("|")[1].startsWith(tripDay) || tripChecked(t)) return false; }
+  else if (tripFilter === "__day") { if (!tripsOf(p).some(t => t !== "__none" && t.split("|")[1].startsWith(tripDay))) return false; }
   else if (tripFilter && !tripsOf(p).includes(tripFilter)) return false;
   switch (filter) {
     case "waiting": if (isClosed(p)) return false; break;
@@ -387,6 +408,7 @@ function matches(p) {
     case "cod": if (!(p.cod_amount_eur > 0 && !p.cod_collected)) return false; break;
     case "today": if (!sameDay(p.created_at, new Date().toDateString())) return false; break;
     case "done": if (!isClosed(p)) return false; break;
+    case "nocheck": if (!needsCheck(p)) return false; break;
     case "tags": if (!(p.tags || []).length && !p.notes) return false; break;
   }
   const q = norm($("q").value); if (!q) return true;
@@ -396,6 +418,7 @@ function matches(p) {
 
 function render() {
   const all = [...rows.values()].sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
+  computeChecks(all);
   const td = new Date().toDateString();
   const open = all.filter(p => !isClosed(p) && !away(p));
   $("stToday").textContent = all.filter(p => sameDay(p.created_at, td)).length;
@@ -438,18 +461,21 @@ function render() {
   if (!tripDay) tripDay = dayKey(new Date());
   $("tripDay").value = tripDay;
   const dayKeys = Object.keys(trips).filter(t => t !== "__none" && t.split("|")[1].startsWith(tripDay)).sort((a, b) => a.split("|")[1].localeCompare(b.split("|")[1]) || a.localeCompare(b));
-  if (tripFilter && tripFilter !== "__day" && !trips[tripFilter]) tripFilter = "";
+  if (tripFilter && tripFilter !== "__day" && tripFilter !== "__nocheck" && !trips[tripFilter]) tripFilter = "";
+  const inDay = dayKeys.filter(t => t[0] !== ">"); const unchk = inDay.filter(t => !tripChecked(t));
   const sel = $("tripSel"); sel.textContent = "";
   const dayAll = [...new Set(dayKeys.flatMap(t => trips[t]))];
   sel.append(new Option(dayKeys.length ? "— Όλα τα δέματα (χωρίς φίλτρο) —" : "Κανένα δρομολόγιο αυτή τη μέρα", ""));
   if (dayKeys.length) sel.append(new Option("Όλα τα δρομολόγια της ημέρας (" + dayKeys.length + " δρομ. · " + dayAll.length + " δέματα)", "__day"));
+  if (inDay.length) sel.append(new Option(unchk.length ? "📄✗ Χωρίς έλεγχο κατάστασης: " + unchk.length + " από " + inDay.length + " δρομολόγια" : "📄✓ Όλα τα δρομολόγια ελέγχθηκαν με κατάσταση", "__nocheck"));
   dayKeys.forEach(t => {
     const [c, k] = t.split("|"); const out = c[0] === ">"; const city = out ? c.slice(1) : c; const g = trips[t]; const open = g.filter(p => !isClosed(p)).length;
-    sel.append(new Option(k.split(" ")[1] + " · " + (out ? (g.every(x => x.status === "returned") ? "↩ Επιστροφή → " : "Αποστολή → ") + city : "από " + city) + " — " + g.length + " δέματα" + (open ? ", " + open + " εκκρεμούν" : " ✓"), t));
+    sel.append(new Option(k.split(" ")[1] + " · " + (out ? (g.every(x => x.status === "returned") ? "↩ Επιστροφή → " : "Αποστολή → ") + city : "από " + city) + " — " + g.length + " δέματα" + (open ? ", " + open + " εκκρεμούν" : " ✓") + (out ? "" : tripChecked(t) ? " · 📄✓" : " · 📄✗"), t));
   });
   if (trips.__none && trips.__none.some(p => !isClosed(p))) sel.append(new Option("Χωρίς δρομολόγιο — " + trips.__none.length + " δέματα", "__none"));
   sel.value = tripFilter;
-  if (tripFilter === "__day") show($("tripSum"), "Δρομολόγια " + tripDay.split("-").reverse().join("/") + ": " + dayAll.length + " δέματα · εκκρεμούν " + dayAll.filter(p => !isClosed(p)).length + " · κόμιστρα " + money(dayAll.reduce((s, p) => s + (Number(p.fare_eur) || 0), 0)), "info");
+  if (tripFilter === "__nocheck") show($("tripSum"), unchk.length ? "Δρομολόγια χωρίς έλεγχο κατάστασης: " + unchk.map(t => t.split("|")[1].split(" ")[1] + " " + t.split("|")[0]).join(", ") + ". Πάτα «📄 Έλεγχος κατάστασης» στο Μενού." : "Όλα τα δρομολόγια της ημέρας έχουν ελεγχθεί με κατάσταση.", unchk.length ? "warn" : "ok");
+  else if (tripFilter === "__day") show($("tripSum"), "Δρομολόγια " + tripDay.split("-").reverse().join("/") + ": " + dayAll.length + " δέματα · εκκρεμούν " + dayAll.filter(p => !isClosed(p)).length + " · κόμιστρα " + money(dayAll.reduce((s, p) => s + (Number(p.fare_eur) || 0), 0)), "info");
   else if (tripFilter) { const g = trips[tripFilter]; const dn = g.filter(isClosed).length; const tr = g.filter(isTransit).length;
     show($("tripSum"), tripLabel(tripFilter) + ": " + g.length + " δέματα" + (tr ? " (μεταφόρτωση " + tr + ")" : "") + " · έκλεισαν " + dn + " · εκκρεμούν " + (g.length - dn) + " · κόμιστρα " + money(g.reduce((s, p) => s + (Number(p.fare_eur) || 0), 0)), "info"); }
   else show($("tripSum"), "", "info");
@@ -862,7 +888,7 @@ $("noteForm").onsubmit = async e => { e.preventDefault(); const t = $("noteInput
   await sb.from("shift_notes").insert({ text: t, operator: operator() || null }); $("noteInput").value = ""; loadNotes(); };
 
 // ---------------------------------------------------------------- πελάτες (προβολή)
-$("manifestBtn").onclick = () => { $("manifestBtn").closest("details").open = false; openManifest({ sb, operator, needOperator, linkCustomer, pendingReview: pendingReviewCount, rows: () => [...rows.values()], onSaved: p => { rows.set(p.id, p); scheduleRender(); } }); };
+$("manifestBtn").onclick = () => { $("manifestBtn").closest("details").open = false; openManifest({ sb, operator, needOperator, onChecked: () => loadManifests(), linkCustomer, pendingReview: pendingReviewCount, rows: () => [...rows.values()], onSaved: p => { rows.set(p.id, p); scheduleRender(); } }); };
 $("customersBtn").onclick = async () => {
   $("customersBtn").closest("details").open = false;
   const body = $("dlgBody"); body.textContent = ""; body.append(el("h2", null, "Πελάτες"));

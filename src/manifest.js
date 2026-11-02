@@ -106,6 +106,6 @@ export function openManifest(D) {
       line(p.recipient_name || "—", [p.receipt_no && "Απόδ. " + p.receipt_no, p.recipient_phone && fmtPhone(p.recipient_phone)].filter(Boolean).join(" · "))));
 
     D.sb.from("manifests").insert({ origin_city: origin || null, departure_at: dep ? dep.toISOString() : null, agency: m.agency || null, items: m.items || [],
-      total_declared: m.total_declared, found: r.found.length, missing: r.missing.length, extra: r.extra.length, operator: D.operator() }).then(() => {});
+      total_declared: m.total_declared, found: r.found.length, missing: r.missing.length, extra: r.extra.length, operator: D.operator() }).then(() => { if (D.onChecked) D.onChecked(); });
   }
 }
