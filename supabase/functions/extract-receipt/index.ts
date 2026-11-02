@@ -34,6 +34,14 @@ const SYSTEM = `Διαβάζεις φωτογραφίες από αποδείξ�
 const SYSTEM_DESCRIBE = `Βλέπεις φωτογραφία ενός δέματος σε αποθήκη ΚΤΕΛ. Δώσε σύντομη περιγραφή έως 8 λέξεις: τι είναι (κουτί, φάκελος, σακούλα, βαλίτσα κ.λπ.), χρώμα, μέγεθος (μικρό/μεσαίο/μεγάλο), φίρμα ή λογότυπο ΜΟΝΟ αν φαίνεται καθαρά. Π.χ. «Καφέ κουτί JUMBO, μεσαίο», «Λευκός φάκελος A4», «Μαύρη σακούλα, μαλακή». Αν φαίνεται χειρόγραφο κινητό τηλέφωνο πάνω στο δέμα, γράψ' το στο phone, αλλιώς "".
 Απάντησε ΜΟΝΟ με JSON: {"package_desc":"","phone":"","damage_visible":false}`;
 
+const SYSTEM_BIZ = `Είσαι βοηθός αποθήκης δεμάτων στο Αγρίνιο. Ψάχνεις ΜΟΝΟ δημόσια ΕΠΑΓΓΕΛΜΑΤΙΚΑ τηλέφωνα ΕΠΙΧΕΙΡΗΣΕΩΝ (καταστήματα, εταιρείες, ιατρεία, συνεργεία κ.λπ.), για να ειδοποιηθούν ότι έφτασε δέμα τους.
+ΚΑΝΟΝΕΣ:
+- Αν το όνομα είναι φυσικό πρόσωπο (π.χ. «ΠΑΠΑΔΟΠΟΥΛΟΣ ΓΙΩΡΓΟΣ») και όχι επιχείρηση → ΜΗΝ ψάξεις καθόλου, is_business=false, phone "". Δεν δίνουμε ποτέ προσωπικά τηλέφωνα ιδιωτών.
+- Ψάξε κυρίως Αγρίνιο / Αιτωλοακαρνανία. Χρησιμοποίησε ιστοσελίδα της επιχείρησης ή επαγγελματικούς καταλόγους (vrisko.gr, 11888.gr, xo.gr, Google Business).
+- Δώσε τηλέφωνο ΜΟΝΟ αν η επιχείρηση ταιριάζει καθαρά με το όνομα και την περιοχή. Αν βρεις πολλές ίδιες επιχειρήσεις ή δεν είσαι σίγουρος → confidence "low". Αν δεν βρεις → phone "".
+- Τηλέφωνο σε 10 ψηφία χωρίς κενά (σταθερό 2xxxxxxxxx ή κινητό 69xxxxxxxx που δημοσιεύει η ίδια η επιχείρηση).
+Απάντησε στο τέλος ΜΟΝΟ με JSON: {"is_business":true,"business_name":"","phone":"","address":"","source_url":"","confidence":"high|medium|low","note":""}`;
+
 const SYSTEM_CLASSIFY = `Σου δίνω μικρές φωτογραφίες από αποθήκη δεμάτων ΚΤΕΛ, με τη σειρά. Για ΚΑΘΕ φωτογραφία, με την ίδια σειρά, πες τι δείχνει:
 - "label": κυρίως ετικέτα/απόδειξη από κοντά (ΔΕΛΤΙΟ ΑΠΟΣΚΕΥΩΝ, θερμικό χαρτάκι ή χειρόγραφη απόδειξη) — το κείμενο πιάνει μεγάλο μέρος της εικόνας.
 - "parcel": ολόκληρο δέμα/συσκευασία (κουτί, φάκελος, σακούλα κ.λπ.) από πιο μακριά, ακόμα κι αν φαίνεται μικρή ετικέτα πάνω του.
@@ -87,7 +95,7 @@ Deno.serve(async req => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   const url = new URL(req.url);
   const key = Deno.env.get("ANTHROPIC_API_KEY");
-  if (url.searchParams.get("health") === "1") return json({ ok: true, hasKey: !!key, model: MODEL, version: "2026-11-02-describe" });
+  if (url.searchParams.get("health") === "1") return json({ ok: true, hasKey: !!key, model: MODEL, version: "2026-11-03-bizphone" });
   if (url.searchParams.get("health") === "2") {
     // διαγνωστικό: μια μικρή κλήση στο AI για να φανεί αν δουλεύουν κλειδί/μοντέλο/πίστωση (δεν επιστρέφει το κλειδί)
     if (!key) return json({ ok: false, error: "missing_key" });
@@ -109,6 +117,13 @@ Deno.serve(async req => {
     return json({ ok: r.ok, status: r.status, stop_reason: j.stop_reason, blocks: (j.content || []).map((c: { type: string }) => c.type), usage: j.usage, text: text.slice(0, 600), error: j?.error?.message || null });
   }
 
+  if (url.searchParams.get("health") === "4") {
+    // διαγνωστικό: δοκιμαστική αναζήτηση επαγγελματικού τηλεφώνου (ΚΤΕΛ Αιτωλοακαρνανίας) — δείχνει αν δουλεύει το web search
+    if (!key) return json({ ok: false, error: "missing_key" });
+    const noop = { from: () => ({ insert: async () => ({}) }) };
+    const r = await bizPhone({ name: "ΚΤΕΛ ΑΙΤΩΛΟΑΚΑΡΝΑΝΙΑΣ ΑΕ", city: "ΑΓΡΙΝΙΟ" }, key, noop);
+    return r;
+  }
   // μόνο συνδεδεμένοι χρήστες της εφαρμογής
   const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY") ?? req.headers.get("apikey") ?? "", {
     global: { headers: { Authorization: req.headers.get("Authorization") ?? "" } },
@@ -122,6 +137,7 @@ Deno.serve(async req => {
   const manifest = body.mode === "manifest", classify = body.mode === "classify", describe = body.mode === "describe";
   const pkgIdx = typeof (body as { package_index?: number }).package_index === "number" ? (body as { package_index: number }).package_index : -1;
   const imgs = (body.images || []).slice(0, manifest ? 4 : classify ? 30 : 3).filter(i => i && typeof i.data === "string" && i.data.length < 6_000_000);
+  if (body.mode === "bizphone") return await bizPhone(body as unknown as Record<string, unknown>, key!, sb);
   if (!imgs.length) return json({ error: "no_image" }, 400);
 
   const content = [
@@ -178,3 +194,42 @@ Deno.serve(async req => {
   }
   return json({ data: clean(parsed), usage, cost_usd: cost });
 });
+
+
+// ---------- επαγγελματικό τηλέφωνο επιχείρησης από το web (web search) ----------
+// deno-lint-ignore no-explicit-any
+async function bizPhone(body: Record<string, unknown>, key: string, sb: any) {
+  const name = String(body.name ?? "").replace(/\s+/g, " ").trim().slice(0, 120);
+  const city = String(body.city ?? "").trim().slice(0, 60);
+  if (!name) return json({ error: "no_name" }, 400);
+  const tools = [{ type: "web_search_20250305", name: "web_search", max_uses: 3, allowed_callers: ["direct"],
+    user_location: { type: "approximate", city: "Agrinio", region: "Aitoloakarnania", country: "GR", timezone: "Europe/Athens" } }];
+  // deno-lint-ignore no-explicit-any
+  let messages: any[] = [{ role: "user", content: "Παραλήπτης δέματος: «" + name + "»" + (city ? " · περιοχή: " + city : "") + ". Αν είναι επιχείρηση, βρες το δημόσιο επαγγελματικό τηλέφωνό της. Επέστρεψε το JSON." }];
+  let inT = 0, outT = 0, searches = 0, text = ""; const urls = new Set<string>();
+  for (let i = 0; i < 4; i++) {
+    const r = await fetch("https://api.anthropic.com/v1/messages", { method: "POST",
+      headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+      body: JSON.stringify({ model: MODEL, max_tokens: 4096, system: SYSTEM_BIZ, tools, messages }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) return json({ error: "anthropic", detail: String(j?.error?.message || r.status).slice(0, 300) }, 502);
+    inT += j.usage?.input_tokens || 0; outT += j.usage?.output_tokens || 0; searches += j.usage?.server_tool_use?.web_search_requests || 0;
+    for (const c of j.content || []) {
+      if (c.type === "text") text += c.text || "";
+      if (c.type === "web_search_tool_result" && Array.isArray(c.content)) c.content.forEach((x: { url?: string }) => x.url && urls.add(x.url));
+    }
+    if (j.stop_reason === "pause_turn") { messages = [...messages, { role: "assistant", content: j.content }]; continue; }
+    break;
+  }
+  const cost = inT * PRICE_IN + outT * PRICE_OUT + searches * 0.01;
+  await sb.from("ai_usage").insert({ input_tokens: inT, output_tokens: outT, cost_usd: cost, ok: true });
+  const m = text.match(/\{[\s\S]*\}/g); let p: Record<string, unknown> = {};
+  if (m) { try { p = JSON.parse(m[m.length - 1]); } catch { /* */ } }
+  let ph = String(p.phone ?? "").replace(/\D/g, "").replace(/^0030(?=\d{10}$)/, "").replace(/^30(?=\d{10}$)/, "");
+  if (!/^(2\d{9}|69\d{8})$/.test(ph) || p.is_business === false) ph = "";
+  const src = String(p.source_url ?? "").slice(0, 300);
+  let conf = ["high", "medium", "low"].includes(String(p.confidence)) ? String(p.confidence) : "low";
+  if (src && urls.size && ![...urls].some(u => u.startsWith(src) || src.startsWith(u))) conf = "low"; // πηγή που δεν βρέθηκε στην αναζήτηση
+  return json({ data: { is_business: p.is_business !== false, business_name: String(p.business_name ?? "").slice(0, 120), phone: ph,
+    address: String(p.address ?? "").slice(0, 160), source_url: src, confidence: ph ? conf : "", note: String(p.note ?? "").slice(0, 160), searches }, cost_usd: cost });
+}

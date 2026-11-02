@@ -61,6 +61,7 @@ async function boot() {
   renderOperator();
   await loadSettings();
   await loadParcels(); loadManifests(); setInterval(loadManifests, 120000);
+  loadCustomers(); setInterval(loadCustomers, 300000); setTimeout(bizSweep, 6000); setInterval(bizSweep, 600000);
   subscribe();
   loadNotes();
   checkSms().then(render);
@@ -69,7 +70,7 @@ async function boot() {
     saveParcel,
     findByReceipt: rn => [...rows.values()].find(p => !(p.bypassed && p.status === "not_arrived") && sameReceipt(p.receipt_no, rn)),
     updatePiece: async (p, patch) => { try { return await updateParcel(p.id, patch); } catch { return null; } },
-    onSaved: p => { rows.set(p.id, p); scheduleRender(); } });
+    onSaved: p => { rows.set(p.id, p); scheduleRender(); bizSoon(); } });
 }
 $("loginForm").onsubmit = async e => {
   e.preventDefault(); $("lgBtn").disabled = true; show($("lgMsg"), "", "bad");
@@ -220,7 +221,7 @@ async function linkCustomer(name, phone) {
   if (phone) { const { data } = await sb.from("customers").select("*").contains("phones", [phone]).limit(1); c = data && data[0]; }
   if (!c) { const list = await findCustomers(name); if (list.length === 1) c = list[0]; }
   if (c) {
-    if (phone && !(c.phones || []).includes(phone)) await sb.from("customers").update({ phones: [phone, ...(c.phones || [])] }).eq("id", c.id);
+    if (phone && !(c.phones || []).includes(phone)) { await sb.from("customers").update({ phones: [phone, ...(c.phones || [])] }).eq("id", c.id); loadCustomersSoon(); }
     return c.id;
   }
   const { data } = await sb.from("customers").insert({ full_name: name.trim(), phones: phone ? [phone] : [] }).select("id").single();
@@ -562,7 +563,8 @@ function card(p) {
   const left = el("div"); left.style.minWidth = "0";
   const top = el("div", "top");
   if (p.origin_city) { const c = el("span", "city", p.origin_city); c.style.setProperty("--cc", cityColor(p.origin_city)); top.append(c); }
-  top.append(el("span", "name", p.recipient_name || p.receipt_no || "Χωρίς όνομα"));
+  { const nb = el("button", "name namebtn", p.recipient_name || p.receipt_no || "Χωρίς όνομα"); nb.type = "button"; nb.title = "Καρτέλα πελάτη";
+    if (isBizCustomer(p)) nb.prepend("🏢 "); nb.onclick = () => openCustomerFor(p); top.append(nb); }
   const old = !isClosed(p) && daysSince(p.created_at) >= (settings.old_parcel_days || 5);
   const late = lateTransit(p); const rem = needsRemind(p);
   top.append(el("span", "pill " + (old || late ? "s-old" : "s-" + p.status),
@@ -590,6 +592,7 @@ function card(p) {
   } if (p.phone_source === "customer_db") ph.append(" ", el("span", "badge", "📇")); }
   line("Απόδειξη", el("span", "mono", p.receipt_no || "—"));
   if (ph) line("Τηλέφωνο", ph);
+  else if (!isClosed(p) && p.status !== "not_arrived" && !isTransit(p)) phoneHelp(p, line("Τηλέφωνο", "—"));
   const canPhoto = !isClosed(p) && p.status !== "not_arrived";
   if (p.package_desc || p.package_photo_path || canPhoto) {
     const d = line("Συσκευασία", p.package_desc || "");
@@ -986,11 +989,13 @@ $("manifestBtn").onclick = () => { $("manifestBtn").closest("details").open = fa
 $("customersBtn").onclick = async () => {
   $("customersBtn").closest("details").open = false;
   const body = $("dlgBody"); body.textContent = ""; body.append(el("h2", null, "Πελάτες"));
-  const q = inp("", { type: "search", placeholder: "Αναζήτηση πελάτη" }); body.append(q); const l = el("div", "hist"); body.append(l);
+  const q = inp("", { type: "search", placeholder: "Αναζήτηση πελάτη" }); const nw = el("button", "btn small", "＋ Νέος πελάτης"); nw.type = "button"; nw.onclick = () => { $("dlg").close(); openCustomer(null, { full_name: q.value, phones: [] }); };
+  body.append(el("div", "hint", "Πάτα έναν πελάτη για την καρτέλα του."), q, nw); const l = el("div", "hist"); body.append(l);
   const load = async () => { let r = sb.from("customers").select("*").order("last_parcel_at", { ascending: false, nullsFirst: false }).limit(100);
     const s = norm(q.value); if (s) r = r.ilike("name_key", "%" + s + "%");
     const { data } = await r; l.textContent = "";
-    (data || []).forEach(c => l.append(el("div", null, c.full_name + " · " + (c.phones || []).map(fmtPhone).join(", ") + " · " + c.parcels_count + " δέματα" + (c.last_parcel_at ? " · τελευταίο " + fmtGr(c.last_parcel_at, false) : ""))));
+    (data || []).forEach(c => { const b = el("button", "custrow", (c.is_business ? "🏢 " : "👤 ") + c.full_name + " · " + ((c.phones || []).map(fmtPhone).join(", ") || "χωρίς τηλέφωνο") + " · " + c.parcels_count + " δέματα" + (c.last_parcel_at ? " · τελευταίο " + fmtGr(c.last_parcel_at, false) : ""));
+      b.type = "button"; b.onclick = () => { $("dlg").close(); openCustomer(c.id); }; l.append(b); });
     if (!l.childNodes.length) l.append(el("div", null, "Κανένας πελάτης ακόμα.")); };
   q.oninput = () => { clearTimeout(q._t); q._t = setTimeout(load, 300); }; load(); $("dlg").showModal();
 };
@@ -1185,3 +1190,166 @@ $("notifBtn").onclick = async () => {
   if (r === "granted") { sysNotify("🔔 Δοκιμή ειδοποίησης", "Έτσι θα σε ειδοποιώ " + REMIND_MIN + "′ πριν φύγει μια μεταφόρτωση.", "test"); show($("formMsg"), "🔔 Οι ειδοποιήσεις ενεργοποιήθηκαν σε αυτή τη συσκευή.", "ok"); }
   else show($("formMsg"), "Οι ειδοποιήσεις δεν επιτράπηκαν. Θα βλέπεις/ακούς την υπενθύμιση μόνο μέσα στην εφαρμογή.", "warn");
 };
+
+
+// ---------------------------------------------------------------- πελάτες: μνήμη, καρτέλα, προτάσεις τηλεφώνου
+let custCache = [], custT = null;
+async function loadCustomers() {
+  const { data } = await sb.from("customers").select("id,full_name,name_key,surname_key,phones,parcels_count,last_parcel_at,is_business").limit(10000);
+  if (data) { custCache = data; scheduleRender(); }
+}
+const loadCustomersSoon = () => { clearTimeout(custT); custT = setTimeout(loadCustomers, 800); };
+const toks = s => norm(String(s || "").replace(/\./g, "").replace(/,/g, " ")).split(" ").filter(Boolean);
+const custOf = p => (p.customer_id && custCache.find(c => c.id === p.customer_id)) || custCache.find(c => c.name_key === norm(p.recipient_name || "-"));
+// επιχείρηση; (από την καρτέλα πελάτη ή από λέξεις στο όνομα — ΑΦΟΙ, Ο.Ε., ΕΠΕ, ΦΑΡΜΑΚΕΙΟ, λατινικά κ.λπ.)
+const BIZ_TOK = new Set(["ΑΦΟΙ", "ΟΕ", "ΕΕ", "ΕΠΕ", "ΙΚΕ", "ΑΕ", "ΑΒΕΕ", "ΑΕΒΕ", "ΜΟΝ", "ΜΟΝΟΠΡΟΣΩΠΗ", "ΚΑΙ ΣΙΑ", "ΣΙΑ", "ΚΤΕΛ", "ΔΗΜΟΣ"]);
+const BIZ_STEM = ["ΚΑΤΑΣΤΗΜ", "ΦΑΡΜΑΚ", "ΙΑΤΡΕΙ", "ΟΔΟΝΤΙΑΤΡ", "ΣΥΝΕΡΓΕΙ", "ΕΡΓΑΣΤΗΡ", "ΣΟΥΠΕΡ", "ΜΑΡΚΕΤ", "ΚΑΦΕ", "ΒΙΒΛΙΟΠΩΛ", "ΠΡΑΚΤΟΡΕΙ", "ΓΡΑΦΕΙ", "ΣΥΝΕΤΑΙΡ", "ΕΤΑΙΡ", "ΞΕΝΟΔΟΧ",
+  "ΕΣΤΙΑΤΟΡ", "ΤΑΒΕΡΝ", "ΦΟΥΡΝ", "ΑΡΤΟΠΟΙ", "ΖΑΧΑΡΟΠΛ", "ΚΡΕΟΠΩΛ", "ΠΡΑΤΗΡΙ", "ΑΝΤΙΠΡΟΣΩΠ", "ΕΜΠΟΡ", "ΗΛΕΚΤΡΟΛΟΓ", "ΟΠΤΙΚ", "ΚΟΜΜΩΤΗΡ", "ΚΑΤΑΣΚΕΥ", "ΤΕΧΝΙΚ", "ΛΟΓΙΣΤΙΚ", "ΔΙΚΗΓΟΡ", "ΣΧΟΛ", "ΦΡΟΝΤΙΣΤ", "ΚΛΙΝΙΚ", "ΚΤΗΝΙΑΤΡ", "ΑΝΘΟΠΩΛ", "ΠΑΝΤΟΠΩΛ", "ΚΑΒ", "ΒΕΝΖΙΝ", "ΕΛΑΣΤΙΚ", "ΑΝΤΑΛΛΑΚΤ", "ΣΙΔΗΡΟΠΩΛ", "ΧΡΩΜΑΤΟΠΩΛ"];
+function bizLike(name) {
+  const t = toks(name); if (!t.length) return false; const s = t.join(" ");
+  return t.some(x => BIZ_TOK.has(x) || BIZ_STEM.some(st => x.startsWith(st))) || / ΚΑΙ ΣΙΑ/.test(s);
+}
+const isBizCustomer = p => { const c = custOf(p); return c ? !!c.is_business : false; };
+const wantsBizLookup = p => isBizCustomer(p) || bizLike(p.recipient_name);
+// προσεκτική πρόταση: ίδιο επώνυμο + μικρό όνομα που ταιριάζει (Γ. ↔ ΓΙΩΡΓΟΣ), και ΜΟΝΟ αν υπάρχει ένας τέτοιος πελάτης με τηλέφωνο
+function fuzzyCustomer(p) {
+  if (p.recipient_phone || store.get("fz:" + p.id)) return null;
+  const t = toks(p.recipient_name); if (t.length < 2) return null;
+  const sur = t[0], given = t.slice(1).join(" ");
+  const c = custCache.filter(x => (x.phones || []).length && x.surname_key === sur && x.name_key !== norm(p.recipient_name || ""));
+  const ok = c.filter(x => { const g = toks(x.full_name).slice(1).join(" "); return g && (g.startsWith(given) || given.startsWith(g)); });
+  return ok.length === 1 ? ok[0] : null;
+}
+function phoneHelp(p, lineEl) {
+  const box = el("span", "phonehelp");
+  const f = fuzzyCustomer(p);
+  if (f) {
+    const w = el("div", "msg info sugg"); w.append("📇 Μήπως είναι ", el("b", null, f.full_name), " · " + fmtPhone(f.phones[0]) + " (" + (f.parcels_count || 0) + " δέματα); ");
+    const yes = el("button", "btn small primary", "Ναι, αυτός"); yes.type = "button";
+    yes.onclick = () => updateParcel(p.id, { recipient_phone: f.phones[0], phone_source: "customer_db", phone_confirmed: true, customer_id: f.id }).catch(() => {});
+    const no = el("button", "btn small", "Όχι"); no.type = "button"; no.onclick = () => { store.set("fz:" + p.id, "1"); render(); };
+    w.append(yes, " ", no); lineEl.after(w);
+  }
+  const s = p.phone_suggestion;
+  if (s && s.phone && !s.rejected) {
+    const w = el("div", "msg " + (s.confidence === "high" ? "ok" : "warn") + " sugg");
+    w.append("🏢 Βρέθηκε: ", el("b", null, fmtPhone(s.phone)), " — " + (s.business_name || "") + (s.address ? " · " + s.address : "") + " · βεβαιότητα: " + ({ high: "υψηλή", medium: "μέτρια", low: "χαμηλή — έλεγξέ το" }[s.confidence] || "?") + " ");
+    if (s.source_url) { const a = el("a", null, "πηγή"); a.href = s.source_url; a.target = "_blank"; a.rel = "noopener"; w.append("(", a, ") "); }
+    const yes = el("button", "btn small primary", "✓ Σωστό, βάλ' το"); yes.type = "button"; yes.onclick = () => acceptBiz(p, s);
+    const no = el("button", "btn small", "✗ Όχι"); no.type = "button"; no.onclick = () => sb.from("parcels").update({ phone_suggestion: { ...s, rejected: true } }).eq("id", p.id).select().single().then(({ data }) => { if (data) { rows.set(p.id, data); render(); } });
+    w.append(yes, " ", no); lineEl.after(w);
+  } else if (s && s.pending && Date.now() - new Date(s.at) < 120000) box.append(el("span", "hint", " 🏢 ψάχνω επαγγελματικό τηλέφωνο…"));
+  else if (wantsBizLookup(p)) {
+    const b = el("button", "btn small pkgbtn", s && (s.none || s.error) ? "🏢 Δεν βρέθηκε — ξαναψάξε" : "🏢 Βρες επαγγελματικό τηλέφωνο"); b.type = "button";
+    b.onclick = () => requestBiz(p, true); box.append(" ", b);
+  }
+  lineEl.append(box);
+}
+async function setSuggestion(id, s) { const { data } = await sb.from("parcels").update({ phone_suggestion: s }).eq("id", id).select().single(); if (data) { rows.set(id, data); scheduleRender(); } }
+async function requestBiz(p, manual) {
+  await setSuggestion(p.id, { pending: true, at: new Date().toISOString() });
+  try {
+    const { data, error } = await sb.functions.invoke("extract-receipt", { body: { mode: "bizphone", name: p.recipient_name, city: "ΑΓΡΙΝΙΟ" } });
+    if (error) { let d = ""; try { d = (await error.context.json()).detail || ""; } catch {} throw new Error(d || error.message); }
+    const r = data.data || {};
+    await setSuggestion(p.id, { ...r, none: !r.phone, at: new Date().toISOString() });
+    if (manual && !r.phone) show($("formMsg"), "🏢 " + (r.is_business === false ? "Το «" + p.recipient_name + "» μοιάζει με ιδιώτη — δεν ψάχνουμε προσωπικά τηλέφωνα." : "Δεν βρέθηκε επαγγελματικό τηλέφωνο για «" + p.recipient_name + "».") , "warn");
+  } catch (e) {
+    await setSuggestion(p.id, { error: String(e.message || e).slice(0, 200), at: new Date().toISOString() });
+    if (manual) show($("formMsg"), "🏢 Η αναζήτηση απέτυχε: " + String(e.message || e).slice(0, 160), "bad");
+  }
+}
+async function acceptBiz(p, s) {
+  try {
+    await updateParcel(p.id, { recipient_phone: s.phone, phone_source: "business_web", phone_confirmed: true });
+    const cid = await linkCustomer(p.recipient_name, s.phone);
+    if (cid) { await sb.from("customers").update({ is_business: true, business_source: s.source_url || null, ...(s.address ? { address: s.address } : {}) }).eq("id", cid); if (!p.customer_id) await updateParcel(p.id, { customer_id: cid }); }
+    loadCustomersSoon();
+  } catch { show($("formMsg"), "Δεν αποθηκεύτηκε. Δοκίμασε ξανά.", "bad"); }
+}
+// αυτόματα: νέα δέματα επιχειρήσεων χωρίς τηλέφωνο → αναζήτηση (έως 5 κάθε φορά)
+let bizBusy = false, bizT = null;
+const bizSoon = () => { clearTimeout(bizT); bizT = setTimeout(bizSweep, 4000); };
+async function bizSweep() {
+  if (bizBusy || $("app").hidden || !navigator.onLine) return; bizBusy = true;
+  try {
+    const list = [...rows.values()].filter(p => !p.recipient_phone && !isClosed(p) && !isTransit(p) && p.status !== "not_arrived" && daysSince(p.created_at) <= 7 && wantsBizLookup(p)
+      && (!p.phone_suggestion || (p.phone_suggestion.pending && Date.now() - new Date(p.phone_suggestion.at) > 300000))).slice(0, 5);
+    for (const p of list) await requestBiz(p, false);
+  } finally { bizBusy = false; }
+}
+
+// καρτέλα πελάτη
+async function openCustomerFor(p) {
+  const c = custOf(p); const id = p.customer_id || (c && c.id) || null;
+  openCustomer(id, id ? null : { full_name: p.recipient_name || "", phones: p.recipient_phone ? [p.recipient_phone] : [], is_business: bizLike(p.recipient_name) }, p);
+}
+async function openCustomer(id, draft, fromParcel) {
+  const body = $("custBody"); body.textContent = "";
+  let c = draft || {};
+  if (id) { const { data } = await sb.from("customers").select("*").eq("id", id).single(); if (data) c = data; }
+  $("custTitle").textContent = (c.is_business ? "🏢 " : "👤 ") + (c.full_name || "Νέος πελάτης");
+  const fs = el("fieldset"); fs.append(el("legend", null, "Στοιχεία"));
+  const name = field(fs, c.is_business ? "Επωνυμία" : "Ονοματεπώνυμο", inp(c.full_name, { autocapitalize: "characters" }), true);
+  const biz = el("label", "check wide"); const bz = el("input"); bz.type = "checkbox"; bz.checked = !!c.is_business; biz.append(bz, document.createTextNode(" Επιχείρηση (κατάστημα, εταιρεία, ιατρείο…)")); fs.append(biz);
+  const phones = field(fs, "Τηλέφωνα (χώρισέ τα με κόμμα)", inp((c.phones || []).map(fmtPhone).join(", "), { inputMode: "tel", className: "mono" }), true);
+  const addr = field(fs, "Διεύθυνση", inp(c.address || ""));
+  const area = field(fs, "Περιοχή", inp(c.area || "", { placeholder: "π.χ. ΑΓΡΙΝΙΟ" }));
+  const ch = el("select"); [["", "— (αυτόματα)"], ["whatsapp", "WhatsApp"], ["viber", "Viber"], ["sms", "SMS"]].forEach(([v, t]) => ch.append(new Option(t, v))); ch.value = c.channel || ""; field(fs, "Κανάλι ειδοποίησης", ch);
+  const notes = field(fs, "Σημειώσεις", inp(c.notes || "", { placeholder: "π.χ. καθημερινός πελάτης, έρχεται απόγευμα" }), true);
+  body.append(fs);
+  const msg = el("div", "msg info"); msg.hidden = true; body.append(msg);
+  const say = (t, k) => { msg.textContent = t; msg.className = "msg " + k; msg.hidden = false; };
+  // αναζήτηση επαγγελματικού τηλεφώνου για την επιχείρηση
+  const bizBar = el("div", "quick"); const fb = el("button", "btn small", "🏢 Βρες επαγγελματικό τηλέφωνο στο web"); fb.type = "button"; bizBar.append(fb); body.append(bizBar);
+  const syncBiz = () => { bizBar.hidden = !bz.checked; }; bz.onchange = syncBiz; syncBiz();
+  fb.onclick = async () => {
+    fb.disabled = true; say("🏢 Ψάχνω…", "info");
+    try {
+      const { data, error } = await sb.functions.invoke("extract-receipt", { body: { mode: "bizphone", name: name.value, city: area.value || "ΑΓΡΙΝΙΟ" } });
+      if (error) { let d = ""; try { d = (await error.context.json()).detail || ""; } catch {} throw new Error(d || error.message); }
+      const r = data.data || {};
+      if (!r.phone) { say(r.is_business === false ? "Μοιάζει με ιδιώτη — δεν ψάχνουμε προσωπικά τηλέφωνα." : "Δεν βρέθηκε επαγγελματικό τηλέφωνο.", "warn"); return; }
+      msg.textContent = ""; msg.className = "msg " + (r.confidence === "high" ? "ok" : "warn"); msg.hidden = false;
+      msg.append("Βρέθηκε: ", el("b", null, fmtPhone(r.phone)), " — " + (r.business_name || "") + (r.address ? " · " + r.address : "") + " ");
+      if (r.source_url) { const a = el("a", null, "πηγή"); a.href = r.source_url; a.target = "_blank"; a.rel = "noopener"; msg.append("(", a, ") "); }
+      const add = el("button", "btn small primary", "Πρόσθεσέ το"); add.type = "button";
+      add.onclick = () => { const cur = phones.value.trim(); phones.value = cur ? cur + ", " + fmtPhone(r.phone) : fmtPhone(r.phone); if (!addr.value && r.address) addr.value = r.address; c.business_source = r.source_url || null; add.remove(); };
+      msg.append(add);
+    } catch (e) { say("Η αναζήτηση απέτυχε: " + String(e.message || e).slice(0, 160), "bad"); }
+    finally { fb.disabled = false; }
+  };
+  // δέματα του πελάτη
+  const hist = el("div", "hist"); body.append(el("h3", null, "Δέματα"), hist);
+  if (c.id) {
+    const { data } = await sb.from("parcels").select("id,created_at,receipt_no,status,origin_city,recipient_phone").eq("customer_id", c.id).order("created_at", { ascending: false }).limit(30);
+    (data || []).forEach(x => hist.append(el("div", null, fmtGr(x.created_at) + " · " + (x.receipt_no || "—") + (x.origin_city ? " · από " + x.origin_city : "") + " · " + (STATUS[x.status] || x.status))));
+    if (!(data || []).length) hist.append(el("div", "hint", "Κανένα δέμα συνδεδεμένο ακόμα."));
+  } else hist.append(el("div", "hint", "Νέος πελάτης — θα συνδεθεί με το δέμα όταν πατήσεις Αποθήκευση."));
+  const acts = el("div", "formactions");
+  const save = el("button", "btn primary", "Αποθήκευση"); save.type = "button";
+  const close = el("button", "btn", "Κλείσιμο"); close.type = "button"; close.onclick = () => $("custDlg").close();
+  acts.append(save, close); body.append(acts);
+  save.onclick = async () => {
+    const ph = phones.value.split(/[,;\/]+/).map(cleanPhone); const bad = phones.value.split(/[,;\/]+/).filter((x, i) => x.trim() && !ph[i]);
+    if (bad.length) return say("Δεν μοιάζει σωστό τηλέφωνο: " + bad.join(", ") + " (10 ψηφία).", "warn");
+    if (!name.value.trim()) return say("Γράψε όνομα / επωνυμία.", "warn");
+    const row = { full_name: name.value.trim().toUpperCase(), phones: [...new Set(ph.filter(Boolean))], is_business: bz.checked, address: addr.value.trim() || null, area: area.value.trim() || null,
+      notes: notes.value.trim() || null, channel: ch.value || null, business_source: c.business_source || null };
+    save.disabled = true;
+    try {
+      let cid = c.id;
+      if (cid) { const { error } = await sb.from("customers").update(row).eq("id", cid); if (error) throw error; }
+      else { const { data, error } = await sb.from("customers").insert(row).select("id").single(); if (error) throw error; cid = data.id; }
+      // σύνδεση/τηλέφωνο στα δέματα που περιμένουν
+      const waiting = [...rows.values()].filter(x => !isClosed(x) && (x.customer_id === cid || (fromParcel && x.id === fromParcel.id)));
+      for (const x of waiting) { const patch = {}; if (x.customer_id !== cid) patch.customer_id = cid; if (!x.recipient_phone && row.phones[0]) Object.assign(patch, { recipient_phone: row.phones[0], phone_source: row.is_business && c.business_source ? "business_web" : "customer_db", phone_confirmed: true });
+        if (Object.keys(patch).length) await updateParcel(x.id, patch).catch(() => {}); }
+      loadCustomersSoon(); say("✓ Αποθηκεύτηκε" + (waiting.length ? " · ενημερώθηκαν " + waiting.length + " δέματα που περιμένουν." : "."), "ok");
+      c.id = cid; $("custTitle").textContent = (row.is_business ? "🏢 " : "👤 ") + row.full_name;
+    } catch (e) { console.error(e); say("Δεν αποθηκεύτηκε. Δοκίμασε ξανά.", "bad"); }
+    finally { save.disabled = false; }
+  };
+  $("custDlg").showModal();
+}
+$("custClose").onclick = () => $("custDlg").close();
