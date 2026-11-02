@@ -318,3 +318,10 @@ header .btn{white-space:nowrap}
 .iline .btn.pkgbtn{min-height:26px;padding:1px 8px;font-size:12px;border-radius:8px;margin-left:2px}
 .iline .btn.pkgadd{border-style:dashed;color:var(--navy)}
 .iline .btn.hwok{background:var(--warn-soft);color:var(--warn);border-color:var(--warn)}
+/* υδατογράφημα «ΠΑΡΑΔΟΘΗΚΕ» */
+.row.st-done{overflow:hidden}
+.row.st-done::after{content:"ΠΑΡΑΔΟΘΗΚΕ";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) rotate(-14deg);
+  font-family:var(--display);font-weight:900;font-size:clamp(28px,7vw,46px);letter-spacing:.12em;white-space:nowrap;
+  color:var(--ok);opacity:.13;border:5px solid currentColor;border-radius:14px;padding:2px 18px;pointer-events:none;z-index:0}
+@media (prefers-color-scheme: dark){.row.st-done::after{opacity:.2}}
+.row.st-done>*{position:relative;z-index:1}

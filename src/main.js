@@ -371,7 +371,7 @@ function matches(p) {
     case "tonotify": if (p.status !== "arrived") return false; break;
     case "remind": if (!needsRemind(p)) return false; break;
     case "nophone": if (isClosed(p) || isTransit(p) || phoneOk(p)) return false; break;
-    case "transit": if (p.status !== "transit") return false; break;
+    case "transit": if (!(p.status === "transit" || (p.status === "forwarded" && !away(p)))) return false; break;
     case "cod": if (!(p.cod_amount_eur > 0 && !p.cod_collected)) return false; break;
     case "today": if (!sameDay(p.created_at, new Date().toDateString())) return false; break;
     case "done": if (!isClosed(p)) return false; break;
@@ -448,7 +448,7 @@ function render() {
 
 function card(p) {
   const tr = isTransit(p);
-  const row = el("article", "row" + (p.origin_city ? " has-city" : "") + (tr ? " is-transit" : "")); row.id = "row-" + p.id;
+  const row = el("article", "row st-" + p.status + (p.origin_city ? " has-city" : "") + (tr ? " is-transit" : "")); row.id = "row-" + p.id;
   if (p.origin_city) row.style.setProperty("--cc", cityColor(p.origin_city));
   const left = el("div"); left.style.minWidth = "0";
   const top = el("div", "top");
