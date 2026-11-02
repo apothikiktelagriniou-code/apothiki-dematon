@@ -468,6 +468,7 @@ function render() {
 
   // ειδοποιήσεις κορυφής
   const al = $("alerts"); al.textContent = "";
+  fwdAlerts(all, al);
   // πάτημα σε ειδοποίηση → πάει στο (επόμενο) δέμα και το σημαδεύει με κόκκινο περίγραμμα
   const addAlert = (text, cls, kind) => { const n = all.filter(ALERT_PRED[kind]).length;
     const b = el("button", "msg " + cls + " alert", text + (focusKind === kind && n > 1 ? "  · " + ((focusIdx % n) + 1) + "/" + n + " — πάτα για το επόμενο" : "  ›")); b.type = "button";
@@ -534,7 +535,7 @@ function render() {
 
 function card(p) {
   const tr = isTransit(p);
-  const row = el("article", "row" + (focusKind && ALERT_PRED[focusKind](p) ? " flag" : "") + " st-" + p.status + (p.origin_city ? " has-city" : "") + (tr ? " is-transit" : "")); row.id = "row-" + p.id;
+  const row = el("article", "row" + (focusKind && ALERT_PRED[focusKind](p) ? " flag" : "") + (fwdPending(p) ? " pending" : "") + " st-" + p.status + (p.origin_city ? " has-city" : "") + (tr ? " is-transit" : "")); row.id = "row-" + p.id;
   if (p.origin_city) row.style.setProperty("--cc", cityColor(p.origin_city));
   const left = el("div"); left.style.minWidth = "0";
   const top = el("div", "top");
@@ -604,6 +605,13 @@ function card(p) {
     row.append(el("div", "meta note", ["Παρέλαβε: " + (!p.picked_by_name ? "—" : norm(p.picked_by_name) === norm(p.recipient_name || "") ? "ο ίδιος" : p.picked_by_name), p.id_doc_number ? (p.id_doc_type || "Έγγραφο") + " " + p.id_doc_number : p.id_doc_last4 ? (p.id_doc_type || "Έγγραφο") + " ••••" + p.id_doc_last4 : "", p.picked_by_phone ? fmtPhone(p.picked_by_phone) : "", fmtGr(p.picked_up_at), p.home_delivery ? "🏠 Delivery" : "", p.cod_collected ? "💶 Εισπράχθηκε " + money(p.cod_amount_eur) : ""].filter(Boolean).join(" · ")));
     if (p.signature_path) { const holder = el("div", "note"); const b = mk("Υπογραφή", () => showSignature(p, holder, b)); row.append(holder); }
   }
+  if (fwdPending(p)) { const m = minsTo(p);
+    const t = el("div", "msg " + (m < 0 ? "bad" : m <= REMIND_MIN ? "warn" : "info") + " note fwdwait");
+    t.append(m < 0 ? "⚠ Το λεωφορείο έφυγε " + fmtGr(p.fwd_departure_at) + " — δεν σημειώθηκε φόρτωση. " : "⏰ Φεύγει " + fmtGr(p.fwd_departure_at) + (m < 120 ? " (σε " + Math.max(0, Math.round(m)) + "′)" : "") + (m <= REMIND_MIN ? " — φόρτωσέ το τώρα. " : " — θα σε ειδοποιήσω " + REMIND_MIN + "′ πριν. "));
+    const ok = el("button", "btn small primary", "✓ Φορτώθηκε"); ok.type = "button"; ok.onclick = () => markLoaded([p]);
+    t.append(ok);
+    if (m < 0) { const no = el("button", "btn small", "Δεν πήγε — πίσω στις μεταφορτώσεις"); no.type = "button"; no.onclick = () => notLoaded([p]); t.append(" ", no); }
+    row.append(t); }
   if (p.status === "forwarded") row.append(el("div", "meta note", [(away(p) ? "Απευθείας μεταφόρτωση → " : "Προωθήθηκε → ") + (p.fwd_destination || p.destination_city), p.fwd_departure_at ? "δρομολόγιο " + fmtGr(p.fwd_departure_at) : "", p.fwd_bus ? "λεωφορείο " + p.fwd_bus : "", p.fwd_note || ""].filter(Boolean).join(" · ")));
   if (p.status === "returned") row.append(el("div", "meta note", ["↩ Επιστροφή → " + (p.fwd_destination || p.origin_city || "αποστολέα"), p.fwd_departure_at ? "δρομολόγιο " + fmtGr(p.fwd_departure_at) : "", p.fwd_bus ? "λεωφορείο " + p.fwd_bus : "", p.fwd_note || ""].filter(Boolean).join(" · ")));
   if (!acts.childNodes.length) acts.remove(); row.append(sec);
@@ -883,7 +891,8 @@ function fwdBox(p) {
     const at = when.get(); if (!at) { msg.textContent = "Βάλε ημερομηνία και ώρα (24ωρη, π.χ. 17:30)."; msg.hidden = false; return; }
     ok.disabled = true;
     try { const now = new Date().toISOString(); await updateParcel(p.id, { status: "forwarded", status_at: now, fwd_at: now, fwd_destination: d, fwd_departure_at: at, fwd_bus: bus.value.trim().toUpperCase() || null, fwd_note: note.value.trim() || null });
-      openBox = { id: null }; show($("formMsg"), "Καταχωρήθηκε η αποστολή προς " + d + ".", "ok"); render(); }
+      openBox = { id: null }; show($("formMsg"), "Καταχωρήθηκε η αποστολή προς " + d + " — θα σε ειδοποιήσω " + REMIND_MIN + "′ πριν φύγει.", "ok"); render();
+      try { if ("Notification" in window && Notification.permission === "default") Notification.requestPermission(); } catch {} }
     catch { ok.disabled = false; msg.textContent = "Δεν αποθηκεύτηκε. Δοκίμασε ξανά."; msg.hidden = false; } };
   return box;
 }
@@ -1090,3 +1099,67 @@ function openDuplicates() {
   $("dlg").showModal();
 }
 $("dupBtn").onclick = () => { $("dupBtn").closest("details").open = false; openDuplicates(); };
+
+
+// ---------------------------------------------------------------- υπενθύμιση φόρτωσης μεταφορτώσεων (π.χ. 10′ πριν το λεωφορείο)
+const LOADED = "✓ Φορτώθηκε", REMIND_MIN = 10;
+const isLoaded = p => (p.tags || []).includes(LOADED);
+const fwdPending = p => p.status === "forwarded" && !!p.fwd_departure_at && !isLoaded(p) && (Date.now() - new Date(p.fwd_departure_at)) < 6 * 3600e3;
+const minsTo = p => (new Date(p.fwd_departure_at) - Date.now()) / 60000;
+function fwdGroups(all, pred) {
+  const g = new Map(); all.filter(p => fwdPending(p) && pred(minsTo(p))).forEach(p => { const k = (p.fwd_destination || p.destination_city || "?") + "|" + new Date(p.fwd_departure_at).toISOString().slice(0, 16); (g.get(k) || g.set(k, []).get(k)).push(p); });
+  return [...g.entries()];
+}
+async function markLoaded(list) {
+  for (const p of list) { try { await updateParcel(p.id, { tags: [...new Set([...(p.tags || []), LOADED])] }); } catch {} }
+}
+async function notLoaded(list) {
+  for (const p of list) { try { await updateParcel(p.id, { status: p.bypassed ? "not_arrived" : "transit", status_at: new Date().toISOString(), fwd_at: null, fwd_departure_at: null, fwd_bus: null }); } catch {} }
+}
+function fwdAlerts(all, al) {
+  const line = (k, ps, soon) => {
+    const [dest] = k.split("|"); const p0 = ps[0]; const m = Math.round(minsTo(p0));
+    const d = el("div", "msg " + (soon ? "warn" : "bad") + " fwdalert");
+    d.append(el("b", null, soon ? "⏰ Σε " + Math.max(0, m) + "′ φεύγει για " + dest : "⚠ Έφυγε για " + dest + " — δεν σημειώθηκε φόρτωση"),
+      " " + new Date(p0.fwd_departure_at).toTimeString().slice(0, 5) + (p0.fwd_bus ? " · λεωφ. " + p0.fwd_bus : "") + " · " + ps.length + (ps.length === 1 ? " δέμα: " : " δέματα: ") + ps.map(p => p.recipient_name || p.receipt_no).slice(0, 6).join(", ") + (ps.length > 6 ? "…" : "") + " ");
+    const ok = el("button", "btn small primary", ps.length > 1 ? "✓ Φορτώθηκαν όλα" : "✓ Φορτώθηκε"); ok.type = "button"; ok.onclick = () => markLoaded(ps); d.append(ok);
+    if (!soon) { const no = el("button", "btn small", "Δεν πήγαν"); no.type = "button"; no.onclick = () => notLoaded(ps); d.append(" ", no); }
+    al.append(d);
+  };
+  fwdGroups(all, m => m <= REMIND_MIN && m > -0.5).forEach(([k, ps]) => line(k, ps, true));
+  fwdGroups(all, m => m <= -0.5).forEach(([k, ps]) => line(k, ps, false));
+}
+// ήχος + δόνηση + ειδοποίηση συστήματος
+let actx = null;
+document.addEventListener("pointerdown", () => { try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); if (actx.state === "suspended") actx.resume(); } catch {} }, { capture: true });
+function beep() {
+  try { if (!actx) return; const t0 = actx.currentTime;
+    [0, 0.35, 0.7].forEach(dt => { const o = actx.createOscillator(), g = actx.createGain(); o.frequency.value = 880; o.connect(g); g.connect(actx.destination);
+      g.gain.setValueAtTime(0.0001, t0 + dt); g.gain.exponentialRampToValueAtTime(0.4, t0 + dt + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dt + 0.28); o.start(t0 + dt); o.stop(t0 + dt + 0.3); });
+  } catch {}
+}
+async function sysNotify(title, body, tag) {
+  try { if (!("Notification" in window) || Notification.permission !== "granted") return;
+    const reg = await navigator.serviceWorker?.ready; if (reg) await reg.showNotification(title, { body, tag, renotify: true, icon: "./icon-192.png", badge: "./icon-192.png", vibrate: [300, 150, 300, 150, 300], requireInteraction: true });
+    else new Notification(title, { body, tag });
+  } catch {}
+}
+function fwdTick() {
+  if ($("app").hidden) return;
+  const all = [...rows.values()]; let fired = false;
+  fwdGroups(all, m => m <= REMIND_MIN && m > -0.5).forEach(([k, ps]) => {
+    const key = "fwdN:" + k; if (store.get(key)) return; store.set(key, "1"); fired = true;
+    const [dest] = k.split("|"); const p0 = ps[0];
+    sysNotify("⏰ Σε " + Math.max(0, Math.round(minsTo(p0))) + "′ φεύγει για " + dest, ps.length + " δέμα(τα): " + ps.map(p => p.recipient_name || p.receipt_no).slice(0, 5).join(", ") + (p0.fwd_bus ? " · λεωφορείο " + p0.fwd_bus : ""), key);
+  });
+  if (fired) { beep(); try { navigator.vibrate && navigator.vibrate([300, 150, 300, 150, 300]); } catch {} render(); }
+  else if (all.some(p => fwdPending(p) && minsTo(p) <= REMIND_MIN + 1)) render();
+}
+setInterval(fwdTick, 30000); setTimeout(fwdTick, 3000);
+$("notifBtn").onclick = async () => {
+  $("notifBtn").closest("details").open = false;
+  if (!("Notification" in window)) { show($("formMsg"), "Αυτός ο browser δεν υποστηρίζει ειδοποιήσεις — θα ακούγεται μόνο ήχος όσο είναι ανοιχτή η εφαρμογή.", "warn"); beep(); return; }
+  const r = await Notification.requestPermission(); beep();
+  if (r === "granted") { sysNotify("🔔 Δοκιμή ειδοποίησης", "Έτσι θα σε ειδοποιώ " + REMIND_MIN + "′ πριν φύγει μια μεταφόρτωση.", "test"); show($("formMsg"), "🔔 Οι ειδοποιήσεις ενεργοποιήθηκαν σε αυτή τη συσκευή.", "ok"); }
+  else show($("formMsg"), "Οι ειδοποιήσεις δεν επιτράπηκαν. Θα βλέπεις/ακούς την υπενθύμιση μόνο μέσα στην εφαρμογή.", "warn");
+};
