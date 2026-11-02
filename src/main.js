@@ -105,7 +105,7 @@ async function loadParcels() {
     .order("created_at", { ascending: false }).limit(5000);
   if (error) { show($("netMsg"), "Δεν φορτώθηκαν τα δέματα. Έλεγξε τη σύνδεση και ανανέωσε τη σελίδα.", "bad"); return; }
   rows = new Map(data.map(p => [p.id, p]));
-  render(); purgeAllClosed();
+  render(); purgeAllClosed(); cleanStaleNotes();
 }
 function subscribe() {
   sb.channel("live")
@@ -158,6 +158,16 @@ async function purgePackage(p) {
     const { data } = await sb.from("parcels").update({ package_photo_path: null }).eq("id", p.id).select().single();
     if (data) rows.set(p.id, data);
   } catch (e) { console.warn("purge", e); } finally { purging.delete(p.id); }
+}
+function cleanManifestNote(s) {
+  return String(s || "").replace(/Στην κατάσταση[^·\n]*?δεν ήρθε στην αποθήκη Αγρινίου( \(αβέβαιη ανάγνωση\))?/g, "")
+    .replace(/Απευθείας μεταφόρτωση — κατάσταση[^·\n]*/g, "").replace(/^[\s·—-]+|[\s·—-]+$/g, "").replace(/\s*·\s*·\s*/g, " · ").trim();
+}
+// δέματα που ήρθαν τελικά αλλά κράτησαν τη σημείωση «δεν ήρθε στην αποθήκη» (πριν τη διόρθωση) → καθάρισμα μία φορά
+async function cleanStaleNotes() {
+  const bad = [...rows.values()].filter(p => p.status !== "not_arrived" && !(p.status === "forwarded" && p.bypassed) && /δεν ήρθε στην αποθήκη Αγρινίου/.test(p.notes || ""));
+  for (const p of bad) { try { const { data } = await sb.from("parcels").update({ notes: cleanManifestNote(p.notes) || null }).eq("id", p.id).select().single(); if (data) rows.set(p.id, data); } catch {} }
+  if (bad.length) render();
 }
 function purgeAllClosed() { [...rows.values()].filter(p => p.package_photo_path && isClosed(p)).forEach(purgePackage); }
 // «📷 Φωτο δέματος» από την κάρτα: φωτογραφία → σύντομη περιγραφή από AI → αποθήκευση
@@ -575,8 +585,7 @@ function card(p) {
     if (isTransit(p)) mk("Μεταφόρτωση σε δρομολόγιο", toggle("fwd"), "primary");
     mk(isTransit(p) ? "Ήρθε στην αποθήκη" : "Ήρθε τελικά", async () => { if (needOperator()) return; const dest = p.destination_city || HOME;
       // σβήνει από τις σημειώσεις το «Στην κατάσταση … δεν ήρθε στην αποθήκη Αγρινίου» / «Απευθείας μεταφόρτωση — κατάσταση …»
-      const cleaned = String(p.notes || "").replace(/Στην κατάσταση[^·\n]*?δεν ήρθε στην αποθήκη Αγρινίου( \(αβέβαιη ανάγνωση\))?/g, "")
-        .replace(/Απευθείας μεταφόρτωση — κατάσταση[^·\n]*/g, "").replace(/^[\s·—-]+|[\s·—-]+$/g, "").replace(/\s*·\s*·\s*/g, " · ").trim();
+      const cleaned = cleanManifestNote(p.notes);
       await updateParcel(p.id, { bypassed: false, status: dest === HOME ? "arrived" : "transit", status_at: new Date().toISOString(), shelf: dest === HOME ? (p.shelf || shelfFor(p.recipient_name) || null) : null,
         notes: cleaned || null, pieces_in: Math.max(1, p.pieces_in || 0) }).catch(() => {}); });
   } else if (p.status === "transit") mk("Προώθηση", toggle("fwd"), "primary");
