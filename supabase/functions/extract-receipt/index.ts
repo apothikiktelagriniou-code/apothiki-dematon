@@ -87,7 +87,7 @@ Deno.serve(async req => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   const url = new URL(req.url);
   const key = Deno.env.get("ANTHROPIC_API_KEY");
-  if (url.searchParams.get("health") === "1") return json({ ok: true, hasKey: !!key, model: MODEL });
+  if (url.searchParams.get("health") === "1") return json({ ok: true, hasKey: !!key, model: MODEL, version: "2026-11-02-describe" });
   if (url.searchParams.get("health") === "2") {
     // διαγνωστικό: μια μικρή κλήση στο AI για να φανεί αν δουλεύουν κλειδί/μοντέλο/πίστωση (δεν επιστρέφει το κλειδί)
     if (!key) return json({ ok: false, error: "missing_key" });
