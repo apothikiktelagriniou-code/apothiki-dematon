@@ -574,7 +574,11 @@ function card(p) {
   if (p.status === "not_arrived") {
     if (isTransit(p)) mk("Μεταφόρτωση σε δρομολόγιο", toggle("fwd"), "primary");
     mk(isTransit(p) ? "Ήρθε στην αποθήκη" : "Ήρθε τελικά", async () => { if (needOperator()) return; const dest = p.destination_city || HOME;
-      await updateParcel(p.id, { bypassed: false, status: dest === HOME ? "arrived" : "transit", status_at: new Date().toISOString(), shelf: dest === HOME ? (p.shelf || shelfFor(p.recipient_name) || null) : null }).catch(() => {}); });
+      // σβήνει από τις σημειώσεις το «Στην κατάσταση … δεν ήρθε στην αποθήκη Αγρινίου» / «Απευθείας μεταφόρτωση — κατάσταση …»
+      const cleaned = String(p.notes || "").replace(/Στην κατάσταση[^·\n]*?δεν ήρθε στην αποθήκη Αγρινίου( \(αβέβαιη ανάγνωση\))?/g, "")
+        .replace(/Απευθείας μεταφόρτωση — κατάσταση[^·\n]*/g, "").replace(/^[\s·—-]+|[\s·—-]+$/g, "").replace(/\s*·\s*·\s*/g, " · ").trim();
+      await updateParcel(p.id, { bypassed: false, status: dest === HOME ? "arrived" : "transit", status_at: new Date().toISOString(), shelf: dest === HOME ? (p.shelf || shelfFor(p.recipient_name) || null) : null,
+        notes: cleaned || null, pieces_in: Math.max(1, p.pieces_in || 0) }).catch(() => {}); });
   } else if (p.status === "transit") mk("Προώθηση", toggle("fwd"), "primary");
   else if (!isClosed(p)) { mk(p.status === "notified" ? "Υπενθύμιση" : "Ειδοποίηση", toggle("notify")); mk("Παράδοση", toggle("pickup"), "primary"); }
   if ((p.pieces_total || 1) > 1 && (p.pieces_in ?? 1) < p.pieces_total && !isClosed(p)) {
