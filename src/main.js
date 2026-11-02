@@ -461,6 +461,7 @@ function render() {
     addAlert((late.length ? "⚠ " : "⇄ ") + pendTr.length + " μεταφορτώσεις περιμένουν προώθηση (" + dests + ")" + (late.length ? " · " + late.length + " καθυστερούν" : "") + ".", late.length ? "bad" : "warn", "transit"); }
   const rem = all.filter(needsRemind).length; if (rem) addAlert("🔔 " + rem + " δέματα θέλουν υπενθύμιση.", "info", "remind");
   const hw = all.filter(p => !isClosed(p) && p.phone_source === "handwritten" && !p.phone_confirmed).length; if (hw) addAlert("✍ " + hw + " τηλέφωνα από χειρόγραφο θέλουν επιβεβαίωση.", "warn", "hw");
+  if (new Date().getDay() === 0 && store.get("invDoneDay") !== dayKey(new Date())) { const b = el("button", "msg info alert", "📦 Κυριακή: κάνε απογραφή αποθήκης ›"); b.type = "button"; b.onclick = () => { if (!needOperator()) openInventory(); }; al.append(b); }
   const cod = all.filter(p => p.cod_amount_eur > 0 && !p.cod_collected && !isClosed(p)).length; if (cod) addAlert("💶 " + cod + " δέματα με είσπραξη από τον παραλήπτη.", "warn", "cod");
 
   // πόλεις
@@ -574,7 +575,7 @@ function card(p) {
   mk2("🕘", "Ιστορικό", () => showHistory(p));
   row.append(left, acts);
   if (p.status === "done") {
-    row.append(el("div", "meta note", ["Παρέλαβε: " + (p.picked_by_name || "—"), p.id_doc_number ? (p.id_doc_type || "Έγγραφο") + " " + p.id_doc_number : p.id_doc_last4 ? (p.id_doc_type || "Έγγραφο") + " ••••" + p.id_doc_last4 : "", p.picked_by_phone ? fmtPhone(p.picked_by_phone) : "", fmtGr(p.picked_up_at), p.home_delivery ? "🏠 Delivery" : "", p.cod_collected ? "💶 Εισπράχθηκε " + money(p.cod_amount_eur) : ""].filter(Boolean).join(" · ")));
+    row.append(el("div", "meta note", ["Παρέλαβε: " + (!p.picked_by_name ? "—" : norm(p.picked_by_name) === norm(p.recipient_name || "") ? "ο ίδιος" : p.picked_by_name), p.id_doc_number ? (p.id_doc_type || "Έγγραφο") + " " + p.id_doc_number : p.id_doc_last4 ? (p.id_doc_type || "Έγγραφο") + " ••••" + p.id_doc_last4 : "", p.picked_by_phone ? fmtPhone(p.picked_by_phone) : "", fmtGr(p.picked_up_at), p.home_delivery ? "🏠 Delivery" : "", p.cod_collected ? "💶 Εισπράχθηκε " + money(p.cod_amount_eur) : ""].filter(Boolean).join(" · ")));
     if (p.signature_path) { const holder = el("div", "note"); const b = mk("Υπογραφή", () => showSignature(p, holder, b)); row.append(holder); }
   }
   if (p.status === "forwarded") row.append(el("div", "meta note", [(away(p) ? "Απευθείας μεταφόρτωση → " : "Προωθήθηκε → ") + (p.fwd_destination || p.destination_city), p.fwd_departure_at ? "δρομολόγιο " + fmtGr(p.fwd_departure_at) : "", p.fwd_bus ? "λεωφορείο " + p.fwd_bus : "", p.fwd_note || ""].filter(Boolean).join(" · ")));
@@ -722,8 +723,11 @@ function field(box, label, input, wide) { const w = el("div", "f" + (wide ? " wi
 function inp(v, attrs) { const i = el("input"); i.value = v || ""; Object.assign(i, attrs || {}); return i; }
 function pickupBox(p) {
   const box = el("form", "box"); box.autocomplete = "off";
-  const phone = field(box, "Τηλέφωνο παραλήπτη (υποχρεωτικό)", inp(p.recipient_phone, { inputMode: "tel", className: "mono", autocomplete: "off" }), true);
-  const name = field(box, "Ονοματεπώνυμο (προαιρετικό)", inp(p.recipient_name), true);
+  // γρήγορη παράδοση: τον παραλαμβάνει ο ίδιος ο παραλήπτης (καθημερινοί πελάτες, χωρίς στοιχεία)
+  const self = el("button", "btn primary big wide selfbtn", "✓ Παρέλαβε ο ίδιος" + (p.recipient_name ? " · " + p.recipient_name : "")); self.type = "button"; box.append(self);
+  box.append(el("div", "hint wide", "…ή αν παραλαμβάνει άλλο πρόσωπο / θες έγγραφο ή υπογραφή, συμπλήρωσε από κάτω:"));
+  const name = field(box, "Όνομα παραλαβόντα (κενό = ο ίδιος ο παραλήπτης)", inp("", { placeholder: p.recipient_name || "Ονοματεπώνυμο", autocapitalize: "characters" }), true);
+  const phone = field(box, "Τηλέφωνο παραλαβόντα (υποχρεωτικό αν είναι άλλο πρόσωπο)", inp(p.recipient_phone, { inputMode: "tel", className: "mono", autocomplete: "off" }), true);
   const when = dtFields(box, "Ημέρα παραλαβής", "Ώρα (24ωρη)", new Date().toISOString());
   const sel = el("select"); ["Ταυτότητα", "Δίπλωμα", "Διαβατήριο"].forEach(t => sel.append(new Option(t))); field(box, "Έγγραφο", sel);
   const idn = field(box, "Αριθμός εγγράφου (προαιρετικό)", inp("", { className: "mono", autocapitalize: "characters" }));
@@ -753,8 +757,10 @@ function pickupBox(p) {
   box.onsubmit = async e => {
     e.preventDefault(); if (needOperator()) return;
     const say = (t, c) => { msg.textContent = t; msg.className = "msg " + c + " wide"; msg.hidden = false; };
-    const nm = name.value.trim() || p.recipient_name || "", pn = cleanPhone(phone.value), idNo = cleanIdDoc(idn.value);
-    if (!pn) { phone.focus(); return say("Γράψε το κινητό του παραλήπτη (10 ψηφία, π.χ. 6941234567).", "warn"); }
+    const other = !!name.value.trim() && norm(name.value) !== norm(p.recipient_name || "");
+    const nm = (name.value.trim() || p.recipient_name || "").toUpperCase(), pn = cleanPhone(phone.value), idNo = cleanIdDoc(idn.value);
+    if (phone.value.trim() && !pn) { phone.focus(); return say("Το τηλέφωνο δεν μοιάζει σωστό (10 ψηφία, π.χ. 6941234567) — διόρθωσέ το ή άφησέ το κενό.", "warn"); }
+    if (other && !pn) { phone.focus(); return say("Παραλαμβάνει άλλο πρόσωπο: γράψε το κινητό του (10 ψηφία).", "warn"); }
     if (pcs && !pcs.checked) return say("Τσέκαρε ότι παρέδωσες και τα " + p.pieces_total + " τεμάχια.", "warn");
     if (codC && !codC.checked) return say("Τσέκαρε ότι εισπράχθηκε το ποσό " + money(p.cod_amount_eur) + ".", "warn");
     ok.disabled = true; say("Αποθήκευση…", "info");
@@ -769,9 +775,22 @@ function pickupBox(p) {
       await updateParcel(p.id, { status: "done", status_at: new Date().toISOString(), picked_up_at: at, picked_by_name: nm, picked_by_phone: pn || null,
         id_doc_type: idNo ? sel.value : null, id_doc_number: idNo || null, id_doc_last4: idNo ? idNo.slice(-4) : null,
         signature_path: path, home_delivery: home.checked, cod_collected: codC ? true : p.cod_collected });
-      if (nm) linkCustomer(nm, pn).catch(() => {});
-      openBox = { id: null }; show($("formMsg"), "Παραδόθηκε: " + (p.receipt_no || nm) + ".", "ok"); render();
+      if (nm && pn && !other) linkCustomer(nm, pn).catch(() => {});
+      openBox = { id: null }; show($("formMsg"), "Παραδόθηκε: " + (p.receipt_no || nm) + (other ? " — παρέλαβε " + nm : "") + ".", "ok"); render();
     } catch (err) { console.error(err); ok.disabled = false; say("Δεν αποθηκεύτηκε. Δοκίμασε ξανά.", "bad"); }
+  };
+  self.onclick = async () => {
+    if (needOperator()) return;
+    const say = (t, c) => { msg.textContent = t; msg.className = "msg " + c + " wide"; msg.hidden = false; };
+    if (pcs && !pcs.checked) { pcs.closest("label").scrollIntoView({ block: "center" }); return say("Τσέκαρε πρώτα ότι παρέδωσες και τα " + p.pieces_total + " τεμάχια, μετά ξαναπάτα «Παρέλαβε ο ίδιος».", "warn"); }
+    if (codC && !codC.checked) { codC.closest("label").scrollIntoView({ block: "center" }); return say("Τσέκαρε πρώτα ότι εισπράχθηκε το ποσό " + money(p.cod_amount_eur) + ", μετά ξαναπάτα «Παρέλαβε ο ίδιος».", "warn"); }
+    self.disabled = true; ok.disabled = true;
+    try {
+      const now = new Date().toISOString();
+      await updateParcel(p.id, { status: "done", status_at: now, picked_up_at: now, picked_by_name: (p.recipient_name || "").toUpperCase() || null,
+        picked_by_phone: cleanPhone(p.recipient_phone) || null, home_delivery: home.checked, cod_collected: codC ? true : p.cod_collected });
+      openBox = { id: null }; show($("formMsg"), "Παραδόθηκε στον ίδιο: " + (p.recipient_name || p.receipt_no) + ".", "ok"); render();
+    } catch (err) { console.error(err); self.disabled = false; ok.disabled = false; say("Δεν αποθηκεύτηκε. Δοκίμασε ξανά.", "bad"); }
   };
   return box;
 }
@@ -944,3 +963,55 @@ setInterval(() => { if (!openBox.id && !$("app").hidden) { render(); purgeAllClo
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => {});
 sb.auth.onAuthStateChange(ev => { if (ev === "SIGNED_OUT") location.reload(); });
 boot();
+
+
+// ---------------------------------------------------------------- απογραφή αποθήκης (π.χ. κάθε Κυριακή)
+const invKey = () => "inv:" + dayKey(new Date());
+let invView = "todo";
+const invFound = () => { try { return new Set(JSON.parse(store.get(invKey()) || "[]")); } catch { return new Set(); } };
+const invSave = s => store.set(invKey(), JSON.stringify([...s]));
+// στην αποθήκη = ανοιχτά δέματα που ήρθαν πράγματι (όχι «δεν ήρθαν»), μαζί με μεταφορτώσεις που περιμένουν
+const invItems = () => [...rows.values()].filter(p => !isClosed(p) && !away(p) && p.status !== "not_arrived")
+  .sort((a, b) => (isTransit(a) - isTransit(b)) || String(a.shelf || "~").localeCompare(String(b.shelf || "~"), "el") || String(a.recipient_name || "").localeCompare(String(b.recipient_name || ""), "el"));
+function invRender() {
+  const items = invItems(), found = invFound(); const ids = new Set(items.map(p => p.id));
+  const nf = items.filter(p => found.has(p.id)).length;
+  show($("invProg"), "Βρέθηκαν " + nf + " / " + items.length + (items.length - nf ? " · μένουν " + (items.length - nf) : " · ✓ όλα βρέθηκαν"), nf === items.length ? "ok" : "info");
+  const q = norm($("invQ").value); const list = $("invList"); list.textContent = "";
+  let lastG = null;
+  items.filter(p => (invView === "all" || (invView === "found") === found.has(p.id)) && (!q || norm([p.recipient_name, p.receipt_no, p.shelf, p.origin_city, p.package_desc].join(" ")).includes(q)))
+    .forEach(p => {
+      const g = isTransit(p) ? "⇄ Μεταφορτώσεις → " + (p.destination_city || "") : "Ράφι " + (p.shelf || "—");
+      if (g !== lastG) { list.append(el("h3", "invg", g)); lastG = g; }
+      const r = el("label", "invrow" + (found.has(p.id) ? " ok" : "")); const c = el("input"); c.type = "checkbox"; c.checked = found.has(p.id);
+      c.onchange = () => { const s = invFound(); c.checked ? s.add(p.id) : s.delete(p.id); invSave(s); invRender(); };
+      const t = el("div", "invt"); t.append(el("b", null, p.recipient_name || p.receipt_no || "—"),
+        el("span", "hint", [p.receipt_no, p.origin_city ? "από " + p.origin_city : "", p.package_desc, daysSince(p.created_at) >= 1 ? daysSince(p.created_at) + " μέρες" : "σήμερα"].filter(Boolean).join(" · ")));
+      r.append(c, t); list.append(r);
+    });
+  if (!list.childNodes.length) list.append(el("div", "empty", invView === "todo" ? "Βρέθηκαν όλα ✓" : "Τίποτα εδώ."));
+  [...found].forEach(id => { if (!ids.has(id)) found.delete(id); });
+}
+function openInventory() {
+  $("invQ").value = ""; invView = "todo"; document.querySelectorAll("[data-iv]").forEach(x => x.setAttribute("aria-pressed", String(x.dataset.iv === invView)));
+  invRender(); $("invDlg").showModal();
+}
+$("invBtn").onclick = () => { $("invBtn").closest("details").open = false; if (needOperator()) return; openInventory(); };
+$("invClose").onclick = () => { $("invDlg").close(); render(); };
+$("invQ").addEventListener("input", invRender);
+document.querySelectorAll("[data-iv]").forEach(b => b.onclick = () => { invView = b.dataset.iv; document.querySelectorAll("[data-iv]").forEach(x => x.setAttribute("aria-pressed", String(x === b))); invRender(); });
+$("invReset").onclick = () => { if ($("invReset").dataset.sure) { invSave(new Set()); delete $("invReset").dataset.sure; $("invReset").textContent = "Από την αρχή"; invRender(); } else { $("invReset").dataset.sure = "1"; $("invReset").textContent = "Σίγουρα; Πάτα ξανά"; } };
+$("invCsv").onclick = () => {
+  const found = invFound();
+  const csv = toCSV(invItems(), [["f", "Βρέθηκε", p => found.has(p.id) ? "ΝΑΙ" : "ΟΧΙ"], ["shelf", "Ράφι"], ["recipient_name", "Παραλήπτης"], ["receipt_no", "Απόδειξη"], ["origin_city", "Από"], ["destination_city", "Προορισμός"], ["recipient_phone", "Τηλέφωνο"], ["d", "Μέρες", p => daysSince(p.created_at)], ["package_desc", "Συσκευασία"]]);
+  const a = el("a"); a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" })); a.download = "apografi-" + dayKey(new Date()) + ".csv"; a.click();
+};
+$("invDone").onclick = async () => {
+  const items = invItems(), found = invFound(); const miss = items.filter(p => !found.has(p.id));
+  const d = new Date(); const txt = "📦 Απογραφή " + p2_(d.getDate()) + "/" + p2_(d.getMonth() + 1) + " (" + (operator() || "—") + "): " + items.length + " στην αποθήκη, βρέθηκαν " + (items.length - miss.length) +
+    (miss.length ? ". ΔΕΝ ΒΡΕΘΗΚΑΝ " + miss.length + ": " + miss.slice(0, 25).map(p => (p.recipient_name || "—") + " (" + (p.receipt_no || "χωρίς απόδ.") + (p.shelf ? ", ράφι " + p.shelf : "") + ")").join(", ") + (miss.length > 25 ? " κ.ά." : "") : ". Όλα εντάξει ✓");
+  $("invDone").disabled = true;
+  try { await sb.from("shift_notes").insert({ text: txt, operator: operator() || null }); store.set("invDoneDay", dayKey(d)); loadNotes(); $("invDlg").close(); show($("formMsg"), "Η απογραφή καταγράφηκε στο σημείωμα βάρδιας.", "ok"); render(); }
+  catch { show($("invProg"), "Δεν αποθηκεύτηκε. Δοκίμασε ξανά.", "bad"); }
+  finally { $("invDone").disabled = false; }
+};

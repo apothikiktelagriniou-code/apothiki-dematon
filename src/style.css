@@ -341,3 +341,11 @@ header .btn{white-space:nowrap}
 .row.flash{animation:flash 1.2s ease-out 2}
 @keyframes flash{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--bad) 55%,transparent)}100%{box-shadow:0 0 0 14px transparent}}
 @media (prefers-reduced-motion: reduce){.row.flash{animation:none}}
+/* απογραφή */
+.invlist{display:flex;flex-direction:column;gap:6px}
+.invg{margin:10px 0 2px;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.invrow{display:flex;gap:12px;align-items:center;border:1px solid var(--line-2);border-radius:12px;padding:10px 12px;background:var(--surface);cursor:pointer;text-transform:none;letter-spacing:0;font-size:15px;color:var(--fg);font-weight:400}
+.invrow input{width:26px;height:26px;min-height:26px;flex:0 0 auto;accent-color:var(--ok)}
+.invrow.ok{background:var(--ok-soft);border-color:color-mix(in srgb,var(--ok) 35%,transparent)}
+.invt{display:flex;flex-direction:column;min-width:0}.invt b{font-size:16px}
+.selfbtn{min-height:56px}

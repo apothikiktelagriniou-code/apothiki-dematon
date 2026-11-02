@@ -13,8 +13,8 @@
 <link rel="apple-touch-icon" href="./icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
-  <script type="module" crossorigin src="./assets/index-DBAiXVqU.js"></script>
-  <link rel="stylesheet" crossorigin href="./assets/index-D613NByP.css">
+  <script type="module" crossorigin src="./assets/index-BdqJDz7w.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-aet390oC.css">
 </head>
 <body>
 <!-- ΣΥΝΔΕΣΗ -->
@@ -44,6 +44,7 @@
         <div class="menu-pop">
           <button class="btn small" type="button" id="exportBtn">Εξαγωγή για Excel</button>
           <button class="btn small" type="button" id="manifestBtn">📄 Έλεγχος κατάστασης</button>
+          <button class="btn small" type="button" id="invBtn">📦 Απογραφή αποθήκης</button>
           <div class="hint">Κανάλια ειδοποίησης</div>
           <button class="btn small" type="button" id="tg-whatsapp">WhatsApp</button>
           <button class="btn small" type="button" id="tg-viber">Viber</button>
@@ -186,6 +187,22 @@
         <button type="button" class="btn" id="clearBtn">Ακύρωση</button>
       </div>
     </form>
+  </dialog>
+  <dialog id="invDlg" class="sheet" aria-labelledby="invTitle">
+    <div class="sheet-head"><h2 id="invTitle">📦 Απογραφή αποθήκης</h2><button class="btn small" type="button" id="invClose" aria-label="Κλείσιμο">✕</button></div>
+    <div class="msg info" id="invProg" role="status"></div>
+    <input id="invQ" type="search" class="search" placeholder="Βρες γρήγορα: επώνυμο ή αριθμός απόδειξης" aria-label="Αναζήτηση στην απογραφή">
+    <div class="chips" role="group" aria-label="Προβολή απογραφής">
+      <button class="chip" type="button" data-iv="todo" aria-pressed="true">Δεν βρέθηκαν ακόμα</button>
+      <button class="chip" type="button" data-iv="all" aria-pressed="false">Όλα</button>
+      <button class="chip" type="button" data-iv="found" aria-pressed="false">Βρέθηκαν</button>
+    </div>
+    <div id="invList" class="invlist"></div>
+    <div class="formactions">
+      <button class="btn primary" type="button" id="invDone">Ολοκλήρωση απογραφής</button>
+      <button class="btn" type="button" id="invCsv">Εξαγωγή για Excel</button>
+      <button class="btn" type="button" id="invReset">Από την αρχή</button>
+    </div>
   </dialog>
   <dialog id="dlg"><div id="dlgBody"></div><form method="dialog"><button class="btn small">Κλείσιμο</button></form></dialog>
 </div>
