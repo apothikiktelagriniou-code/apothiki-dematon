@@ -105,7 +105,14 @@ async function loadParcels() {
     .order("created_at", { ascending: false }).limit(5000);
   if (error) { show($("netMsg"), "Δεν φορτώθηκαν τα δέματα. Έλεγξε τη σύνδεση και ανανέωσε τη σελίδα.", "bad"); return; }
   rows = new Map(data.map(p => [p.id, p]));
-  render(); purgeAllClosed(); cleanStaleNotes();
+  render(); purgeAllClosed(); cleanStaleNotes(); fixKindOnce();
+}
+// μία φορά: όλα τα παλιά «Συνοδευτικό» (από την ετικέτα) → «Ασυνόδευτο»
+async function fixKindOnce() {
+  if (store.get("kindFix1")) return;
+  const { error } = await sb.from("parcels").update({ kind: "Ασυνόδευτο" }).eq("kind", "Συνοδευτικό");
+  if (error) return;
+  store.set("kindFix1", "1"); rows.forEach(p => { if (p.kind === "Συνοδευτικό") p.kind = "Ασυνόδευτο"; }); render();
 }
 function subscribe() {
   sb.channel("live")

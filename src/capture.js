@@ -218,7 +218,7 @@ function reviewCard(q, idx) {
     if (k === "origin_city" || k === "destination_city") i.setAttribute("list", "cities");
     w.append(el("label", null, label), i); g.append(w); inputs[k] = i; });
   if (!inputs.destination_city.value) inputs.destination_city.placeholder = HOME;
-  const kind = el("select"); ["Ασυνόδευτο", "Συνοδευτικό"].forEach(t => kind.append(new Option(t))); kind.value = d.kind || "Ασυνόδευτο";
+  const kind = el("select"); ["Ασυνόδευτο", "Συνοδευτικό"].forEach(t => kind.append(new Option(t))); kind.value = "Ασυνόδευτο";
   const kw = el("div", "f"); kw.append(el("label", null, "Τύπος"), kind); g.append(kw);
   const hw = el("label", "check"); const hwc = el("input"); hwc.type = "checkbox"; hwc.checked = !!d.phone_is_handwritten; hw.append(hwc, document.createTextNode(" Τηλ. από χειρόγραφο")); g.append(hw);
   right.append(g);
