@@ -364,22 +364,37 @@ const phoneOk = p => !!p.recipient_phone;
 
 const away = p => !!p.bypassed;
 // ---------------------------------------------------------------- έλεγχος με καταστάσεις πρακτορείων
-let manifests = [], chkReceipts = new Set(), chkTrips = new Set();
+let manifests = [], chkReceipts = new Set(), chkTrips = new Set(), noneTrips = new Set();
+const NO_LIST = "— ΧΩΡΙΣ ΚΑΤΑΣΤΑΣΗ —";
 const rkey = r => { const d = String(r || "").replace(/\D/g, ""); return d.length >= 10 ? d.slice(-10) : ""; };
 async function loadManifests() {
   const since = new Date(Date.now() - 45 * 864e5).toISOString();
-  const { data } = await sb.from("manifests").select("origin_city,departure_at,items,created_at").gte("created_at", since).limit(2000);
+  const { data } = await sb.from("manifests").select("id,origin_city,departure_at,agency,items,created_at").gte("created_at", since).limit(2000);
   manifests = data || []; scheduleRender();
 }
 function computeChecks(all) {
-  chkReceipts = new Set(); chkTrips = new Set();
-  manifests.forEach(m => { (m.items || []).forEach(it => { const k = rkey(it.receipt_no); if (k) chkReceipts.add(k); });
+  chkReceipts = new Set(); chkTrips = new Set(); noneTrips = new Set();
+  manifests.forEach(m => { if (m.agency === NO_LIST && m.origin_city && m.departure_at) noneTrips.add(tripsOf({ origin_city: m.origin_city, departure_at: m.departure_at })[0]); (m.items || []).forEach(it => { const k = rkey(it.receipt_no); if (k) chkReceipts.add(k); });
     if (m.origin_city && m.departure_at) chkTrips.add(tripsOf({ origin_city: m.origin_city, departure_at: m.departure_at })[0]); });
   all.forEach(p => { if (chkReceipts.has(rkey(p.receipt_no)) && p.departure_at) chkTrips.add(tripsOf(p)[0]); });
 }
 const inTrip = p => tripsOf(p)[0];
 const receiptChecked = p => chkReceipts.has(rkey(p.receipt_no));
 const tripChecked = t => chkTrips.has(t);
+// «Δεν υπάρχει κατάσταση για αυτό το δρομολόγιο» → μετράει ως τακτοποιημένο (αποθηκεύεται ως κατάσταση χωρίς λίστα)
+async function markNoList(t, on) {
+  const [c, k] = t.split("|"); const g = [...rows.values()].find(p => inTrip(p) === t);
+  if (on) await sb.from("manifests").insert({ origin_city: c, departure_at: g ? g.departure_at : null, agency: NO_LIST, items: [], found: 0, missing: 0, extra: 0, operator: operator() });
+  else { const ids = manifests.filter(m => m.agency === NO_LIST && m.origin_city && m.departure_at && tripsOf({ origin_city: m.origin_city, departure_at: m.departure_at })[0] === t).map(m => m.id); if (ids.length) await sb.from("manifests").delete().in("id", ids); }
+  await loadManifests();
+}
+function noListButtons(box, list) {
+  const w = el("div", "quick"); w.style.marginTop = "6px";
+  list.forEach(t => { const lbl = t.split("|")[1].split(" ")[1] + " " + t.split("|")[0]; const none = noneTrips.has(t);
+    const b = el("button", "btn small", none ? "↺ " + lbl + ": αναίρεση «χωρίς κατάσταση»" : "📄— " + lbl + ": δεν υπάρχει κατάσταση"); b.type = "button";
+    b.onclick = async () => { b.disabled = true; try { await markNoList(t, !none); } catch { b.disabled = false; } }; w.append(b); });
+  box.append(w);
+}
 // δέμα που ήρθε με λεωφορείο τις τελευταίες 7 μέρες και δεν έχει ελεγχθεί με κατάσταση (ούτε το ίδιο ούτε το δρομολόγιό του)
 const needsCheck = p => !away(p) && p.source !== "manifest" && daysSince(p.created_at) <= 7 && !receiptChecked(p) && !(inTrip(p) !== "__none" && tripChecked(inTrip(p)));
 
@@ -467,17 +482,19 @@ function render() {
   const dayAll = [...new Set(dayKeys.flatMap(t => trips[t]))];
   sel.append(new Option(dayKeys.length ? "— Όλα τα δέματα (χωρίς φίλτρο) —" : "Κανένα δρομολόγιο αυτή τη μέρα", ""));
   if (dayKeys.length) sel.append(new Option("Όλα τα δρομολόγια της ημέρας (" + dayKeys.length + " δρομ. · " + dayAll.length + " δέματα)", "__day"));
-  if (inDay.length) sel.append(new Option(unchk.length ? "📄✗ Χωρίς έλεγχο κατάστασης: " + unchk.length + " από " + inDay.length + " δρομολόγια" : "📄✓ Όλα τα δρομολόγια ελέγχθηκαν με κατάσταση", "__nocheck"));
+  if (inDay.length) sel.append(new Option(unchk.length ? "📄✗ Χωρίς έλεγχο κατάστασης: " + unchk.length + " από " + inDay.length + " δρομολόγια" : "📄✓ Όλα τα δρομολόγια τακτοποιήθηκαν", "__nocheck"));
   dayKeys.forEach(t => {
     const [c, k] = t.split("|"); const out = c[0] === ">"; const city = out ? c.slice(1) : c; const g = trips[t]; const open = g.filter(p => !isClosed(p)).length;
-    sel.append(new Option(k.split(" ")[1] + " · " + (out ? (g.every(x => x.status === "returned") ? "↩ Επιστροφή → " : "Αποστολή → ") + city : "από " + city) + " — " + g.length + " δέματα" + (open ? ", " + open + " εκκρεμούν" : " ✓") + (out ? "" : tripChecked(t) ? " · 📄✓" : " · 📄✗"), t));
+    sel.append(new Option(k.split(" ")[1] + " · " + (out ? (g.every(x => x.status === "returned") ? "↩ Επιστροφή → " : "Αποστολή → ") + city : "από " + city) + " — " + g.length + " δέματα" + (open ? ", " + open + " εκκρεμούν" : " ✓") + (out ? "" : noneTrips.has(t) ? " · 📄— χωρίς κατάσταση" : tripChecked(t) ? " · 📄✓" : " · 📄✗"), t));
   });
   if (trips.__none && trips.__none.some(p => !isClosed(p))) sel.append(new Option("Χωρίς δρομολόγιο — " + trips.__none.length + " δέματα", "__none"));
   sel.value = tripFilter;
-  if (tripFilter === "__nocheck") show($("tripSum"), unchk.length ? "Δρομολόγια χωρίς έλεγχο κατάστασης: " + unchk.map(t => t.split("|")[1].split(" ")[1] + " " + t.split("|")[0]).join(", ") + ". Πάτα «📄 Έλεγχος κατάστασης» στο Μενού." : "Όλα τα δρομολόγια της ημέρας έχουν ελεγχθεί με κατάσταση.", unchk.length ? "warn" : "ok");
+  if (tripFilter === "__nocheck") show($("tripSum"), unchk.length ? "Δρομολόγια χωρίς έλεγχο κατάστασης: " + unchk.map(t => t.split("|")[1].split(" ")[1] + " " + t.split("|")[0]).join(", ") + ". Πάτα «📄 Έλεγχος κατάστασης» στο Μενού — ή, αν δεν ήρθε κατάσταση, πάτα το κουμπί του δρομολογίου:" : "Όλα τα δρομολόγια της ημέρας έχουν ελεγχθεί με κατάσταση ή σημειώθηκαν «χωρίς κατάσταση».", unchk.length ? "warn" : "ok");
+  if (tripFilter === "__nocheck") { const marked = inDay.filter(t => noneTrips.has(t)); if (unchk.length || marked.length) noListButtons($("tripSum"), [...unchk, ...marked]); }
   else if (tripFilter === "__day") show($("tripSum"), "Δρομολόγια " + tripDay.split("-").reverse().join("/") + ": " + dayAll.length + " δέματα · εκκρεμούν " + dayAll.filter(p => !isClosed(p)).length + " · κόμιστρα " + money(dayAll.reduce((s, p) => s + (Number(p.fare_eur) || 0), 0)), "info");
   else if (tripFilter) { const g = trips[tripFilter]; const dn = g.filter(isClosed).length; const tr = g.filter(isTransit).length;
-    show($("tripSum"), tripLabel(tripFilter) + ": " + g.length + " δέματα" + (tr ? " (μεταφόρτωση " + tr + ")" : "") + " · έκλεισαν " + dn + " · εκκρεμούν " + (g.length - dn) + " · κόμιστρα " + money(g.reduce((s, p) => s + (Number(p.fare_eur) || 0), 0)), "info"); }
+    show($("tripSum"), tripLabel(tripFilter) + ": " + g.length + " δέματα" + (tr ? " (μεταφόρτωση " + tr + ")" : "") + " · έκλεισαν " + dn + " · εκκρεμούν " + (g.length - dn) + " · κόμιστρα " + money(g.reduce((s, p) => s + (Number(p.fare_eur) || 0), 0)) + (tripFilter[0] === ">" || tripFilter === "__none" ? "" : noneTrips.has(tripFilter) ? " · 📄— χωρίς κατάσταση" : tripChecked(tripFilter) ? " · 📄✓ ελέγχθηκε" : " · 📄✗ χωρίς έλεγχο"), "info");
+    if (tripFilter[0] !== ">" && tripFilter !== "__none" && (noneTrips.has(tripFilter) || !tripChecked(tripFilter))) noListButtons($("tripSum"), [tripFilter]); }
   else show($("tripSum"), "", "info");
 
   // μαζική ειδοποίηση
