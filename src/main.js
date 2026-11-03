@@ -466,7 +466,7 @@ const needsCheck = p => !away(p) && p.source !== "manifest" && !(p.tags || []).i
 // απευθείας μεταφορτώσεις από κατάσταση (για άλλες πόλεις): δεν τις κρατάμε στην προβολή
 const isDirect = p => p.source === "manifest" && isTransit(p);
 const liveRows = () => [...rows.values()].filter(p => !isDirect(p));
-let focusKind = null, focusIdx = 0;
+let focusKind = null, focusIdx = 0, boxCache = { key: "", el: null };
 const ALERT_PRED = {
   transit: p => p.status === "transit",
   remind: p => needsRemind(p),
@@ -523,7 +523,7 @@ function render() {
   const addAlert = (text, cls, kind) => { const n = all.filter(ALERT_PRED[kind]).length;
     const b = el("button", "msg " + cls + " alert", text + (focusKind === kind && n > 1 ? "  · " + ((focusIdx % n) + 1) + "/" + n + " — πάτα για το επόμενο" : "  ›")); b.type = "button";
     b.onclick = () => { if (focusKind === kind) focusIdx++; else { focusKind = kind; focusIdx = 0; }
-      setFilter("all"); cityFilter = ""; tripFilter = ""; $("q").value = ""; openBox = { id: null }; render();
+      setFilter("all"); cityFilter = ""; tripFilter = ""; $("q").value = ""; boxCache.key = "", openBox = { id: null }; render();
       const t = [...document.querySelectorAll("#list .row.flag")]; if (!t.length) return;
       const r = t[focusIdx % t.length]; r.scrollIntoView({ behavior: "smooth", block: "center" }); r.classList.remove("flash"); void r.offsetWidth; r.classList.add("flash"); };
     al.append(b); };
@@ -624,7 +624,7 @@ function card(p) {
   if (pt > 1) top.append(el("span", pin < pt ? "codb" : "tag", "📦 " + pin + "/" + pt + " τεμ."));
   if (p.damaged) { const ai = !(p.tags || []).includes("Παραλήφθηκε με φθορά");
     const z = el("button", "codb dmg", ai ? "⚠ ΠΙΘΑΝΗ ΖΗΜΙΑ (AI) — έλεγξε" : "⚠ ΖΗΜΙΑ"); z.type = "button"; z.title = "Πάτα για να το δεις/αφαιρέσεις στις Παρατηρήσεις";
-    z.onclick = () => { openBox = { id: p.id, kind: "tags" }; render(); const r = $("row-" + p.id); r && r.scrollIntoView({ behavior: "smooth", block: "nearest" }); }; top.append(z); }
+    z.onclick = () => { boxCache.key = "", openBox = { id: p.id, kind: "tags" }; render(); const r = $("row-" + p.id); r && r.scrollIntoView({ behavior: "smooth", block: "nearest" }); }; top.append(z); }
   if (away(p)) top.append(isTransit(p) ? el("span", "transit", "⇄ ΑΠΕΥΘΕΙΑΣ ΜΕΤΑΦΟΡΤΩΣΗ") : el("span", "codb", "🚫 ΔΕΝ ΗΡΘΕ ΣΤΗΝ ΑΠΟΘΗΚΗ"));
 
   // πληροφορίες σε σειρές: αναχώρηση / καταχώρηση / απόδειξη / ασυνόδευτο+κόμιστρο / υπάλληλος / παρατηρήσεις
@@ -652,7 +652,7 @@ function card(p) {
   left.append(top, info);
   const acts = el("div", "acts");
   const mk = (t, fn, cls) => { const b = el("button", "btn small" + (cls ? " " + cls : ""), t); b.type = "button"; b.onclick = fn; acts.append(b); return b; };
-  const toggle = kind => () => { openBox = openBox.id === p.id && openBox.kind === kind ? { id: null } : { id: p.id, kind }; render(); const r = $("row-" + p.id); r && r.scrollIntoView({ behavior: "smooth", block: "nearest" }); };
+  const toggle = kind => () => { boxCache.key = "", openBox = openBox.id === p.id && openBox.kind === kind ? { id: null } : { id: p.id, kind }; render(); const r = $("row-" + p.id); r && r.scrollIntoView({ behavior: "smooth", block: "nearest" }); };
   if (p.status === "not_arrived") {
     if (isTransit(p)) mk("Μεταφόρτωση σε δρομολόγιο", toggle("fwd"), "primary");
     mk(isTransit(p) ? "Ήρθε στην αποθήκη" : "Ήρθε τελικά", async () => { if (needOperator()) return; const dest = p.destination_city || HOME;
@@ -686,7 +686,12 @@ function card(p) {
   if (p.status === "forwarded") row.append(el("div", "meta note", [(away(p) ? "Απευθείας μεταφόρτωση → " : "Προωθήθηκε → ") + (p.fwd_destination || p.destination_city), p.fwd_departure_at ? "δρομολόγιο " + fmtGr(p.fwd_departure_at) : "", p.fwd_bus ? "λεωφορείο " + p.fwd_bus : "", p.fwd_note || ""].filter(Boolean).join(" · ")));
   if (p.status === "returned") row.append(el("div", "meta note", ["↩ Επιστροφή → " + (p.fwd_destination || p.origin_city || "αποστολέα"), p.fwd_departure_at ? "δρομολόγιο " + fmtGr(p.fwd_departure_at) : "", p.fwd_bus ? "λεωφορείο " + p.fwd_bus : "", p.fwd_note || ""].filter(Boolean).join(" · ")));
   if (!acts.childNodes.length) acts.remove(); row.append(sec);
-  if (openBox.id === p.id) row.append(openBox.kind === "notify" ? notifyBox(p) : openBox.kind === "pickup" ? pickupBox(p) : openBox.kind === "tags" ? tagsBox(p) : openBox.kind === "ret" ? retBox(p) : fwdBox(p));
+  if (openBox.id === p.id) {
+    // το ανοιχτό κουτί (παράδοση, προώθηση κ.λπ.) δεν ξαναφτιάχνεται σε κάθε ανανέωση — αλλιώς χάνονται όσα γράφεις
+    const key = p.id + "|" + openBox.kind;
+    if (boxCache.key !== key) boxCache = { key, el: openBox.kind === "notify" ? notifyBox(p) : openBox.kind === "pickup" ? pickupBox(p) : openBox.kind === "tags" ? tagsBox(p) : openBox.kind === "ret" ? retBox(p) : fwdBox(p) };
+    row.append(boxCache.el);
+  } else if (boxCache.key && boxCache.key.startsWith(p.id + "|") && openBox.id !== p.id) boxCache = { key: "", el: null };
   return row;
 }
 
@@ -729,7 +734,7 @@ function notifyBox(p) {
   const bar = el("div", "toolbar wide"); const ph = p.recipient_phone;
   const mark = async ch => {
     try { await updateParcel(p.id, { status: "notified", status_at: new Date().toISOString(), notified_at: new Date().toISOString(), notify_count: (p.notify_count || 0) + 1, notify_channel: ch }); } catch {}
-    openBox = bulk ? { id: nextToNotify(p.id), kind: "notify" } : { id: null }; if (!openBox.id) bulk = false; render();
+    boxCache.key = "", openBox = bulk ? { id: nextToNotify(p.id), kind: "notify" } : { id: null }; if (!openBox.id) bulk = false; render();
   };
   const link = (label, href, ch, cls, pre) => { const a = el("a", "btn small" + (cls ? " " + cls : ""), label); a.target = "_blank"; a.rel = "noopener";
     a.onclick = async () => { a.href = href(); if (pre) await pre(); setTimeout(() => mark(ch), 400); }; a.href = href(); bar.append(a); };
@@ -764,7 +769,7 @@ function notifyBox(p) {
   const copy = el("button", "btn small", "Αντιγραφή"); copy.type = "button";
   copy.onclick = async () => { try { await navigator.clipboard.writeText(ta.value); copy.textContent = "Αντιγράφηκε"; } catch { ta.select(); } }; bar.append(copy);
   const close = el("button", "btn small", bulk ? "Επόμενο" : "Κλείσιμο"); close.type = "button";
-  close.onclick = () => { openBox = bulk ? { id: nextToNotify(p.id), kind: "notify" } : { id: null }; if (!openBox.id) bulk = false; render(); }; bar.append(close);
+  close.onclick = () => { boxCache.key = "", openBox = bulk ? { id: nextToNotify(p.id), kind: "notify" } : { id: null }; if (!openBox.id) bulk = false; render(); }; bar.append(close);
   box.append(ta, bar, sms, smsMsg, el("div", "hint wide", ph ? "Viber: αν δεν εμφανιστεί το μήνυμα, έχει αντιγραφεί — κράτα πατημένο → Επικόλληση. Μόλις πατήσεις κανάλι, σημειώνεται «Ειδοποιήθηκε»." : "Δεν υπάρχει τηλέφωνο. Πάτα «Επεξεργασία» για να το προσθέσεις."));
   return box;
 }
@@ -775,7 +780,7 @@ const chOn = c => settings[c + "_enabled"] === true;
 async function setTagCalled(p) {
   const tags = [...new Set([...(p.tags || []), "Ειδοποιήθηκε τηλεφωνικά"])];
   await updateParcel(p.id, { tags, status: "notified", status_at: new Date().toISOString(), notified_at: new Date().toISOString(), notify_count: (p.notify_count || 0) + 1, notify_channel: "call" }).catch(() => {});
-  openBox = bulk ? { id: nextToNotify(p.id), kind: "notify" } : { id: null }; if (!openBox.id) bulk = false; render();
+  boxCache.key = "", openBox = bulk ? { id: nextToNotify(p.id), kind: "notify" } : { id: null }; if (!openBox.id) bulk = false; render();
 }
 const CH_LABEL = { whatsapp: "WhatsApp", viber: "Viber", sms: "📩 SMS" };
 function renderSmsToggle() { for (const c of ["whatsapp", "viber", "sms"]) { const b = $("tg-" + c); if (b && !b.dataset.asking) b.textContent = CH_LABEL[c] + ": " + (settings[c + "_enabled"] === true ? "ΕΝΕΡΓΟ ✓ (πάτα για απενεργοποίηση)" : "ανενεργό (πάτα για ενεργοποίηση)"); } }
@@ -823,8 +828,8 @@ $("bulkSmsBtn").onclick = async () => {
   $("bulkHint").textContent = "📩 Στάλθηκαν " + ok + " SMS" + (fail ? " · απέτυχαν " + fail : "") + "."; b.disabled = false;
 };
 
-$("bulkBtn").onclick = () => { if (bulk) { bulk = false; openBox = { id: null }; render(); return; }
-  bulk = true; setFilter("tonotify"); openBox = { id: nextToNotify(null), kind: "notify" }; if (!openBox.id) bulk = false; render(); };
+$("bulkBtn").onclick = () => { if (bulk) { bulk = false; boxCache.key = "", openBox = { id: null }; render(); return; }
+  bulk = true; setFilter("tonotify"); boxCache.key = "", openBox = { id: nextToNotify(null), kind: "notify" }; if (!openBox.id) bulk = false; render(); };
 
 // ---------------------------------------------------------------- παράδοση
 function field(box, label, input, wide) { const w = el("div", "f" + (wide ? " wide" : "")); w.append(el("label", null, label), input); box.append(w); return input; }
@@ -881,7 +886,7 @@ function pickupBox(p) {
   box.append(sw);
   const msg = el("div", "msg info wide"); msg.hidden = true; box.append(msg);
   const acts = el("div", "formactions"); const ok = el("button", "btn primary", "Ολοκλήρωση παράδοσης"); ok.type = "submit";
-  const cancel = el("button", "btn", "Ακύρωση"); cancel.type = "button"; cancel.onclick = () => { openBox = { id: null }; render(); };
+  const cancel = el("button", "btn", "Ακύρωση"); cancel.type = "button"; cancel.onclick = () => { boxCache.key = "", openBox = { id: null }; render(); };
   acts.append(ok, cancel); box.append(acts);
   let drawn = false, ctx = null, last = null;
   requestAnimationFrame(() => { const r = cv.getBoundingClientRect(); const dpr = Math.min(devicePixelRatio || 1, 2);
@@ -916,7 +921,7 @@ function pickupBox(p) {
         id_doc_type: idNo ? sel.value : null, id_doc_number: idNo || null, id_doc_last4: idNo ? idNo.slice(-4) : null,
         signature_path: path, home_delivery: home.checked, cod_collected: codC ? true : p.cod_collected });
       if (!other) await saveSelf(sd).catch(() => {});
-      openBox = { id: null }; show($("formMsg"), "Παραδόθηκε: " + (p.receipt_no || nm) + (other ? " — παρέλαβε " + nm : "") + ".", "ok"); render();
+      boxCache.key = "", openBox = { id: null }; show($("formMsg"), "Παραδόθηκε: " + (p.receipt_no || nm) + (other ? " — παρέλαβε " + nm : "") + ".", "ok"); render();
     } catch (err) { console.error(err); ok.disabled = false; say("Δεν αποθηκεύτηκε. Δοκίμασε ξανά.", "bad"); }
   };
   self.onclick = async () => {
@@ -931,7 +936,7 @@ function pickupBox(p) {
       const now = new Date().toISOString();
       await updateParcel(p.id, { status: "done", status_at: now, picked_up_at: now, picked_by_name: sd.nm || null,
         picked_by_phone: sd.pn || null, home_delivery: home.checked, cod_collected: codC ? true : p.cod_collected });
-      openBox = { id: null }; show($("formMsg"), "Παραδόθηκε στον ίδιο: " + (p.recipient_name || p.receipt_no) + ".", "ok"); render();
+      boxCache.key = "", openBox = { id: null }; show($("formMsg"), "Παραδόθηκε στον ίδιο: " + (p.recipient_name || p.receipt_no) + ".", "ok"); render();
     } catch (err) { console.error(err); self.disabled = false; ok.disabled = false; say("Δεν αποθηκεύτηκε. Δοκίμασε ξανά.", "bad"); }
   };
   return box;
@@ -969,14 +974,14 @@ function retBox(p) {
   const note = field(box, "Αιτία / σημείωση", inp("", { placeholder: "π.χ. δεν το παρέλαβε" }));
   const msg = el("div", "msg warn wide"); msg.hidden = true; box.append(msg);
   const acts = el("div", "formactions"); const ok = el("button", "btn primary", "↩ Καταχώρηση επιστροφής"); ok.type = "submit";
-  const cancel = el("button", "btn", "Ακύρωση"); cancel.type = "button"; cancel.onclick = () => { openBox = { id: null }; render(); };
+  const cancel = el("button", "btn", "Ακύρωση"); cancel.type = "button"; cancel.onclick = () => { boxCache.key = "", openBox = { id: null }; render(); };
   acts.append(ok, cancel); box.append(acts);
   box.onsubmit = async e => { e.preventDefault(); if (needOperator()) return;
     const d = norm(from.value); if (!d) { msg.textContent = "Γράψε τον σταθμό αποστολής."; msg.hidden = false; return; }
     const at = when.get(); if (!at) { msg.textContent = "Βάλε ημερομηνία και ώρα (24ωρη, π.χ. 17:30)."; msg.hidden = false; return; }
     ok.disabled = true;
     try { const now = new Date().toISOString(); await updateParcel(p.id, { status: "returned", status_at: now, fwd_at: now, fwd_destination: d, fwd_departure_at: at, fwd_bus: bus.value.trim().toUpperCase() || null, fwd_note: note.value.trim() || null, origin_city: p.origin_city || d });
-      openBox = { id: null }; show($("formMsg"), "Καταχωρήθηκε η επιστροφή προς " + d + ".", "ok"); render(); }
+      boxCache.key = "", openBox = { id: null }; show($("formMsg"), "Καταχωρήθηκε η επιστροφή προς " + d + ".", "ok"); render(); }
     catch { ok.disabled = false; msg.textContent = "Δεν αποθηκεύτηκε. Δοκίμασε ξανά."; msg.hidden = false; } };
   return box;
 }
@@ -992,14 +997,14 @@ function fwdBox(p) {
   if (q.childNodes.length) box.append(el("div", "hint wide", "Ίδιο δρομολόγιο με προηγούμενα δέματα:"), q);
   const msg = el("div", "msg warn wide"); msg.hidden = true; box.append(msg);
   const acts = el("div", "formactions"); const ok = el("button", "btn primary", "Καταχώρηση αποστολής"); ok.type = "submit";
-  const cancel = el("button", "btn", "Ακύρωση"); cancel.type = "button"; cancel.onclick = () => { openBox = { id: null }; render(); };
+  const cancel = el("button", "btn", "Ακύρωση"); cancel.type = "button"; cancel.onclick = () => { boxCache.key = "", openBox = { id: null }; render(); };
   acts.append(ok, cancel); box.append(acts);
   box.onsubmit = async e => { e.preventDefault(); if (needOperator()) return;
     const d = norm(dest.value); if (!d || d === HOME) { msg.textContent = "Γράψε τον προορισμό."; msg.hidden = false; return; }
     const at = when.get(); if (!at) { msg.textContent = "Βάλε ημερομηνία και ώρα (24ωρη, π.χ. 17:30)."; msg.hidden = false; return; }
     ok.disabled = true;
     try { const now = new Date().toISOString(); await updateParcel(p.id, { status: "forwarded", status_at: now, fwd_at: now, fwd_destination: d, fwd_departure_at: at, fwd_bus: bus.value.trim().toUpperCase() || null, fwd_note: note.value.trim() || null });
-      openBox = { id: null }; show($("formMsg"), "Καταχωρήθηκε η αποστολή προς " + d + " — θα σε ειδοποιήσω " + REMIND_MIN + "′ πριν φύγει.", "ok"); render();
+      boxCache.key = "", openBox = { id: null }; show($("formMsg"), "Καταχωρήθηκε η αποστολή προς " + d + " — θα σε ειδοποιήσω " + REMIND_MIN + "′ πριν φύγει.", "ok"); render();
       try { if ("Notification" in window && Notification.permission === "default") Notification.requestPermission(); } catch {} }
     catch { ok.disabled = false; msg.textContent = "Δεν αποθηκεύτηκε. Δοκίμασε ξανά."; msg.hidden = false; } };
   return box;
@@ -1029,18 +1034,18 @@ function tagsBox(p) {
         const up = await sb.storage.from("damage").upload(path, blob, { contentType: "image/jpeg" }); if (up.error) throw up.error; paths.push(path); }
       sel.add("Παραλήφθηκε με φθορά");
       await updateParcel(p.id, { damage_photo_paths: paths, damaged: true, tags: [...sel] });
-      openBox = { id: p.id, kind: "tags" }; render();
+      boxCache.key = "", openBox = { id: p.id, kind: "tags" }; render();
     } catch (err) { console.error(err); phMsg.textContent = "Δεν ανέβηκε η φωτογραφία. Δοκίμασε ξανά."; }
   };
   const notes = el("textarea", "wide"); notes.value = p.notes || ""; notes.placeholder = "Άλλη παρατήρηση (ελεύθερο κείμενο)"; notes.style.minHeight = "70px";
   const w = el("div", "f wide"); w.append(el("label", null, "Σημειώσεις"), notes); box.append(w);
   const acts = el("div", "formactions"); const ok = el("button", "btn primary", "Αποθήκευση"); ok.type = "submit";
-  const cancel = el("button", "btn", "Κλείσιμο"); cancel.type = "button"; cancel.onclick = () => { openBox = { id: null }; render(); };
+  const cancel = el("button", "btn", "Κλείσιμο"); cancel.type = "button"; cancel.onclick = () => { boxCache.key = "", openBox = { id: null }; render(); };
   acts.append(ok, cancel); box.append(acts);
   box.onsubmit = async e => { e.preventDefault(); if (needOperator()) return; ok.disabled = true;
     const tags = [...sel]; const patch = { tags, notes: notes.value.trim() || null };
     patch.damaged = tags.includes("Παραλήφθηκε με φθορά");
-    try { await updateParcel(p.id, patch); openBox = { id: null }; render(); }
+    try { await updateParcel(p.id, patch); boxCache.key = "", openBox = { id: null }; render(); }
     catch (err) { console.error(err); ok.disabled = false; ok.textContent = "Δεν αποθηκεύτηκε — ξαναδοκίμασε"; } };
   return box;
 }
