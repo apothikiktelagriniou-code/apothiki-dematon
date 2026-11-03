@@ -1,6 +1,6 @@
 // Φωτογραφίες → ανάγνωση με AI → αυτόματη καταχώρηση ή λίστα ελέγχου.
 // Οι φωτογραφίες περιμένουν σε IndexedDB αν δεν υπάρχει σύνδεση, και στέλνονται μόλις επανέλθει.
-import { unsureNote, surnameFirst, norm, cleanPhone, fmtGr, parseGrDate, autoSaveDecision, extractedToParcel, problemText, shelfFor, HOME } from "./lib.js";
+import { isGreeklishName, greekName, unsureNote, surnameFirst, norm, cleanPhone, fmtGr, parseGrDate, autoSaveDecision, extractedToParcel, problemText, shelfFor, HOME } from "./lib.js";
 
 let D; // εξαρτήσεις από main.js
 const $ = id => document.getElementById(id);
@@ -136,6 +136,7 @@ async function processOne(it) {
     await toQueue(it, { notes: "Σφάλμα ανάγνωσης: " + (body.detail || body.error || ("HTTP " + st)) }, ["ai_unavailable"]); stats.review++; await obDel(it.id); return "review";
   }
   const d = data.data; if (it.old) d.old_stock = true;
+  if (!d.recipient_is_business && isGreeklishName(d.recipient)) { d.recipient_latin = d.recipient; d.recipient = greekName(d.recipient); } // greeklish → ελληνικά
   d.recipient = surnameFirst(d.recipient, d.recipient_is_business); // πρώτα το επώνυμο
   // τηλέφωνο από αρχείο πελατών
   const custs = d.recipient ? (await D.findCustomers(d.recipient)).filter(c => (c.phones || []).length) : [];
@@ -156,6 +157,7 @@ async function processOne(it) {
     if (ph && d.phone_is_handwritten && custs.some(c => c.phones.includes(ph))) p.phone_confirmed = true;
     if (!ph && custs.length > 1) p.notes = [p.notes, "Βρέθηκαν " + custs.length + " πελάτες με αυτό το όνομα — διάλεξε τηλέφωνο."].filter(Boolean).join(" · ");
     const un = unsureNote(dec.flags); if (un) p.notes = [un, p.notes].filter(Boolean).join(" · ");
+    if (d.recipient_latin) p.notes = [p.notes, "Ετικέτα σε greeklish: " + d.recipient_latin].filter(Boolean).join(" · ");
     if ((dec.flags || []).includes("phone") && p.phone_source !== "customer_db") p.phone_confirmed = false;
     applyOld(p, d); p.source = "photo_auto"; p.batch_id = it.batch; p.operator = it.operator; p.extraction_confidence = { ...(p.extraction_confidence || {}), unsure: d.unsure || [], biz: !!d.recipient_is_business };
     p.customer_id = custs.length === 1 ? custs[0].id : await D.linkCustomer(p.recipient_name, p.recipient_phone);

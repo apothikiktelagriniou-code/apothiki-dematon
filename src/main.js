@@ -2,7 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { SUPABASE_URL, SUPABASE_KEY } from "./config.js";
 import {
   HOME, norm, shelfFor, cleanPhone, fmtPhone, parseGrDate, fmtGr, toLocalInput, money, hoursSince, daysSince,
-  tripsOf, tripLabel, sortTrips, isClosed, isTransit, parseLabel, fillTemplate, toCSV, cleanIdDoc, sameReceipt, likelySameParcel, sameNameTrip, smsFor } from "./lib.js";
+  tripsOf, tripLabel, sortTrips, isClosed, isTransit, parseLabel, fillTemplate, toCSV, cleanIdDoc, sameReceipt, likelySameParcel, sameNameTrip, smsFor, soundKey, greeklishToGreek } from "./lib.js";
 import { initCapture, pendingReviewCount, toJpegB64 } from "./capture.js";
 import { openManifest } from "./manifest.js";
 
@@ -496,6 +496,7 @@ function matches(p) {
     case "tags": if (!(p.tags || []).length && !p.notes) return false; break;
   }
   const q = norm($("q").value); if (!q) return true;
+  if (/[A-Z]{3}/.test(q) && !/\d/.test(q)) { const k = soundKey(q); if (k.length >= 3 && [p.recipient_name, p.sender_name, p.picked_by_name].some(n => n && soundKey(n).includes(k))) return true; } // greeklish στην αναζήτηση
   if (p.id_doc_number && p.id_doc_number.includes(cleanIdDoc(q)) && cleanIdDoc(q).length >= 3) return true;
   return norm([p.receipt_no, p.parcel_code, p.recipient_name, p.sender_name, p.recipient_phone, p.origin_city, p.destination_city, p.shelf, (p.tags || []).join(" "), p.notes, p.pickup_code, p.picked_by_name, p.picked_by_phone, p.id_doc_number, p.fwd_bus, p.fwd_destination, p.package_desc].join(" ")).includes(q);
 }
@@ -710,6 +711,7 @@ $("q").addEventListener("input", () => { clearTimeout(qT); const q = $("q").valu
   qT = setTimeout(async () => { const raw = q.replace(/[%,()*]/g, " ").trim(); const s = norm(raw); if (!s) return;
     const or = [`recipient_name.ilike.%${s}%`, `receipt_no.ilike.%${raw}%`, `parcel_code.ilike.%${s}%`, `recipient_phone.ilike.%${raw}%`, `picked_by_phone.ilike.%${raw}%`, `id_doc_number.ilike.%${s}%`,
       `picked_by_name.ilike.%${s}%`, `sender_name.ilike.%${s}%`, `fwd_bus.ilike.%${s}%`, `package_desc.ilike.%${raw}%`, `pickup_code.eq.${raw}`];
+    if (/[A-Z]{3}/.test(s) && !/\d/.test(s)) or.push(`recipient_name.ilike.%${greeklishToGreek(s)}%`);
     let { data, error } = await sb.from("parcels").select("*").or(or.join(",")).order("created_at", { ascending: false }).limit(100);
     if (error) ({ data } = await sb.from("parcels").select("*").or(or.filter(x => !x.startsWith("package_desc")).join(",")).order("created_at", { ascending: false }).limit(100));
     if (data && data.length) { data.forEach(p => rows.set(p.id, p)); render(); } }, 400); });

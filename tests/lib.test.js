@@ -230,3 +230,23 @@ test("διόρθωση αριθμού από κατάσταση", () => {
   assert.equal(fixedReceiptNote(p1.notes, "255-349-11668"), "⚠ Έλεγξε: κόμιστρο (αβέβαιη ανάγνωση) · ✎ Αριθμός διορθώθηκε από την κατάσταση (ήταν 255-349-11668)");
   assert.equal(fixedReceiptNote("⚠ Έλεγξε: αριθμό απόδειξης (αβέβαιη ανάγνωση)", "1"), "✎ Αριθμός διορθώθηκε από την κατάσταση (ήταν 1)");
 });
+
+import { greeklishToGreek, isGreeklishName, soundKey } from "../src/lib.js";
+test("greeklish → ελληνικά", () => {
+  assert.equal(greeklishToGreek("PAPADOPOULOS GIORGOS"), "ΠΑΠΑΔΟΠΟΥΛΟΣ ΓΙΟΡΓΟΣ");
+  assert.equal(greeklishToGreek("CHATZIS"), "ΧΑΤΖΗΣ");
+  assert.equal(greeklishToGreek("NTOKOS THANASIS"), "ΝΤΟΚΟΣ ΘΑΝΑΣΗΣ");
+  assert.equal(greeklishToGreek("MPAKALI"), "ΜΠΑΚΑΛΙ");
+  assert.equal(isGreeklishName("PAPADOPOULOS GIORGOS"), true);
+  assert.equal(isGreeklishName("JOHN SMITH"), false);
+  assert.equal(isGreeklishName("ΠΑΠΑΣ"), false);
+  assert.equal(isGreeklishName("SKROUTZ MARKET"), false);
+  assert.equal(soundKey("XATZHS"), soundKey("ΧΑΤΖΗΣ"));
+  assert.equal(soundKey("papadopoulos giorgos"), soundKey("ΠΑΠΑΔΟΠΟΥΛΟΣ ΓΙΩΡΓΟΣ"));
+});
+
+import { greekName, surnameFirst as sf2 } from "../src/lib.js";
+test("greeklish όνομα με σωστά μικρά ονόματα", () => {
+  assert.equal(greekName("PAPADOPOULOS GIORGOS"), "ΠΑΠΑΔΟΠΟΥΛΟΣ ΓΙΩΡΓΟΣ");
+  assert.equal(sf2(greekName("MARIA KOSTOPOULOU")), "ΚΟΣΤΟΠΟΥΛΟΥ ΜΑΡΙΑ");
+});
