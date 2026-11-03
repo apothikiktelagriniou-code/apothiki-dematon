@@ -833,6 +833,30 @@ function pickupBox(p) {
   const box = el("form", "box"); box.autocomplete = "off";
   // γρήγορη παράδοση: τον παραλαμβάνει ο ίδιος ο παραλήπτης (καθημερινοί πελάτες, χωρίς στοιχεία)
   const self = el("button", "btn primary big wide selfbtn", "✓ Παρέλαβε ο ίδιος" + (p.recipient_name ? " · " + p.recipient_name : "")); self.type = "button"; box.append(self);
+  // στοιχεία του ίδιου του παραλήπτη (κυρίως τηλέφωνο) — αποθηκεύονται και στο αρχείο πελατών
+  const sl = el("label", "check wide otherchk"); const selfC = el("input"); selfC.type = "checkbox";
+  sl.append(selfC, document.createTextNode(" 📇 Στοιχεία παραλήπτη (τηλέφωνο, email)" + (p.recipient_phone ? " · έχει ήδη " + fmtPhone(p.recipient_phone) : ""))); box.append(sl);
+  const sb2 = el("div", "otherbox selfbox wide"); sb2.hidden = true; box.append(sb2);
+  const sName = field(sb2, "Ονοματεπώνυμο", inp(p.recipient_name || "", { autocapitalize: "characters" }), true);
+  const sPhone = field(sb2, "Κινητό", inp(p.recipient_phone || "", { inputMode: "tel", className: "mono", autocomplete: "off", placeholder: "69xxxxxxxx" }));
+  const sMail = field(sb2, "Email (προαιρετικό)", inp("", { type: "email", autocapitalize: "none" }));
+  selfC.onchange = () => { sb2.hidden = !selfC.checked; if (selfC.checked) sPhone.focus(); };
+  // τα στοιχεία του ίδιου: έλεγχος + αποθήκευση στο δέμα και στον πελάτη
+  const selfData = say => {
+    const nm = (selfC.checked && sName.value.trim() ? sName.value.trim() : p.recipient_name || "").toUpperCase();
+    if (selfC.checked && sPhone.value.trim() && !cleanPhone(sPhone.value)) { sPhone.focus(); say("Το κινητό δεν μοιάζει σωστό (10 ψηφία).", "warn"); return null; }
+    const em = selfC.checked ? sMail.value.trim().toLowerCase() : "";
+    if (em && !/^[^\s@]+@[^\s@]+\.[a-z]{2,}$/.test(em)) { sMail.focus(); say("Το email δεν μοιάζει σωστό.", "warn"); return null; }
+    return { nm, pn: (selfC.checked && cleanPhone(sPhone.value)) || cleanPhone(p.recipient_phone) || "", em };
+  };
+  const saveSelf = async d => {
+    if (!d.pn && !d.em) return;
+    const cid = d.pn ? await linkCustomer(d.nm, d.pn).catch(() => null) : (p.customer_id || null);
+    if (cid) { addAlias(cid, p.recipient_name); if (d.em) await sb.from("customers").update({ email: d.em }).eq("id", cid); loadCustomersSoon(); }
+    const patch = {}; if (cid && !p.customer_id) patch.customer_id = cid;
+    if (d.pn && d.pn !== p.recipient_phone) Object.assign(patch, { recipient_phone: d.pn, phone_source: "manual", phone_confirmed: true });
+    if (Object.keys(patch).length) await sb.from("parcels").update(patch).eq("id", p.id);
+  };
   // παραλαμβάνει άλλο πρόσωπο → κουτί με τα στοιχεία του
   const ol = el("label", "check wide otherchk"); const otherC = el("input"); otherC.type = "checkbox";
   ol.append(otherC, document.createTextNode(" 👥 Παραλαμβάνει άλλο πρόσωπο (όχι ο " + (p.recipient_name || "παραλήπτης") + ")")); box.append(ol);
@@ -840,7 +864,7 @@ function pickupBox(p) {
   const name = field(ob, "Ονοματεπώνυμο παραλαβόντα *", inp("", { placeholder: "π.χ. ΠΑΠΑΣ ΝΙΚΟΛΑΟΣ", autocapitalize: "characters" }), true);
   const phone = field(ob, "Κινητό παραλαβόντα *", inp("", { inputMode: "tel", className: "mono", autocomplete: "off", placeholder: "69xxxxxxxx" }));
   const rel = field(ob, "Σχέση με τον παραλήπτη", inp("", { placeholder: "π.χ. σύζυγος, υπάλληλος, γείτονας" }));
-  otherC.onchange = () => { ob.hidden = !otherC.checked; self.hidden = otherC.checked; if (otherC.checked) name.focus(); };
+  otherC.onchange = () => { ob.hidden = !otherC.checked; self.hidden = otherC.checked; sl.hidden = otherC.checked; if (otherC.checked) { selfC.checked = false; sb2.hidden = true; name.focus(); } };
   box.append(el("div", "hint wide", "Έγγραφο και υπογραφή: προαιρετικά."));
   const when = dtFields(box, "Ημέρα παραλαβής", "Ώρα (24ωρη)", new Date().toISOString());
   const sel = el("select"); ["Ταυτότητα", "Δίπλωμα", "Διαβατήριο"].forEach(t => sel.append(new Option(t))); field(box, "Έγγραφο", sel);
@@ -874,8 +898,9 @@ function pickupBox(p) {
     const other = otherC.checked, idNo = cleanIdDoc(idn.value);
     if (other && !name.value.trim()) { name.focus(); return say("Γράψε το ονοματεπώνυμο αυτού που παραλαμβάνει.", "warn"); }
     if (other && !cleanPhone(phone.value)) { phone.focus(); return say("Γράψε το κινητό αυτού που παραλαμβάνει (10 ψηφία).", "warn"); }
-    const nm = other ? name.value.trim().toUpperCase() + (rel.value.trim() ? " (" + rel.value.trim() + ")" : "") : (p.recipient_name || "").toUpperCase();
-    const pn = other ? cleanPhone(phone.value) : cleanPhone(p.recipient_phone);
+    const sd = other ? null : selfData(say); if (!other && !sd) return;
+    const nm = other ? name.value.trim().toUpperCase() + (rel.value.trim() ? " (" + rel.value.trim() + ")" : "") : sd.nm;
+    const pn = other ? cleanPhone(phone.value) : sd.pn;
     if (pcs && !pcs.checked) return say("Τσέκαρε ότι παρέδωσες και τα " + p.pieces_total + " τεμάχια.", "warn");
     if (codC && !codC.checked) return say("Τσέκαρε ότι εισπράχθηκε το ποσό " + money(p.cod_amount_eur) + ".", "warn");
     ok.disabled = true; say("Αποθήκευση…", "info");
@@ -890,7 +915,7 @@ function pickupBox(p) {
       await updateParcel(p.id, { status: "done", status_at: new Date().toISOString(), picked_up_at: at, picked_by_name: nm, picked_by_phone: pn || null,
         id_doc_type: idNo ? sel.value : null, id_doc_number: idNo || null, id_doc_last4: idNo ? idNo.slice(-4) : null,
         signature_path: path, home_delivery: home.checked, cod_collected: codC ? true : p.cod_collected });
-      if (nm && pn && !other) linkCustomer(nm, pn).catch(() => {});
+      if (!other) await saveSelf(sd).catch(() => {});
       openBox = { id: null }; show($("formMsg"), "Παραδόθηκε: " + (p.receipt_no || nm) + (other ? " — παρέλαβε " + nm : "") + ".", "ok"); render();
     } catch (err) { console.error(err); ok.disabled = false; say("Δεν αποθηκεύτηκε. Δοκίμασε ξανά.", "bad"); }
   };
@@ -899,11 +924,13 @@ function pickupBox(p) {
     const say = (t, c) => { msg.textContent = t; msg.className = "msg " + c + " wide"; msg.hidden = false; };
     if (pcs && !pcs.checked) { pcs.closest("label").scrollIntoView({ block: "center" }); return say("Τσέκαρε πρώτα ότι παρέδωσες και τα " + p.pieces_total + " τεμάχια, μετά ξαναπάτα «Παρέλαβε ο ίδιος».", "warn"); }
     if (codC && !codC.checked) { codC.closest("label").scrollIntoView({ block: "center" }); return say("Τσέκαρε πρώτα ότι εισπράχθηκε το ποσό " + money(p.cod_amount_eur) + ", μετά ξαναπάτα «Παρέλαβε ο ίδιος».", "warn"); }
+    const sd = selfData(say); if (!sd) return;
     self.disabled = true; ok.disabled = true;
     try {
+      await saveSelf(sd);
       const now = new Date().toISOString();
-      await updateParcel(p.id, { status: "done", status_at: now, picked_up_at: now, picked_by_name: (p.recipient_name || "").toUpperCase() || null,
-        picked_by_phone: cleanPhone(p.recipient_phone) || null, home_delivery: home.checked, cod_collected: codC ? true : p.cod_collected });
+      await updateParcel(p.id, { status: "done", status_at: now, picked_up_at: now, picked_by_name: sd.nm || null,
+        picked_by_phone: sd.pn || null, home_delivery: home.checked, cod_collected: codC ? true : p.cod_collected });
       openBox = { id: null }; show($("formMsg"), "Παραδόθηκε στον ίδιο: " + (p.recipient_name || p.receipt_no) + ".", "ok"); render();
     } catch (err) { console.error(err); self.disabled = false; ok.disabled = false; say("Δεν αποθηκεύτηκε. Δοκίμασε ξανά.", "bad"); }
   };
