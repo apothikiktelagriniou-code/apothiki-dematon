@@ -28,7 +28,7 @@ Deno.serve(async req => {
   const phone = String(b.phone ?? "").replace(/\D/g, "").replace(/^30(?=\d{10}$)/, "");
   const text = String(b.text ?? "").trim();
   if (!/^(69\d{8})$/.test(phone)) return json({ error: "invalid_phone" }, 400); // μόνο κινητά δέχονται SMS
-  if (!text || text.length > 480) return json({ error: "bad_text" }, 400);
+  if (!text || text.length > 160) return json({ error: "bad_text" }, 400); // πάντα 1 SMS
 
   const r = await fetch("https://api.sms-gate.app/3rdparty/v1/messages", {
     method: "POST",

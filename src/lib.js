@@ -119,6 +119,27 @@ export function cleanIdDoc(s) {
 }
 
 /** Κείμενο ειδοποίησης από πρότυπο. */
+/** SMS σε ελληνικά ΚΕΦΑΛΑΙΑ χωρίς τόνους, ώστε να χωράει σε 1 SMS (160 χαρακτήρες GSM αντί 70 Unicode).
+ *  Τα γράμματα που μοιάζουν με λατινικά (Α Β Ε Ζ Η Ι Κ Μ Ν Ο Ρ Τ Υ Χ) γράφονται με λατινικά· τα Γ Δ Θ Λ Ξ Π Σ Φ Ψ Ω υπάρχουν στο GSM. */
+const GSM_MAP = { "Α":"A","Β":"B","Ε":"E","Ζ":"Z","Η":"H","Ι":"I","Κ":"K","Μ":"M","Ν":"N","Ο":"O","Ρ":"P","Τ":"T","Υ":"Y","Χ":"X" };
+const GSM_BASIC = "@£$¥èéùìòÇ\nØø\rÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉ !\"#¤%&'()*+,-./0123456789:;<=>?¡ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÑÜ§¿abcdefghijklmnopqrstuvwxyzäöñüà";
+const GSM_EXT = "^{}\\[~]|€";
+export function gsmGreek(text) {
+  const up = String(text || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/[‘’´`]/g, "'").replace(/[“”«»]/g, '"').replace(/[–—]/g, "-");
+  let out = "";
+  for (const ch of up) { const c = GSM_MAP[ch] || ch; if (GSM_BASIC.includes(c) || GSM_EXT.includes(c)) out += c; }
+  return out.replace(/ {2,}/g, " ").trim();
+}
+/** Πόσα «κουτάκια» GSM πιάνει (τα € [ ] κ.λπ. μετράνε 2). */
+export function smsLen(text) { let n = 0; for (const ch of String(text)) n += GSM_EXT.includes(ch) ? 2 : 1; return n; }
+export const SMS_TEMPLATE = "ΚΤΕΛ ΑΓΡΙΝΙΟΥ: ΗΡΘΕ ΤΟ ΔΕΜΑ ΣΑΣ{αρ}. ΚΩΔ. {κωδ}. ΠΑΡΑΛΑΒΗ ΑΠΟ ΤΟ ΣΤΑΘΜΟ ΔΕΥ-ΠΑΡ 06:30-21:30, ΣΚ 08:00-21:30, ΜΕ ΤΑΥΤΟΤΗΤΑ. 2641024446";
+const SMS_SHORT = "ΚΤΕΛ ΑΓΡΙΝΙΟΥ: ΗΡΘΕ ΤΟ ΔΕΜΑ ΣΑΣ{αρ}. ΚΩΔ. {κωδ}. ΠΑΡΑΛΑΒΗ ΑΠΟ ΤΟ ΣΤΑΘΜΟ ΜΕ ΤΑΥΤΟΤΗΤΑ. 2641024446";
+/** Τελικό κείμενο SMS: πάντα 1 SMS. Αν δεν χωράει, πέφτει στη σύντομη μορφή και μετά κόβει τον αριθμό απόδειξης. */
+export function smsFor(tpl, p) {
+  const fix = t => p.pickup_code ? t : t.replace(/ ?ΚΩΔ\. \{κωδ\}\./, "");
+  for (const t of [fix(tpl || SMS_TEMPLATE), fix(SMS_SHORT)]) { const s = gsmGreek(fillTemplate(t, p)); if (smsLen(s) <= 160) return s; }
+  return gsmGreek(fillTemplate(fix(SMS_SHORT).replace("{αρ}", ""), p)).slice(0, 160);
+}
 export function fillTemplate(tpl, p) {
   return String(tpl)
     .replace("{αρ}", p.receipt_no ? " (αρ. " + p.receipt_no + ")" : "")

@@ -192,3 +192,12 @@ test("πρώτα το επώνυμο", () => {
   assert.equal(surnameFirst("ΝΙΚΟΣ ΣΤΑΘΗΣ ΑΦΟΙ", true), "ΝΙΚΟΣ ΣΤΑΘΗΣ ΑΦΟΙ");
   assert.equal(surnameFirst("ΧΑΤΖΗΣ"), "ΧΑΤΖΗΣ");
 });
+
+import { smsFor, gsmGreek, smsLen } from "../src/lib.js";
+test("SMS ελληνικά σε 1 μήνυμα", () => {
+  const s = smsFor("", { receipt_no: "123 (2183981826)", pickup_code: "4821" });
+  assert.ok(smsLen(s) <= 160, s.length + " " + s);
+  assert.ok(!/[\u0370-\u03ff]/.test(s.replace(/[ΓΔΘΛΞΠΣΦΨΩ]/g, "")), s);
+  assert.ok(!/DELIVERY|ΣΠΙΤΙ|3,50/.test(s));
+  assert.equal(gsmGreek("Ήρθε το δέμα"), "HPΘE TO ΔEMA");
+});

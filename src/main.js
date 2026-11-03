@@ -2,8 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { SUPABASE_URL, SUPABASE_KEY } from "./config.js";
 import {
   HOME, norm, shelfFor, cleanPhone, fmtPhone, parseGrDate, fmtGr, toLocalInput, money, hoursSince, daysSince,
-  tripsOf, tripLabel, sortTrips, isClosed, isTransit, parseLabel, fillTemplate, toCSV, cleanIdDoc, sameReceipt, likelySameParcel, sameNameTrip,
-} from "./lib.js";
+  tripsOf, tripLabel, sortTrips, isClosed, isTransit, parseLabel, fillTemplate, toCSV, cleanIdDoc, sameReceipt, likelySameParcel, sameNameTrip, smsFor } from "./lib.js";
 import { initCapture, pendingReviewCount, toJpegB64 } from "./capture.js";
 import { openManifest } from "./manifest.js";
 
@@ -730,7 +729,7 @@ function notifyBox(p) {
   }
   const remind = p.status === "notified";
   const chInfo = el("div", "hint wide"); box.append(chInfo);
-  const ta = el("textarea", "wide"); ta.value = fillTemplate(remind ? settings.reminder_template : settings.notification_template, p); ta.setAttribute("aria-label", "Μήνυμα");
+  const ta = el("textarea", "wide"); ta.value = fillTemplate(String(remind ? settings.reminder_template : settings.notification_template).replace(/\n*🏠[^\n]*/g, ""), p); /* χωρίς delivery προς το παρόν */ ta.setAttribute("aria-label", "Μήνυμα");
   const bar = el("div", "toolbar wide"); const ph = p.recipient_phone;
   const mark = async ch => {
     try { await updateParcel(p.id, { status: "notified", status_at: new Date().toISOString(), notified_at: new Date().toISOString(), notify_count: (p.notify_count || 0) + 1, notify_channel: ch }); } catch {}
@@ -742,7 +741,7 @@ function notifyBox(p) {
   if (ph) {
     if (chOn("whatsapp")) link("WhatsApp", () => "https://wa.me/30" + ph + "?text=" + encodeURIComponent(ta.value), "whatsapp", "primary", () => setChannel(p, "whatsapp"));
     if (chOn("viber")) link("Viber", () => "viber://chat?number=%2B30" + ph + "&draft=" + encodeURIComponent(ta.value), "viber", chOn("whatsapp") ? "" : "primary", async () => { setChannel(p, "viber"); try { await navigator.clipboard.writeText(ta.value); } catch {} });
-    const smsText = () => fillTemplate(settings.sms_template || "ΚΤΕΛ Αγρινίου: το δέμα σας{αρ} ήρθε. Κωδ. {κωδ}. Παραλαβή 06:30-21:30 ή delivery 3,50€ στο 6979334186", p);
+    const smsText = () => smsFor(/delivery|σπίτι/i.test(settings.sms_template || "") ? "" : settings.sms_template, p);
     const onApps = [chOn("whatsapp") && "WhatsApp", chOn("viber") && "Viber"].filter(Boolean);
     const failTxt = onApps.length ? "✗ Ούτε " + onApps.join(" ούτε ") + " → " : "";
     if (!smsOn()) {
@@ -823,7 +822,7 @@ $("bulkSmsBtn").onclick = async () => {
   const list = await bulkSms(); if (!list.length) { $("bulkHint").textContent = "Κανένα δέμα για αυτόματο SMS (πελάτες που έχουν μόνο SMS)."; b.disabled = false; return; }
   let ok = 0, fail = 0;
   for (const p of list) { $("bulkHint").textContent = "📩 SMS " + (ok + fail + 1) + "/" + list.length + "…";
-    const r = await sendSms(p, fillTemplate(settings.sms_template || "", p));
+    const r = await sendSms(p, smsFor(/delivery|σπίτι/i.test(settings.sms_template || "") ? "" : settings.sms_template, p));
     if (r.ok) { ok++; await updateParcel(p.id, { status: "notified", status_at: new Date().toISOString(), notified_at: new Date().toISOString(), notify_count: (p.notify_count || 0) + 1, notify_channel: "sms" }).catch(() => {}); } else fail++; }
   $("bulkHint").textContent = "📩 Στάλθηκαν " + ok + " SMS" + (fail ? " · απέτυχαν " + fail : "") + "."; b.disabled = false;
 };
