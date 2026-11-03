@@ -161,20 +161,31 @@ export function toCSV(rows, cols) {
  * Επιστρέφει { auto: boolean, problems: string[] }.
  */
 export function autoSaveDecision(d, exists, maxFare = 40) {
-  const p = [];
-  // ΚΤΕΛ Αιτωλ/νίας: 258-341-23682 · άλλα ΚΤΕΛ (π.χ. Ιωαννίνων): σκέτος αριθμός 8–12 ψηφίων (202682615)
+  const p = [], flags = [];
+  const hw = d.is_handwritten_receipt && /^\d{2,6}$/.test(String(d.receipt_no || "").replace(/\D/g, "")) && String(d.parcel_code || "").replace(/\D/g, "").length >= 6;
+  if (hw) { const rn = handwrittenReceipt(d); if (exists(rn)) p.push("duplicate"); }
+  else // ΚΤΕΛ Αιτωλ/νίας: 258-341-23682 · άλλα ΚΤΕΛ (π.χ. Ιωαννίνων): σκέτος αριθμός 8–12 ψηφίων (202682615)
   if (!/^\d{3}-\d{3}-\d{4,7}$/.test(d.receipt_no || "") && !/^\d{8,12}$/.test(d.receipt_no || "")) p.push("missing_receipt_no");
   else if (exists(d.receipt_no)) p.push("duplicate");
   if (!String(d.recipient || "").trim()) p.push("missing_recipient");
   if (!d.origin_city) p.push("missing_origin");
   if (d.fare_eur == null || d.fare_eur === "") p.push("missing_fare");
   else if (!(Number(d.fare_eur) > 0 && Number(d.fare_eur) <= maxFare)) p.push("fare_out_of_range");
-  if (!parseGrDate(d.departure)) p.push("missing_departure");
+  if (!parseGrDate(d.departure) && !(hw && parseGrDate(d.issued))) p.push("missing_departure"); // η χειρόγραφη δεν έχει ώρα — φτάνει η ημερομηνία
   if (d.phone && !cleanPhone(d.phone)) p.push("invalid_phone");
-  for (const u of d.unsure || []) if (u !== "parcel_code") p.push("unsure:" + u); // ο κωδικός δέματος δεν χρειάζεται έλεγχο
-  if (d.is_handwritten_receipt) p.push("handwritten_receipt");
-  return { auto: p.length === 0, problems: p };
+  // Αβέβαιη ανάγνωση: έλεγχο ζητάμε ΜΟΝΟ για παραλήπτη/προορισμό (λάθος ράφι ή λάθος προώθηση).
+  // Αριθμός απόδειξης, τηλέφωνο, κόμιστρο, πόλη → καταχωρείται και μπαίνει σημείωση «⚠ έλεγξε» στην κάρτα. Τα υπόλοιπα αγνοούνται.
+  for (const u0 of d.unsure || []) {
+    const u = String(u0).trim();
+    if (u === "recipient" || u === "destination_city") p.push("unsure:" + u);
+    else if (UNSURE_FLAG[u]) flags.push(u);
+  }
+  if (d.is_handwritten_receipt && !hw) p.push("handwritten_receipt");
+  return { auto: p.length === 0, problems: p, flags };
 }
+const UNSURE_FLAG = { receipt_no: "αριθμό απόδειξης", phone: "τηλέφωνο", fare_eur: "κόμιστρο", origin_city: "πόλη αποστολής", departure: "ώρα αναχώρησης" };
+/** Σημείωση για την κάρτα: «⚠ Έλεγξε: αριθμό απόδειξης, κόμιστρο (αβέβαιη ανάγνωση)». */
+export const unsureNote = flags => flags && flags.length ? "⚠ Έλεγξε: " + flags.map(f => UNSURE_FLAG[f]).join(", ") + " (αβέβαιη ανάγνωση)" : "";
 export const PROBLEM_TEXT = {
   missing_receipt_no: "Δεν διαβάστηκε αριθμός απόδειξης", duplicate: "Υπάρχει ήδη στη βάση", missing_recipient: "Λείπει παραλήπτης",
   missing_origin: "Λείπει πόλη", missing_fare: "Λείπει κόμιστρο", fare_out_of_range: "Περίεργο κόμιστρο", missing_departure: "Λείπει ώρα αναχώρησης",

@@ -87,7 +87,7 @@ test("norm", () => { assert.equal(norm("  Ιωάννινα "), "ΙΩΑΝΝΙΝΑ
 import { autoSaveDecision, extractedToParcel } from "../src/lib.js";
 const good = { receipt_no: "258-341-23682", recipient: "ΧΑΤΖΗΣ", origin_city: "ΠΑΤΡΑ", fare_eur: 5, departure: "31/10/2026 17:00", unsure: [], phone: "" };
 test("αυτόματη καταχώρηση: καλή ετικέτα χωρίς τηλέφωνο περνά", () => {
-  assert.deepEqual(autoSaveDecision(good, () => false), { auto: true, problems: [] });
+  assert.deepEqual(autoSaveDecision(good, () => false), { auto: true, problems: [], flags: [] });
 });
 test("αυτόματη καταχώρηση: κάθε πρόβλημα στέλνει σε έλεγχο", () => {
   const chk = (patch, prob, exists = false) => { const r = autoSaveDecision({ ...good, ...patch }, () => exists); assert.equal(r.auto, false); assert.ok(r.problems.includes(prob), prob + " → " + r.problems); };
@@ -99,7 +99,7 @@ test("αυτόματη καταχώρηση: κάθε πρόβλημα στέλ�
   chk({ fare_eur: 50 }, "fare_out_of_range");
   chk({ departure: "" }, "missing_departure");
   chk({ phone: "12345" }, "invalid_phone");
-  chk({ unsure: ["phone"] }, "unsure:phone");
+  chk({ unsure: ["recipient"] }, "unsure:recipient");
   chk({ is_handwritten_receipt: true }, "handwritten_receipt");
 });
 test("αποτέλεσμα AI → δέμα (χειρόγραφο τηλέφωνο, μεταφόρτωση)", () => {
@@ -200,4 +200,15 @@ test("SMS ελληνικά σε 1 μήνυμα", () => {
   assert.ok(!/[\u0370-\u03ff]/.test(s.replace(/[ΓΔΘΛΞΠΣΦΨΩ]/g, "")), s);
   assert.ok(!/DELIVERY|ΣΠΙΤΙ|3,50/.test(s));
   assert.equal(gsmGreek("Ήρθε το δέμα"), "HPΘE TO ΔEMA");
+});
+
+import { autoSaveDecision as asd } from "../src/lib.js";
+test("αβέβαιος αριθμός δεν στέλνει για έλεγχο", () => {
+  const base = { receipt_no: "258-341-23682", recipient: "ΠΑΠΑΣ ΝΙΚΟΣ", origin_city: "ΑΘΗΝΑ", fare_eur: 6, departure: "03/11/2026 09:30" };
+  let r = asd({ ...base, unsure: ["receipt_no", "parcel_code", "phone", "issued"] }, () => false);
+  assert.equal(r.auto, true); assert.deepEqual(r.flags, ["receipt_no", "phone"]);
+  r = asd({ ...base, unsure: ["recipient"] }, () => false); assert.equal(r.auto, false);
+  r = asd({ ...base, receipt_no: "3401", parcel_code: "33950048", is_handwritten_receipt: true, departure: "", issued: "03/11/2026" }, () => false);
+  assert.equal(r.auto, true, r.problems.join());
+  r = asd({ ...base, receipt_no: "", parcel_code: "", is_handwritten_receipt: true }, () => false); assert.equal(r.auto, false);
 });
