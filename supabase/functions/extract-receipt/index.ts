@@ -120,13 +120,6 @@ Deno.serve(async req => {
     return json({ ok: r.ok, status: r.status, stop_reason: j.stop_reason, blocks: (j.content || []).map((c: { type: string }) => c.type), usage: j.usage, text: text.slice(0, 600), error: j?.error?.message || null });
   }
 
-  if (url.searchParams.get("health") === "4") {
-    // διαγνωστικό: δοκιμαστική αναζήτηση επαγγελματικού τηλεφώνου (ΚΤΕΛ Αιτωλοακαρνανίας) — δείχνει αν δουλεύει το web search
-    if (!key) return json({ ok: false, error: "missing_key" });
-    const noop = { from: () => ({ insert: async () => ({}) }) };
-    const r = await bizPhone({ name: "ΚΤΕΛ ΑΙΤΩΛΟΑΚΑΡΝΑΝΙΑΣ ΑΕ", city: "ΑΓΡΙΝΙΟ" }, key, noop);
-    return r;
-  }
   // μόνο συνδεδεμένοι χρήστες της εφαρμογής
   const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY") ?? req.headers.get("apikey") ?? "", {
     global: { headers: { Authorization: req.headers.get("Authorization") ?? "" } },
