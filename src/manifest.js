@@ -1,5 +1,5 @@
 // Έλεγχος κατάστασης πρακτορείου: φωτογραφίες λίστας → AI → σύγκριση με τα καταχωρημένα δέματα.
-import { norm, parseGrDate, fmtGr, tripsOf, reconcile, fmtPhone, cityFromStation, shelfFor, HOME, money } from "./lib.js";
+import { receiptFixes, fixedReceiptNote, norm, parseGrDate, fmtGr, tripsOf, reconcile, fmtPhone, cityFromStation, shelfFor, HOME, money } from "./lib.js";
 
 const $ = id => document.getElementById(id);
 const el = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
@@ -100,6 +100,20 @@ export function openManifest(D) {
     // απευθείας μεταφορτώσεις (άλλες πόλεις): δεν καταχωρούνται, μόνο το πλήθος
     if (direct.length) out.append(el("div", "hint", "⇄ " + direct.length + " δέματα της κατάστασης είναι για άλλες πόλεις — δεν καταχωρούνται."));
 
+    // 2ος έλεγχος: διόρθωση λάθος αριθμών απόδειξης από την κατάσταση
+    const fixes = receiptFixes(r.found, D.rows(), dep);
+    if (fixes.length) {
+      const s = el("section", "msec"); s.append(el("h3", "ok", "✎ Διόρθωση αριθμού απόδειξης από την κατάσταση (" + fixes.length + ")")); out.append(s);
+      const res = el("div", "hint"); s.append(res);
+      fixes.forEach(fx => s.append(line(fx.parcel.recipient_name || "—", (fx.from || "χωρίς αριθμό") + " → " + fx.to + (fx.how === "name" ? " (ίδιο ονοματεπώνυμο)" : " (διέφερε 1 ψηφίο)"))));
+      (async () => { let ok = 0;
+        for (const fx of fixes) {
+          const { data, error } = await D.sb.from("parcels").update({ receipt_no: fx.to, notes: fixedReceiptNote(fx.parcel.notes, fx.from) }).eq("id", fx.parcel.id).select().single();
+          if (!error && data) { ok++; D.onSaved && D.onSaved(data); }
+        }
+        res.textContent = ok === fixes.length ? "✓ Διορθώθηκαν αυτόματα. Το παλιό νούμερο γράφεται στις Παρατηρήσεις." : "Διορθώθηκαν " + ok + " από " + fixes.length + ".";
+      })();
+    }
     const weak = r.found.filter(f => f.how === "name");
     sec("✓ Βρέθηκαν (" + r.found.length + ")" + (weak.length ? " — " + weak.length + " μόνο με το όνομα, έλεγξέ τα" : ""), "ok", r.found.map(f =>
       line((f.how === "name" ? "⚠ " : "") + (f.parcel.recipient_name || "—"), [f.parcel.shelf && "Ράφι " + f.parcel.shelf, f.parcel.receipt_no && "Απόδ. " + f.parcel.receipt_no,

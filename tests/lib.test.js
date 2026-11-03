@@ -212,3 +212,21 @@ test("αβέβαιος αριθμός δεν στέλνει για έλεγχο"
   assert.equal(r.auto, true, r.problems.join());
   r = asd({ ...base, receipt_no: "", parcel_code: "", is_handwritten_receipt: true }, () => false); assert.equal(r.auto, false);
 });
+
+import { receiptFixes, fixedReceiptNote } from "../src/lib.js";
+test("διόρθωση αριθμού από κατάσταση", () => {
+  const p1 = { id: 1, receipt_no: "255-349-11668", recipient_name: "ΠΑΠΑΣ ΝΙΚΟΣ", notes: "⚠ Έλεγξε: αριθμό απόδειξης, κόμιστρο (αβέβαιη ανάγνωση)" };
+  const p2 = { id: 2, receipt_no: "111-222-33333", recipient_name: "ΔΗΜΟΥ ΜΑΡΙΑ" };
+  const p3 = { id: 3, receipt_no: "999-888-77777", recipient_name: "ΚΟΝΤΟΣ ΓΙΩΡΓΟΣ" };
+  const all = [p1, p2, p3, { id: 4, receipt_no: "555-555-55555" }];
+  const fx = receiptFixes([
+    { item: { receipt_no: "2-255-349-11663", recipient: "ΠΑΠΑΣ ΝΙΚΟΣ" }, parcel: p1, how: "receipt~" },
+    { item: { receipt_no: "444-444-44444", recipient: "ΔΗΜΟΥ ΜΑΡΙΑ" }, parcel: p2, how: "name" },
+    { item: { receipt_no: "444-444-00000", recipient: "ΚΟΝΤΟΣ" }, parcel: p3, how: "name" },          // μόνο επώνυμο → όχι
+    { item: { receipt_no: "555-555-55555", recipient: "ΚΟΝΤΟΣ ΓΙΩΡΓΟΣ" }, parcel: p3, how: "name" }, // ανήκει σε άλλο → όχι
+    { item: { receipt_no: "111-222-33334", recipient: "ΔΗΜΟΥ ΜΑΡΙΑ", unsure: true }, parcel: p2, how: "receipt~" },
+  ], all);
+  assert.deepEqual(fx.map(f => [f.parcel.id, f.to]), [[1, "255-349-11663"], [2, "444-444-44444"]]);
+  assert.equal(fixedReceiptNote(p1.notes, "255-349-11668"), "⚠ Έλεγξε: κόμιστρο (αβέβαιη ανάγνωση) · ✎ Αριθμός διορθώθηκε από την κατάσταση (ήταν 255-349-11668)");
+  assert.equal(fixedReceiptNote("⚠ Έλεγξε: αριθμό απόδειξης (αβέβαιη ανάγνωση)", "1"), "✎ Αριθμός διορθώθηκε από την κατάσταση (ήταν 1)");
+});

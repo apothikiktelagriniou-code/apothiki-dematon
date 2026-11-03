@@ -273,6 +273,39 @@ export function reconcile(items, parcels, trip = null, namePool = null) {
   return { found, missing, extra };
 }
 
+/** 2ος έλεγχος με την κατάσταση: ποια δέματα έχουν λάθος αριθμό απόδειξης και ποιος είναι ο σωστός.
+ *  Διορθώνει ΜΟΝΟ όταν: (α) ο αριθμός διαφέρει κατά 1 ψηφίο + ίδιο επώνυμο, ή (β) ίδιο ΟΝΟΜΑΤΕΠΩΝΥΜΟ ακριβώς, μοναδικό, ίδια πόλη.
+ *  Ποτέ όταν η γραμμή της κατάστασης διαβάστηκε αβέβαια, όταν ο νέος αριθμός ανήκει σε άλλο δέμα, ή σε χειρόγραφη απόδειξη. */
+export function receiptFixes(found, allParcels, dep = null) {
+  const fixes = [];
+  const digits = s => String(s || "").replace(/\D/g, "");
+  for (const f of found) {
+    const it = f.item, p = f.parcel;
+    if (!(f.how === "receipt~" || f.how === "name") || it.unsure) continue;
+    const rd = digits(it.receipt_no); if (rd.length < 8) continue;
+    if (sameReceipt(p.receipt_no, it.receipt_no)) continue;
+    if (/\(/.test(p.receipt_no || "")) continue; // χειρόγραφη «3401 (33950048)»
+    if (f.how === "name") {
+      if (norm(p.recipient_name) !== norm(it.recipient)) continue; // μόνο επώνυμο → όχι
+      const sameDay = dep && p.departure_at && new Date(p.departure_at).toDateString() === new Date(dep).toDateString();
+      if (norm(it.recipient).split(" ").length < 2 && !sameDay) continue; // σκέτο επώνυμο: μόνο αν είναι και ίδια μέρα δρομολογίου
+    }
+    let nu = String(it.receipt_no).trim();
+    if (/^\d-\d{3}-\d{3}-\d+$/.test(nu) && p.receipt_no && !/^\d-/.test(p.receipt_no)) nu = nu.slice(2); // ίδια μορφή με την ετικέτα
+    if (allParcels.some(x => x.id !== p.id && sameReceipt(x.receipt_no, nu))) continue;
+    fixes.push({ parcel: p, from: p.receipt_no || "", to: nu, how: f.how });
+  }
+  return fixes;
+}
+/** Βγάζει το «⚠ Έλεγξε: αριθμό απόδειξης…» από τις σημειώσεις και γράφει τη διόρθωση. */
+export function fixedReceiptNote(notes, from) {
+  let n = String(notes || "").replace(/⚠ Έλεγξε: ([^(]*)\(αβέβαιη ανάγνωση\)/, (m, list) => {
+    const rest = list.split(",").map(s => s.trim()).filter(s => s && s !== "αριθμό απόδειξης");
+    return rest.length ? "⚠ Έλεγξε: " + rest.join(", ") + " (αβέβαιη ανάγνωση)" : "";
+  }).replace(/^ · | · $/g, "").replace(/ · · /g, " · ").trim();
+  const add = "✎ Αριθμός διορθώθηκε από την κατάσταση" + (from ? " (ήταν " + from + ")" : "");
+  return [n, add].filter(Boolean).join(" · ");
+}
 /** Σύντομη σημείωση AI: πρώτη πρόταση, έως 90 χαρακτήρες· περιγραφές εντύπου πετιούνται. */
 export function shortNote(s) {
   let t = String(s || "").replace(/\s+/g, " ").trim(); if (!t) return null;
