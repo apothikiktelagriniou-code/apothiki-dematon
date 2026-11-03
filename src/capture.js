@@ -154,7 +154,7 @@ async function processOne(it) {
     if (!ph && custs.length === 1) { p.recipient_phone = custs[0].phones[0]; p.phone_source = "customer_db"; p.phone_confirmed = true; }
     if (ph && d.phone_is_handwritten && custs.some(c => c.phones.includes(ph))) p.phone_confirmed = true;
     if (!ph && custs.length > 1) p.notes = [p.notes, "Βρέθηκαν " + custs.length + " πελάτες με αυτό το όνομα — διάλεξε τηλέφωνο."].filter(Boolean).join(" · ");
-    applyOld(p, d); p.source = "photo_auto"; p.batch_id = it.batch; p.operator = it.operator; p.extraction_confidence = { unsure: d.unsure || [] };
+    applyOld(p, d); p.source = "photo_auto"; p.batch_id = it.batch; p.operator = it.operator; p.extraction_confidence = { ...(p.extraction_confidence || {}), unsure: d.unsure || [] };
     p.customer_id = custs.length === 1 ? custs[0].id : await D.linkCustomer(p.recipient_name, p.recipient_phone);
     const ins = await D.saveParcel(p);
     if (ins.error && ins.error.code === "23505" && (Number(d.pieces) || 1) > 1 && await addPiece()) return "ok";
@@ -169,7 +169,7 @@ export const OLD_TAG = "Παλιό απόθεμα";
 function applyOld(p, d) {
   if (!d || !d.old_stock) return;
   const t = p.departure_at || p.issued_at; const today = new Date(); today.setHours(0, 0, 0, 0);
-  if (t && new Date(t) < today) { p.created_at = t; p.status_at = t; }
+  if (t && new Date(t) < today) { p.created_at = t; p.status_at = t; p.extraction_confidence = { ...(p.extraction_confidence || {}), registered_at: new Date().toISOString() }; }
   p.tags = [...new Set([...(p.tags || []), OLD_TAG])];
 }
 async function toQueue(it, d, problems) {

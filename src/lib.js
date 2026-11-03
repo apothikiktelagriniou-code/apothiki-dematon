@@ -141,7 +141,8 @@ export function toCSV(rows, cols) {
  */
 export function autoSaveDecision(d, exists, maxFare = 40) {
   const p = [];
-  if (!/^\d{3}-\d{3}-\d{4,7}$/.test(d.receipt_no || "")) p.push("missing_receipt_no");
+  // ΚΤΕΛ Αιτωλ/νίας: 258-341-23682 · άλλα ΚΤΕΛ (π.χ. Ιωαννίνων): σκέτος αριθμός 8–12 ψηφίων (202682615)
+  if (!/^\d{3}-\d{3}-\d{4,7}$/.test(d.receipt_no || "") && !/^\d{8,12}$/.test(d.receipt_no || "")) p.push("missing_receipt_no");
   else if (exists(d.receipt_no)) p.push("duplicate");
   if (!String(d.recipient || "").trim()) p.push("missing_recipient");
   if (!d.origin_city) p.push("missing_origin");

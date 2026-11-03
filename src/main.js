@@ -484,7 +484,8 @@ function matches(p) {
     case "nophone": if (isClosed(p) || isTransit(p) || phoneOk(p)) return false; break;
     case "transit": if (!(p.status === "transit" || (p.status === "forwarded" && !away(p)))) return false; break;
     case "cod": if (!(p.cod_amount_eur > 0 && !p.cod_collected)) return false; break;
-    case "today": { const td = new Date().toDateString(); if (![p.created_at, p.status_at, p.picked_up_at, p.fwd_at, p.updated_at].some(x => x && sameDay(x, td))) return false; break; }
+    // «Σήμερα» = όσα καταχωρήθηκαν σήμερα (και το «Παλιό απόθεμα» που περάστηκε σήμερα)
+    case "today": { const td = new Date().toDateString(); if (!sameDay(p.created_at, td) && !sameDay(p.extraction_confidence && p.extraction_confidence.registered_at, td)) return false; break; }
     case "done": if (!isClosed(p)) return false; break;
     case "nocheck": if (!needsCheck(p)) return false; break;
     case "tags": if (!(p.tags || []).length && !p.notes) return false; break;
@@ -688,8 +689,11 @@ $("dayToday").onclick = () => { tripDay = dayKey(new Date()); tripFilter = ""; r
 // αναζήτηση και σε παλιότερα (εκτός των 45 ημερών)
 let qT = null;
 $("q").addEventListener("input", () => { clearTimeout(qT); const q = $("q").value.trim(); if (q.length < 3) return;
-  qT = setTimeout(async () => { const s = q.replace(/[%,()]/g, " ");
-    const { data } = await sb.from("parcels").select("*").or(`fwd_bus.ilike.%${s}%,recipient_name.ilike.%${s}%,receipt_no.ilike.%${s}%,recipient_phone.ilike.%${s}%,picked_by_phone.ilike.%${s}%,id_doc_number.ilike.%${s}%,picked_by_name.ilike.%${s}%,pickup_code.eq.${s}`).limit(50);
+  qT = setTimeout(async () => { const raw = q.replace(/[%,()*]/g, " ").trim(); const s = norm(raw); if (!s) return;
+    const or = [`recipient_name.ilike.%${s}%`, `receipt_no.ilike.%${raw}%`, `parcel_code.ilike.%${s}%`, `recipient_phone.ilike.%${raw}%`, `picked_by_phone.ilike.%${raw}%`, `id_doc_number.ilike.%${s}%`,
+      `picked_by_name.ilike.%${s}%`, `sender_name.ilike.%${s}%`, `fwd_bus.ilike.%${s}%`, `package_desc.ilike.%${raw}%`, `pickup_code.eq.${raw}`];
+    let { data, error } = await sb.from("parcels").select("*").or(or.join(",")).order("created_at", { ascending: false }).limit(100);
+    if (error) ({ data } = await sb.from("parcels").select("*").or(or.filter(x => !x.startsWith("package_desc")).join(",")).order("created_at", { ascending: false }).limit(100));
     if (data && data.length) { data.forEach(p => rows.set(p.id, p)); render(); } }, 400); });
 
 // ---------------------------------------------------------------- ειδοποίηση

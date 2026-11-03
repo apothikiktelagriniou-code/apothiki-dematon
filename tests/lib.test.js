@@ -176,3 +176,8 @@ test("χειρόγραφη απόδειξη: κόκκινος αριθμός + �
   assert.equal(handwrittenReceipt({ is_handwritten_receipt: false, receipt_no: "258-341-23682", parcel_code: "8CAM5U8B" }), "258-341-23682");
   assert.equal(handwrittenReceipt({ is_handwritten_receipt: true, receipt_no: "3401", parcel_code: "" }), "3401");
 });
+
+test("αριθμός απόδειξης ΚΤΕΛ Ιωαννίνων (σκέτος αριθμός) δεν πάει για έλεγχο λόγω μορφής", () => {
+  const d = { receipt_no: "202682615", recipient: "ΓΑΛΑΖΟΥΛΑΣ", origin_city: "ΙΩΑΝΝΙΝΑ", fare_eur: 8, departure: "03/11/2026 13:00", unsure: [] };
+  assert.deepEqual(autoSaveDecision(d, () => false).problems, []);
+});
