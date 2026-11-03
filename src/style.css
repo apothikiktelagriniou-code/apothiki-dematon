@@ -375,3 +375,4 @@ button.codb.dmg{border:0;cursor:pointer;font:inherit;font-size:12px;font-weight:
 .cashtbl{width:100%;border-collapse:collapse;margin:8px 0;font-variant-numeric:tabular-nums}
 .cashtbl td{padding:8px 6px;border-bottom:1px solid var(--line-2)}.cashtbl td:last-child{text-align:right;font-weight:700}
 .cashtbl tr.tot td{font-size:18px;font-weight:900;color:var(--ok);border-bottom:0;border-top:2px solid var(--line)}
+.chipn{display:inline-block;min-width:20px;padding:0 6px;margin-left:2px;border-radius:999px;background:color-mix(in srgb,currentColor 14%,transparent);font-size:11.5px;font-weight:800;text-align:center;font-variant-numeric:tabular-nums}

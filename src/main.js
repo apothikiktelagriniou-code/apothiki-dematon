@@ -532,8 +532,16 @@ function render() {
   const cod = all.filter(p => p.cod_amount_eur > 0 && !p.cod_collected && !isClosed(p)).length; if (cod) addAlert("💶 " + cod + " δέματα με είσπραξη από τον παραλήπτη.", "warn", "cod");
 
   // πόλεις
+  // πόλεις άφιξης: μετράνε τα δέματα της καρτέλας που είναι ανοιχτή (π.χ. «Σήμερα» → μόνο τα σημερινά)
   const cb = $("cityBar"); cb.textContent = ""; const cnt = {};
-  open.forEach(p => { if (p.origin_city) cnt[p.origin_city] = (cnt[p.origin_city] || 0) + 1; });
+  const keepCity = cityFilter; cityFilter = "";
+  all.filter(matches).forEach(p => { if (p.origin_city) cnt[p.origin_city] = (cnt[p.origin_city] || 0) + 1; });
+  cityFilter = keepCity;
+  // κάθε καρτέλα-φίλτρο γράφει πόσα δέματα έχει
+  { const keepF = filter, keepT = tripFilter, keepC = cityFilter, keepQ = $("q").value; tripFilter = ""; cityFilter = ""; $("q").value = "";
+    document.querySelectorAll(".chip[data-f]").forEach(ch => { if (!ch.dataset.label) ch.dataset.label = ch.textContent.trim();
+      filter = ch.dataset.f; const n = all.filter(matches).length; ch.textContent = ""; ch.append(ch.dataset.label + " ", el("span", "chipn", String(n))); });
+    filter = keepF; tripFilter = keepT; cityFilter = keepC; $("q").value = keepQ; }
   if (cityFilter && !cnt[cityFilter]) cnt[cityFilter] = 0;
   Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a]).forEach(c => { const b = el("button", "cchip"); b.type = "button"; b.style.setProperty("--cc", cityColor(c));
     b.setAttribute("aria-pressed", String(cityFilter === c)); b.append(el("i"), document.createTextNode(c + " " + cnt[c]));
