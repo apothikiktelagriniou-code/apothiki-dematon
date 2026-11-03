@@ -169,3 +169,10 @@ test("διπλά: σχεδόν ίδιος αριθμός μόνο με ίδιο 
   assert.equal(likelySameParcel({ receipt_no: "2-255-349-11663", recipient_name: "Α" }, { receipt_no: "255-349-11663", recipient_name: "Β" }), "receipt");
   assert.ok(sameNameTrip({ recipient_name: "ΧΑΤΖΗΣ", origin_city: "ΠΑΤΡΑ", departure_at: "2026-11-02T15:00:00Z" }, { recipient_name: "ΧΑΤΖΗΣ ΝΙΚ", origin_city: "ΠΑΤΡΑ", departure_at: "2026-11-02T17:00:00Z" }));
 });
+
+import { handwrittenReceipt } from "../src/lib.js";
+test("χειρόγραφη απόδειξη: κόκκινος αριθμός + μπλοκ", () => {
+  assert.equal(handwrittenReceipt({ is_handwritten_receipt: true, receipt_no: "3401", parcel_code: "33950048" }), "3401 (33950048)");
+  assert.equal(handwrittenReceipt({ is_handwritten_receipt: false, receipt_no: "258-341-23682", parcel_code: "8CAM5U8B" }), "258-341-23682");
+  assert.equal(handwrittenReceipt({ is_handwritten_receipt: true, receipt_no: "3401", parcel_code: "" }), "3401");
+});

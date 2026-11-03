@@ -161,11 +161,17 @@ export const PROBLEM_TEXT = {
 export const problemText = k => k.startsWith("unsure:") ? "Αβέβαιο: " + ({ receipt_no: "αριθμός απόδειξης", phone: "τηλέφωνο", fare_eur: "κόμιστρο", recipient: "παραλήπτης", departure: "αναχώρηση", origin_city: "πόλη", parcel_code: "κωδικός" }[k.slice(7)] || k.slice(7)) : (PROBLEM_TEXT[k] || k);
 
 /** Αποτέλεσμα AI → εγγραφή parcels. */
+/** Χειρόγραφη απόδειξη: κόκκινος αριθμός (π.χ. 3401) + αριθμός μπλοκ (33950048) → «3401 (33950048)», μοναδικό και ψάχνεται με το 3401. */
+export function handwrittenReceipt(d) {
+  const red = String(d.receipt_no || "").replace(/\D/g, ""), blk = String(d.parcel_code || "").replace(/\D/g, "");
+  if (d.is_handwritten_receipt && red.length >= 2 && red.length <= 6 && blk.length >= 6) return red + " (" + blk + ")";
+  return d.receipt_no || null;
+}
 export function extractedToParcel(d) {
   const dest = norm(d.destination_city) || HOME;
   const phone = cleanPhone(d.phone);
   return {
-    receipt_no: d.receipt_no || null, parcel_code: d.parcel_code || null, kind: "Ασυνόδευτο" /* το «ΣΥΝΟΔΕΥΤΙΚΟ» της ετικέτας αφορά το χαρτί, όχι το δέμα */, item: d.item || null,
+    receipt_no: handwrittenReceipt(d), parcel_code: d.parcel_code || null, kind: "Ασυνόδευτο" /* το «ΣΥΝΟΔΕΥΤΙΚΟ» της ετικέτας αφορά το χαρτί, όχι το δέμα */, item: d.item || null,
     origin_city: norm(d.origin_city) || null, destination_city: dest,
     issued_at: parseGrDate(d.issued)?.toISOString() || null, departure_at: parseGrDate(d.departure)?.toISOString() || null,
     fare_eur: d.fare_eur == null || d.fare_eur === "" ? null : Number(d.fare_eur),

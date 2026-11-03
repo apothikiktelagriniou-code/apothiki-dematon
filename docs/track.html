@@ -39,7 +39,7 @@ button[disabled]{opacity:.6}
   <form id="f" autocomplete="off">
     <div><label for="rc">Αριθμός απόδειξης</label>
       <input id="rc" class="mono" inputmode="numeric" placeholder="π.χ. 258-341-23682" required>
-      <div class="hint">Τον βρίσκετε στην απόδειξη που σας έδωσε ο αποστολέας («Αρ. Απόδειξης»).</div></div>
+      <div class="hint">Τον βρίσκετε στην απόδειξη που σας έδωσε ο αποστολέας («Αρ. Απόδειξης»). Στις χειρόγραφες αποδείξεις: ο κόκκινος αριθμός.</div></div>
     <div><label for="nm">3 πρώτα γράμματα επωνύμου παραλήπτη</label>
       <input id="nm" maxlength="20" autocapitalize="characters" placeholder="π.χ. ΠΑΠ" required>
       <div class="hint">Για την προστασία των δεδομένων σας.</div></div>
@@ -63,7 +63,7 @@ const q = new URLSearchParams(location.search); if (q.get("r")) $("rc").value = 
 $("f").onsubmit = async e => {
   e.preventDefault();
   const rc = $("rc").value.replace(/\D/g, ""), nm = $("nm").value.trim();
-  if (rc.length < 10) return show("warn", "Ελέγξτε τον αριθμό απόδειξης", "Πρέπει να έχει τουλάχιστον 10 ψηφία.");
+  if (rc.length < 4) return show("warn", "Ελέγξτε τον αριθμό απόδειξης", "Γράψτε τον αριθμό της απόδειξης (στις χειρόγραφες: τον κόκκινο αριθμό).");
   if (nm.replace(/\s/g, "").length < 3) return show("warn", "Γράψτε 3 γράμματα", "Τα 3 πρώτα γράμματα του επωνύμου του παραλήπτη.");
   $("go").disabled = true; show("info", "Αναζήτηση…", "");
   try {

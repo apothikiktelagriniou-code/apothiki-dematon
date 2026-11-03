@@ -106,7 +106,25 @@ async function loadParcels() {
     .order("created_at", { ascending: false }).limit(5000);
   if (error) { show($("netMsg"), "Δεν φορτώθηκαν τα δέματα. Έλεγξε τη σύνδεση και ανανέωσε τη σελίδα.", "bad"); return; }
   rows = new Map(data.map(p => [p.id, p]));
-  render(); purgeAllClosed(); cleanStaleNotes(); fixKindOnce();
+  render(); purgeAllClosed(); cleanStaleNotes(); fixKindOnce(); retentionSweep();
+}
+// GDPR: αριθμός εγγράφου και υπογραφή παραλαβής κρατιούνται 12 μήνες από την παράδοση, μετά σβήνονται (μία φορά τη μέρα)
+const RETAIN_DAYS = 365;
+async function retentionSweep() {
+  const today = new Date().toDateString(); if (store.get("retentionDay") === today) return;
+  const cutoff = new Date(Date.now() - RETAIN_DAYS * 864e5).toISOString();
+  try {
+    for (let round = 0; round < 10; round++) {
+      const { data, error } = await sb.from("parcels").select("id,signature_path").eq("status", "done").lt("picked_up_at", cutoff)
+        .or("id_doc_number.not.is.null,id_doc_last4.not.is.null,signature_path.not.is.null").limit(200);
+      if (error) return; if (!data || !data.length) break;
+      const sigs = data.map(p => p.signature_path).filter(Boolean);
+      if (sigs.length) await sb.storage.from("signatures").remove(sigs).catch(() => {});
+      const { error: e2 } = await sb.from("parcels").update({ id_doc_number: null, id_doc_last4: null, id_doc_type: null, signature_path: null }).in("id", data.map(p => p.id));
+      if (e2) return; if (data.length < 200) break;
+    }
+    store.set("retentionDay", today);
+  } catch {}
 }
 // μία φορά: όλα τα παλιά «Συνοδευτικό» (από την ετικέτα) → «Ασυνόδευτο»
 async function fixKindOnce() {
