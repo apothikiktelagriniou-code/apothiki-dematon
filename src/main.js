@@ -460,6 +460,9 @@ function noListButtons(box, list) {
 // δέμα που ήρθε με λεωφορείο τις τελευταίες 7 μέρες και δεν έχει ελεγχθεί με κατάσταση (ούτε το ίδιο ούτε το δρομολόγιό του)
 const needsCheck = p => !away(p) && p.source !== "manifest" && !(p.tags || []).includes("Παλιό απόθεμα") && daysSince(p.created_at) <= 7 && !receiptChecked(p) && !(inTrip(p) !== "__none" && tripChecked(inTrip(p)));
 
+// απευθείας μεταφορτώσεις από κατάσταση (για άλλες πόλεις): δεν τις κρατάμε στην προβολή
+const isDirect = p => p.source === "manifest" && isTransit(p);
+const liveRows = () => [...rows.values()].filter(p => !isDirect(p));
 let focusKind = null, focusIdx = 0;
 const ALERT_PRED = {
   transit: p => p.status === "transit",
@@ -496,7 +499,7 @@ function matches(p) {
 }
 
 function render() {
-  const all = [...rows.values()].sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
+  const all = liveRows().sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
   computeChecks(all);
   const td = new Date().toDateString();
   const open = all.filter(p => !isClosed(p) && !away(p));
@@ -827,9 +830,15 @@ function pickupBox(p) {
   const box = el("form", "box"); box.autocomplete = "off";
   // γρήγορη παράδοση: τον παραλαμβάνει ο ίδιος ο παραλήπτης (καθημερινοί πελάτες, χωρίς στοιχεία)
   const self = el("button", "btn primary big wide selfbtn", "✓ Παρέλαβε ο ίδιος" + (p.recipient_name ? " · " + p.recipient_name : "")); self.type = "button"; box.append(self);
-  box.append(el("div", "hint wide", "…ή αν παραλαμβάνει άλλο πρόσωπο / θες έγγραφο ή υπογραφή, συμπλήρωσε από κάτω:"));
-  const name = field(box, "Όνομα παραλαβόντα (κενό = ο ίδιος ο παραλήπτης)", inp("", { placeholder: p.recipient_name || "Ονοματεπώνυμο", autocapitalize: "characters" }), true);
-  const phone = field(box, "Τηλέφωνο παραλαβόντα (υποχρεωτικό αν είναι άλλο πρόσωπο)", inp(p.recipient_phone, { inputMode: "tel", className: "mono", autocomplete: "off" }), true);
+  // παραλαμβάνει άλλο πρόσωπο → κουτί με τα στοιχεία του
+  const ol = el("label", "check wide otherchk"); const otherC = el("input"); otherC.type = "checkbox";
+  ol.append(otherC, document.createTextNode(" 👥 Παραλαμβάνει άλλο πρόσωπο (όχι ο " + (p.recipient_name || "παραλήπτης") + ")")); box.append(ol);
+  const ob = el("div", "otherbox wide"); ob.hidden = true; box.append(ob);
+  const name = field(ob, "Ονοματεπώνυμο παραλαβόντα *", inp("", { placeholder: "π.χ. ΠΑΠΑΣ ΝΙΚΟΛΑΟΣ", autocapitalize: "characters" }), true);
+  const phone = field(ob, "Κινητό παραλαβόντα *", inp("", { inputMode: "tel", className: "mono", autocomplete: "off", placeholder: "69xxxxxxxx" }));
+  const rel = field(ob, "Σχέση με τον παραλήπτη", inp("", { placeholder: "π.χ. σύζυγος, υπάλληλος, γείτονας" }));
+  otherC.onchange = () => { ob.hidden = !otherC.checked; self.hidden = otherC.checked; if (otherC.checked) name.focus(); };
+  box.append(el("div", "hint wide", "Έγγραφο και υπογραφή: προαιρετικά."));
   const when = dtFields(box, "Ημέρα παραλαβής", "Ώρα (24ωρη)", new Date().toISOString());
   const sel = el("select"); ["Ταυτότητα", "Δίπλωμα", "Διαβατήριο"].forEach(t => sel.append(new Option(t))); field(box, "Έγγραφο", sel);
   const idn = field(box, "Αριθμός εγγράφου (προαιρετικό)", inp("", { className: "mono", autocapitalize: "characters" }));
@@ -859,10 +868,11 @@ function pickupBox(p) {
   box.onsubmit = async e => {
     e.preventDefault(); if (needOperator()) return;
     const say = (t, c) => { msg.textContent = t; msg.className = "msg " + c + " wide"; msg.hidden = false; };
-    const other = !!name.value.trim() && norm(name.value) !== norm(p.recipient_name || "");
-    const nm = (name.value.trim() || p.recipient_name || "").toUpperCase(), pn = cleanPhone(phone.value), idNo = cleanIdDoc(idn.value);
-    if (phone.value.trim() && !pn) { phone.focus(); return say("Το τηλέφωνο δεν μοιάζει σωστό (10 ψηφία, π.χ. 6941234567) — διόρθωσέ το ή άφησέ το κενό.", "warn"); }
-    if (other && !pn) { phone.focus(); return say("Παραλαμβάνει άλλο πρόσωπο: γράψε το κινητό του (10 ψηφία).", "warn"); }
+    const other = otherC.checked, idNo = cleanIdDoc(idn.value);
+    if (other && !name.value.trim()) { name.focus(); return say("Γράψε το ονοματεπώνυμο αυτού που παραλαμβάνει.", "warn"); }
+    if (other && !cleanPhone(phone.value)) { phone.focus(); return say("Γράψε το κινητό αυτού που παραλαμβάνει (10 ψηφία).", "warn"); }
+    const nm = other ? name.value.trim().toUpperCase() + (rel.value.trim() ? " (" + rel.value.trim() + ")" : "") : (p.recipient_name || "").toUpperCase();
+    const pn = other ? cleanPhone(phone.value) : cleanPhone(p.recipient_phone);
     if (pcs && !pcs.checked) return say("Τσέκαρε ότι παρέδωσες και τα " + p.pieces_total + " τεμάχια.", "warn");
     if (codC && !codC.checked) return say("Τσέκαρε ότι εισπράχθηκε το ποσό " + money(p.cod_amount_eur) + ".", "warn");
     ok.disabled = true; say("Αποθήκευση…", "info");
@@ -1132,7 +1142,7 @@ let dupCache = { at: 0, list: [] };
 const dupIgnored = () => { try { return new Set(JSON.parse(store.get("dupIgnore") || "[]")); } catch { return new Set(); } };
 function findDuplicates(force) {
   if (!force && Date.now() - dupCache.at < 15000) return dupCache.list;
-  const all = [...rows.values()]; const ign = dupIgnored();
+  const all = liveRows(); const ign = dupIgnored();
   const man = all.filter(p => p.source === "manifest"), real = all.filter(p => p.source !== "manifest");
   const out = [], usedB = new Set();
   man.forEach(a => {
@@ -1220,7 +1230,7 @@ async function sysNotify(title, body, tag) {
 }
 function fwdTick() {
   if ($("app").hidden) return;
-  const all = [...rows.values()]; let fired = false;
+  const all = liveRows(); let fired = false;
   fwdGroups(all, m => m <= REMIND_MIN && m > -0.5).forEach(([k, ps]) => {
     const key = "fwdN:" + k; if (store.get(key)) return; store.set(key, "1"); fired = true;
     const [dest] = k.split("|"); const p0 = ps[0];

@@ -150,7 +150,7 @@ export function autoSaveDecision(d, exists, maxFare = 40) {
   else if (!(Number(d.fare_eur) > 0 && Number(d.fare_eur) <= maxFare)) p.push("fare_out_of_range");
   if (!parseGrDate(d.departure)) p.push("missing_departure");
   if (d.phone && !cleanPhone(d.phone)) p.push("invalid_phone");
-  for (const u of d.unsure || []) p.push("unsure:" + u);
+  for (const u of d.unsure || []) if (u !== "parcel_code") p.push("unsure:" + u); // ο κωδικός δέματος δεν χρειάζεται έλεγχο
   if (d.is_handwritten_receipt) p.push("handwritten_receipt");
   return { auto: p.length === 0, problems: p };
 }

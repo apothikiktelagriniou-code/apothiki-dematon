@@ -97,8 +97,8 @@ export function openManifest(D) {
     }
     autoOrAsk(missHome, "home", "Καταχώρηση στη λίστα «Δεν ήρθαν»");
 
-    sec("⇄ Απευθείας μεταφορτώσεις — για άλλη πόλη, δεν περνούν από την αποθήκη (" + direct.length + ")", "warn", direct.map(itemLine));
-    autoOrAsk(direct, "direct", "Καταχώρηση στις «Απευθείας μεταφορτώσεις»");
+    // απευθείας μεταφορτώσεις (άλλες πόλεις): δεν καταχωρούνται, μόνο το πλήθος
+    if (direct.length) out.append(el("div", "hint", "⇄ " + direct.length + " δέματα της κατάστασης είναι για άλλες πόλεις — δεν καταχωρούνται."));
 
     const weak = r.found.filter(f => f.how === "name");
     sec("✓ Βρέθηκαν (" + r.found.length + ")" + (weak.length ? " — " + weak.length + " μόνο με το όνομα, έλεγξέ τα" : ""), "ok", r.found.map(f =>
