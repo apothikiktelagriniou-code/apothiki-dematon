@@ -41,7 +41,8 @@ const SYSTEM_BIZ = `Είσαι βοηθός αποθήκης δεμάτων στ
 - Ψάξε κυρίως Αγρίνιο / Αιτωλοακαρνανία. Χρησιμοποίησε ιστοσελίδα της επιχείρησης ή επαγγελματικούς καταλόγους (vrisko.gr, 11888.gr, xo.gr, Google Business).
 - Δώσε τηλέφωνο ΜΟΝΟ αν η επιχείρηση ταιριάζει καθαρά με το όνομα και την περιοχή. Αν βρεις πολλές ίδιες επιχειρήσεις ή δεν είσαι σίγουρος → confidence "low". Αν δεν βρεις → phone "".
 - Τηλέφωνο σε 10 ψηφία χωρίς κενά (σταθερό 2xxxxxxxxx ή κινητό 69xxxxxxxx που δημοσιεύει η ίδια η επιχείρηση).
-Απάντησε στο τέλος ΜΟΝΟ με JSON: {"is_business":true,"business_name":"","phone":"","address":"","source_url":"","confidence":"high|medium|low","note":""}`;
+- email: ΜΟΝΟ το δημόσιο επαγγελματικό email της επιχείρησης όπως το δημοσιεύει η ίδια (ιστοσελίδα/κατάλογος). Ποτέ προσωπικό email ιδιώτη. Αν δεν βρεις → "".
+Απάντησε στο τέλος ΜΟΝΟ με JSON: {"is_business":true,"business_name":"","phone":"","email":"","address":"","source_url":"","confidence":"high|medium|low","note":""}`;
 
 const SYSTEM_CLASSIFY = `Σου δίνω μικρές φωτογραφίες από αποθήκη δεμάτων ΚΤΕΛ, με τη σειρά. Για ΚΑΘΕ φωτογραφία, με την ίδια σειρά, πες τι δείχνει:
 - "label": κυρίως ετικέτα/απόδειξη από κοντά (ΔΕΛΤΙΟ ΑΠΟΣΚΕΥΩΝ, θερμικό χαρτάκι ή χειρόγραφη απόδειξη) — το κείμενο πιάνει μεγάλο μέρος της εικόνας.
@@ -231,6 +232,8 @@ async function bizPhone(body: Record<string, unknown>, key: string, sb: any) {
   const src = String(p.source_url ?? "").slice(0, 300);
   let conf = ["high", "medium", "low"].includes(String(p.confidence)) ? String(p.confidence) : "low";
   if (src && urls.size && ![...urls].some(u => u.startsWith(src) || src.startsWith(u))) conf = "low"; // πηγή που δεν βρέθηκε στην αναζήτηση
-  return json({ data: { is_business: p.is_business !== false, business_name: String(p.business_name ?? "").slice(0, 120), phone: ph,
-    address: String(p.address ?? "").slice(0, 160), source_url: src, confidence: ph ? conf : "", note: String(p.note ?? "").slice(0, 160), searches }, cost_usd: cost });
+  const em = String(p.email ?? "").trim().toLowerCase();
+  const email = p.is_business !== false && /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/.test(em) ? em.slice(0, 120) : "";
+  return json({ data: { is_business: p.is_business !== false, business_name: String(p.business_name ?? "").slice(0, 120), phone: ph, email,
+    address: String(p.address ?? "").slice(0, 160), source_url: src, confidence: ph || email ? conf : "", note: String(p.note ?? "").slice(0, 160), searches }, cost_usd: cost });
 }

@@ -24,7 +24,7 @@ const store = { get(k) { try { return localStorage.getItem(k) || ""; } catch { r
 const STATUS = { arrived: "Ήρθε", notified: "Ειδοποιήθηκε", done: "Παραδόθηκε", transit: "Μεταφόρτωση", forwarded: "Προωθήθηκε", returned: "Επεστράφη" , not_arrived: "Δεν πέρασε από αποθήκη"};
 let settings = { reminder_days: 3, transit_alert_hours: 3, old_parcel_days: 5, max_reasonable_fare_eur: 40, city_colors: {}, notification_template: "{αρ}", reminder_template: "{αρ}" };
 let rows = new Map();       // id → parcel
-let filter = "all", cityFilter = "", tripFilter = "", tripDay = "", editingId = null;
+let filter = "today", cityFilter = "", tripFilter = "", tripDay = "", editingId = null;
 let openBox = { id: null, kind: null }; // ειδοποίηση/παράδοση/προώθηση/ζημιά
 let bulk = false, shelfManual = false, customerChoice = null;
 
@@ -417,6 +417,7 @@ function startEdit(p) {
 }
 
 // ---------------------------------------------------------------- λίστα
+const GROUP_COLORS = ["#2563eb", "#d97706", "#059669", "#db2777", "#7c3aed", "#0891b2", "#dc2626", "#65a30d"];
 const cityColor = c => (settings.city_colors || {})[norm(c)] || "#57534e";
 const needsRemind = p => p.status === "notified" && daysSince(p.notified_at || p.status_at) >= (settings.reminder_days || 3);
 const lateTransit = p => p.status === "transit" && (hoursSince(p.created_at) >= (settings.transit_alert_hours || 3) || new Date(p.created_at).toDateString() !== new Date().toDateString());
@@ -475,14 +476,15 @@ function matches(p) {
   if (tripFilter === "__nocheck") { const t = inTrip(p); if (t === "__none" || !t.split("|")[1].startsWith(tripDay) || tripChecked(t)) return false; }
   else if (tripFilter === "__day") { if (!tripsOf(p).some(t => t !== "__none" && t.split("|")[1].startsWith(tripDay))) return false; }
   else if (tripFilter && !tripsOf(p).includes(tripFilter)) return false;
-  switch (filter) {
+  // η αναζήτηση ψάχνει σε όλα· ένα επιλεγμένο δρομολόγιο δείχνει όλα του τα δέματα ακόμα κι αν είμαστε στο «Σήμερα»
+  if (!qq && !(tripFilter && filter === "today")) switch (filter) {
     case "waiting": if (isClosed(p)) return false; break;
     case "tonotify": if (p.status !== "arrived") return false; break;
     case "remind": if (!needsRemind(p)) return false; break;
     case "nophone": if (isClosed(p) || isTransit(p) || phoneOk(p)) return false; break;
     case "transit": if (!(p.status === "transit" || (p.status === "forwarded" && !away(p)))) return false; break;
     case "cod": if (!(p.cod_amount_eur > 0 && !p.cod_collected)) return false; break;
-    case "today": if (!sameDay(p.created_at, new Date().toDateString())) return false; break;
+    case "today": { const td = new Date().toDateString(); if (![p.created_at, p.status_at, p.picked_up_at, p.fwd_at].some(x => x && sameDay(x, td))) return false; break; }
     case "done": if (!isClosed(p)) return false; break;
     case "nocheck": if (!needsCheck(p)) return false; break;
     case "tags": if (!(p.tags || []).length && !p.notes) return false; break;
@@ -524,6 +526,7 @@ function render() {
   const rem = all.filter(needsRemind).length; if (rem) addAlert("🔔 " + rem + " δέματα θέλουν υπενθύμιση.", "info", "remind");
   const hw = all.filter(p => !isClosed(p) && p.phone_source === "handwritten" && !p.phone_confirmed).length; if (hw) addAlert("✍ " + hw + " τηλέφωνα από χειρόγραφο θέλουν επιβεβαίωση.", "warn", "hw");
   const dups = findDuplicates().length; if (dups) { const b = el("button", "msg bad alert", "🔁 " + dups + " πιθανές διπλές καταχωρήσεις (κατάσταση + φωτογραφία) ›"); b.type = "button"; b.onclick = openDuplicates; al.append(b); }
+  if (new Date().getHours() >= 21 && store.get("cashSeen") !== new Date().toDateString()) { const b = el("button", "msg info alert", "💶 Κλείσιμο ημέρας: δες το σύνολο είσπραξης ›"); b.type = "button"; b.onclick = () => openCash(); al.append(b); }
   if (new Date().getDay() === 0 && store.get("invDoneDay") !== dayKey(new Date())) { const b = el("button", "msg info alert", "📦 Κυριακή: κάνε απογραφή αποθήκης ›"); b.type = "button"; b.onclick = () => { if (!needOperator()) openInventory(); }; al.append(b); }
   const cod = all.filter(p => p.cod_amount_eur > 0 && !p.cod_collected && !isClosed(p)).length; if (cod) addAlert("💶 " + cod + " δέματα με είσπραξη από τον παραλήπτη.", "warn", "cod");
 
@@ -570,7 +573,17 @@ function render() {
   const list = $("list"); list.textContent = "";
   const vis = all.filter(matches);
   if (!vis.length) { list.append(el("div", "empty", rows.size ? "Κανένα δέμα με αυτό το φίλτρο." : "Ακόμα κανένα δέμα. Κάνε την πρώτη καταχώρηση αριστερά.")); return; }
-  vis.slice(0, 300).forEach(p => list.append(card(p)));
+  // δέματα ίδιου δρομολογίου μαζί, με αγκύλη ίδιου χρώματος
+  const shown = vis.slice(0, 300); const groups = new Map();
+  shown.forEach(p => { const k = inTrip(p); const g = groups.get(k) || groups.set(k, []).get(k); g.push(p); });
+  let gi = 0;
+  [...groups.entries()].sort((a, b) => String(b[1][0].created_at).localeCompare(String(a[1][0].created_at))).forEach(([k, ps]) => {
+    if (k === "__none" || ps.length < 2) { ps.forEach(p => list.append(card(p))); return; }
+    const box = el("div", "tripgroup"); box.style.setProperty("--gc", GROUP_COLORS[gi++ % GROUP_COLORS.length]);
+    const [c, t] = k.split("|"); const open = ps.filter(p => !isClosed(p)).length;
+    box.append(el("div", "tghead", (t ? t.split(" ")[1] + " · " : "") + "από " + c + " · " + ps.length + " δέματα" + (open ? " · " + open + " εκκρεμούν" : " ✓")));
+    ps.forEach(p => box.append(card(p))); list.append(box);
+  });
   if (vis.length > 300) list.append(el("div", "empty", "Εμφανίζονται τα 300 πιο πρόσφατα από " + vis.length + ". Χρησιμοποίησε αναζήτηση ή φίλτρο."));
 }
 
@@ -1008,7 +1021,11 @@ $("customersBtn").onclick = async () => {
   $("customersBtn").closest("details").open = false;
   const body = $("dlgBody"); body.textContent = ""; body.append(el("h2", null, "Πελάτες"));
   const q = inp("", { type: "search", placeholder: "Αναζήτηση πελάτη" }); const nw = el("button", "btn small", "＋ Νέος πελάτης"); nw.type = "button"; nw.onclick = () => { $("dlg").close(); openCustomer(null, { full_name: q.value, phones: [] }); };
-  body.append(el("div", "hint", "Πάτα έναν πελάτη για την καρτέλα του."), q, nw); const l = el("div", "hist"); body.append(l);
+  const ex = el("button", "btn small", "✉ Εξαγωγή email (μόνο με συγκατάθεση)"); ex.type = "button";
+  ex.onclick = async () => { const { data } = await sb.from("customers").select("full_name,email,area,is_business,marketing_consent_at").eq("marketing_consent", true).not("email", "is", null).limit(10000);
+    const csv = toCSV(data || [], [["full_name", "Όνομα"], ["email", "Email"], ["area", "Περιοχή"], ["b", "Επιχείρηση", r => r.is_business ? "Ναι" : ""], ["c", "Συγκατάθεση από", r => fmtGr(r.marketing_consent_at)]]);
+    const a = el("a"); a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" })); a.download = "email-enimerotika.csv"; a.click(); ex.textContent = "✉ " + (data || []).length + " email"; };
+  body.append(el("div", "hint", "Πάτα έναν πελάτη για την καρτέλα του."), q, el("div", "quick"), nw, ex); const l = el("div", "hist"); body.append(l);
   const load = async () => { let r = sb.from("customers").select("*").order("last_parcel_at", { ascending: false, nullsFirst: false }).limit(100);
     const s = norm(q.value); if (s) r = r.ilike("name_key", "%" + s + "%");
     const { data } = await r; l.textContent = "";
@@ -1251,7 +1268,7 @@ function phoneHelp(p, lineEl) {
   const s = p.phone_suggestion;
   if (s && s.phone && !s.rejected) {
     const w = el("div", "msg " + (s.confidence === "high" ? "ok" : "warn") + " sugg");
-    w.append("🏢 Βρέθηκε: ", el("b", null, fmtPhone(s.phone)), " — " + (s.business_name || "") + (s.address ? " · " + s.address : "") + " · βεβαιότητα: " + ({ high: "υψηλή", medium: "μέτρια", low: "χαμηλή — έλεγξέ το" }[s.confidence] || "?") + " ");
+    w.append("🏢 Βρέθηκε: ", el("b", null, fmtPhone(s.phone)), (s.email ? " · ✉ " + s.email : "") + " — " + (s.business_name || "") + (s.address ? " · " + s.address : "") + " · βεβαιότητα: " + ({ high: "υψηλή", medium: "μέτρια", low: "χαμηλή — έλεγξέ το" }[s.confidence] || "?") + " ");
     if (s.source_url) { const a = el("a", null, "πηγή"); a.href = s.source_url; a.target = "_blank"; a.rel = "noopener"; w.append("(", a, ") "); }
     const yes = el("button", "btn small primary", "✓ Σωστό, βάλ' το"); yes.type = "button"; yes.onclick = () => acceptBiz(p, s);
     const no = el("button", "btn small", "✗ Όχι"); no.type = "button"; no.onclick = () => sb.from("parcels").update({ phone_suggestion: { ...s, rejected: true } }).eq("id", p.id).select().single().then(({ data }) => { if (data) { rows.set(p.id, data); render(); } });
@@ -1281,7 +1298,7 @@ async function acceptBiz(p, s) {
   try {
     await updateParcel(p.id, { recipient_phone: s.phone, phone_source: "business_web", phone_confirmed: true });
     const cid = await linkCustomer(p.recipient_name, s.phone);
-    if (cid) { await sb.from("customers").update({ is_business: true, business_source: s.source_url || null, ...(s.address ? { address: s.address } : {}) }).eq("id", cid); if (!p.customer_id) await updateParcel(p.id, { customer_id: cid }); }
+    if (cid) { await sb.from("customers").update({ is_business: true, business_source: s.source_url || null, ...(s.address ? { address: s.address } : {}), ...(s.email ? { email: s.email } : {}) }).eq("id", cid); if (!p.customer_id) await updateParcel(p.id, { customer_id: cid }); }
     loadCustomersSoon();
   } catch { show($("formMsg"), "Δεν αποθηκεύτηκε. Δοκίμασε ξανά.", "bad"); }
 }
@@ -1311,6 +1328,9 @@ async function openCustomer(id, draft, fromParcel) {
   const name = field(fs, c.is_business ? "Επωνυμία" : "Ονοματεπώνυμο", inp(c.full_name, { autocapitalize: "characters" }), true);
   const biz = el("label", "check wide"); const bz = el("input"); bz.type = "checkbox"; bz.checked = !!c.is_business; biz.append(bz, document.createTextNode(" Επιχείρηση (κατάστημα, εταιρεία, ιατρείο…)")); fs.append(biz);
   const phones = field(fs, "Τηλέφωνα (χώρισέ τα με κόμμα)", inp((c.phones || []).map(fmtPhone).join(", "), { inputMode: "tel", className: "mono" }), true);
+  const email = field(fs, "Email", inp(c.email || "", { type: "email", autocapitalize: "none", placeholder: "π.χ. info@epixeirisi.gr" }), true);
+  const cons = el("label", "check wide"); const cs = el("input"); cs.type = "checkbox"; cs.checked = !!c.marketing_consent;
+  cons.append(cs, document.createTextNode(" Θέλει ενημερωτικά email (το ζήτησε / συμφώνησε)")); fs.append(cons);
   const addr = field(fs, "Διεύθυνση", inp(c.address || ""));
   const area = field(fs, "Περιοχή", inp(c.area || "", { placeholder: "π.χ. ΑΓΡΙΝΙΟ" }));
   const ch = el("select"); [["", "— (αυτόματα)"], ["whatsapp", "WhatsApp"], ["viber", "Viber"], ["sms", "SMS"]].forEach(([v, t]) => ch.append(new Option(t, v))); ch.value = c.channel || ""; field(fs, "Κανάλι ειδοποίησης", ch);
@@ -1327,12 +1347,12 @@ async function openCustomer(id, draft, fromParcel) {
       const { data, error } = await sb.functions.invoke("extract-receipt", { body: { mode: "bizphone", name: name.value, city: area.value || "ΑΓΡΙΝΙΟ" } });
       if (error) { let d = ""; try { d = (await error.context.json()).detail || ""; } catch {} throw new Error(d || error.message); }
       const r = data.data || {};
-      if (!r.phone) { say(r.is_business === false ? "Μοιάζει με ιδιώτη — δεν ψάχνουμε προσωπικά τηλέφωνα." : "Δεν βρέθηκε επαγγελματικό τηλέφωνο.", "warn"); return; }
+      if (!r.phone && !r.email) { say(r.is_business === false ? "Μοιάζει με ιδιώτη — δεν ψάχνουμε προσωπικά τηλέφωνα." : "Δεν βρέθηκε επαγγελματικό τηλέφωνο.", "warn"); return; }
       msg.textContent = ""; msg.className = "msg " + (r.confidence === "high" ? "ok" : "warn"); msg.hidden = false;
-      msg.append("Βρέθηκε: ", el("b", null, fmtPhone(r.phone)), " — " + (r.business_name || "") + (r.address ? " · " + r.address : "") + " ");
+      msg.append("Βρέθηκε: ", el("b", null, r.phone ? fmtPhone(r.phone) : "—"), (r.email ? " · ✉ " + r.email : "") + " — " + (r.business_name || "") + (r.address ? " · " + r.address : "") + " ");
       if (r.source_url) { const a = el("a", null, "πηγή"); a.href = r.source_url; a.target = "_blank"; a.rel = "noopener"; msg.append("(", a, ") "); }
       const add = el("button", "btn small primary", "Πρόσθεσέ το"); add.type = "button";
-      add.onclick = () => { const cur = phones.value.trim(); phones.value = cur ? cur + ", " + fmtPhone(r.phone) : fmtPhone(r.phone); if (!addr.value && r.address) addr.value = r.address; c.business_source = r.source_url || null; add.remove(); };
+      add.onclick = () => { if (r.phone) { const cur = phones.value.trim(); phones.value = cur ? cur + ", " + fmtPhone(r.phone) : fmtPhone(r.phone); } if (!email.value && r.email) email.value = r.email; if (!addr.value && r.address) addr.value = r.address; c.business_source = r.source_url || null; add.remove(); };
       msg.append(add);
     } catch (e) { say("Η αναζήτηση απέτυχε: " + String(e.message || e).slice(0, 160), "bad"); }
     finally { fb.disabled = false; }
@@ -1352,8 +1372,11 @@ async function openCustomer(id, draft, fromParcel) {
     const ph = phones.value.split(/[,;\/]+/).map(cleanPhone); const bad = phones.value.split(/[,;\/]+/).filter((x, i) => x.trim() && !ph[i]);
     if (bad.length) return say("Δεν μοιάζει σωστό τηλέφωνο: " + bad.join(", ") + " (10 ψηφία).", "warn");
     if (!name.value.trim()) return say("Γράψε όνομα / επωνυμία.", "warn");
+    const em = email.value.trim().toLowerCase(); if (em && !/^[^\s@]+@[^\s@]+\.[a-z]{2,}$/.test(em)) return say("Το email δεν μοιάζει σωστό.", "warn");
+    if (cs.checked && !em) return say("Για ενημερωτικά email χρειάζεται email.", "warn");
     const row = { full_name: name.value.trim().toUpperCase(), phones: [...new Set(ph.filter(Boolean))], is_business: bz.checked, address: addr.value.trim() || null, area: area.value.trim() || null,
-      notes: notes.value.trim() || null, channel: ch.value || null, business_source: c.business_source || null };
+      notes: notes.value.trim() || null, channel: ch.value || null, business_source: c.business_source || null,
+      email: em || null, marketing_consent: cs.checked, ...(cs.checked && !c.marketing_consent ? { marketing_consent_at: new Date().toISOString() } : {}) };
     save.disabled = true;
     try {
       let cid = c.id;
@@ -1371,3 +1394,40 @@ async function openCustomer(id, draft, fromParcel) {
   $("custDlg").showModal();
 }
 $("custClose").onclick = () => $("custDlg").close();
+
+
+// ---------------------------------------------------------------- ταμείο ημέρας (σύνολο είσπραξης)
+const DELIVERY_FEE = () => Number(settings.delivery_fee_eur || 3.5);
+async function openCash(dayStr) {
+  store.set("cashSeen", new Date().toDateString()); render();
+  const day = dayStr || dayKey(new Date());
+  const [y, m, d] = day.split("-").map(Number); const from = new Date(y, m - 1, d), to = new Date(y, m - 1, d + 1);
+  const b = $("dlgBody"); b.textContent = "";
+  const di = inp(day, { type: "date" }); di.onchange = () => openCash(di.value);
+  b.append(el("h2", null, "💶 Ταμείο ημέρας"), di);
+  const { data, error } = await sb.from("parcels").select("id,receipt_no,recipient_name,picked_by_name,picked_up_at,cod_amount_eur,cod_collected,home_delivery,operator")
+    .eq("status", "done").gte("picked_up_at", from.toISOString()).lt("picked_up_at", to.toISOString()).limit(2000);
+  if (error) { b.append(el("div", "msg bad", "Δεν φορτώθηκαν τα στοιχεία. Δοκίμασε ξανά.")); if (!$("dlg").open) $("dlg").showModal(); return; }
+  const ps = data || []; const fee = DELIVERY_FEE();
+  const cod = ps.filter(p => p.cod_collected && Number(p.cod_amount_eur) > 0), del = ps.filter(p => p.home_delivery);
+  const codSum = cod.reduce((s, p) => s + Number(p.cod_amount_eur), 0), delSum = del.length * fee, total = codSum + delSum;
+  const ops = {}; [...cod.map(p => [p.operator, Number(p.cod_amount_eur)]), ...del.map(p => [p.operator, fee])].forEach(([o, v]) => { o = o || "—"; ops[o] = (ops[o] || 0) + v; });
+  const t = el("table", "cashtbl"); const tr = (a, b2, c2, cls) => { const r = el("tr", cls); [a, b2, c2].forEach(x => r.append(el("td", null, x))); t.append(r); };
+  tr("Παραδόσεις ημέρας", String(ps.length), "");
+  tr("💶 Αντικαταβολές που εισπράχθηκαν", String(cod.length), money(codSum));
+  tr("🏠 Delivery (" + money(fee) + " το καθένα)", String(del.length), money(delSum));
+  tr("ΣΥΝΟΛΟ ΕΙΣΠΡΑΞΗΣ", "", money(total), "tot");
+  b.append(t);
+  if (Object.keys(ops).length) { b.append(el("h3", null, "Ανά υπάλληλο")); const t2 = el("table", "cashtbl"); Object.entries(ops).sort((a, c) => c[1] - a[1]).forEach(([o, v]) => { const r = el("tr"); r.append(el("td", null, "👤 " + o), el("td", null, money(v))); t2.append(r); }); b.append(t2); }
+  if (cod.length || del.length) { b.append(el("h3", null, "Αναλυτικά")); const l = el("div", "hist");
+    [...cod.map(p => [p, "💶 " + money(p.cod_amount_eur)]), ...del.map(p => [p, "🏠 " + money(fee)])].sort((a, c) => String(a[0].picked_up_at).localeCompare(String(c[0].picked_up_at)))
+      .forEach(([p, w]) => l.append(el("div", null, fmtGr(p.picked_up_at).split(" ")[1] + " · " + w + " · " + (p.recipient_name || "—") + (p.receipt_no ? " · " + p.receipt_no : "") + " · 👤 " + (p.operator || "—")))); b.append(l); }
+  b.append(el("div", "hint", "Μετράει ό,τι σημειώθηκε στην Παράδοση: «Εισπράχθηκε» και «Παράδοση στο σπίτι». Τα κόμιστρα πληρώνονται από τον αποστολέα και δεν μπαίνουν εδώ."));
+  const txt = "💶 Ταμείο " + day.split("-").reverse().join("/") + " (" + (operator() || "—") + "): σύνολο " + money(total) + " — αντικαταβολές " + cod.length + " (" + money(codSum) + "), delivery " + del.length + " (" + money(delSum) + ")" + (Object.keys(ops).length ? ". " + Object.entries(ops).map(([o, v]) => o + " " + money(v)).join(", ") : "");
+  const bar = el("div", "quick"); const nb = el("button", "btn small primary", "Καταγραφή στο σημείωμα βάρδιας"); nb.type = "button";
+  nb.onclick = async () => { nb.disabled = true; await sb.from("shift_notes").insert({ text: txt, operator: operator() || null }); loadNotes(); nb.textContent = "✓ Καταγράφηκε"; };
+  const cp = el("button", "btn small", "Αντιγραφή"); cp.type = "button"; cp.onclick = async () => { try { await navigator.clipboard.writeText(txt); cp.textContent = "Αντιγράφηκε ✓"; } catch { cp.textContent = "Δεν αντιγράφηκε"; } };
+  bar.append(nb, cp); b.append(bar);
+  if (!$("dlg").open) $("dlg").showModal();
+}
+$("cashBtn").onclick = () => { $("cashBtn").closest("details").open = false; openCash(); };

@@ -44,6 +44,7 @@
         <div class="menu-pop">
           <button class="btn small" type="button" id="exportBtn">Εξαγωγή για Excel</button>
           <button class="btn small" type="button" id="manifestBtn">📄 Έλεγχος κατάστασης</button>
+          <button class="btn small" type="button" id="cashBtn">💶 Ταμείο ημέρας</button>
           <button class="btn small" type="button" id="invBtn">📦 Απογραφή αποθήκης</button>
           <button class="btn small" type="button" id="dupBtn">🔁 Διπλές καταχωρήσεις</button>
           <button class="btn small" type="button" id="notifBtn">🔔 Ενεργοποίηση ειδοποιήσεων</button>
@@ -110,14 +111,14 @@
       <h2 id="hLog">Δέματα</h2>
       <input id="q" type="search" class="search" placeholder="Ήρθε πελάτης; Επώνυμο, 4 τελευταία ψηφία τηλεφώνου ή κωδικός" aria-label="Αναζήτηση">
       <div class="chips" role="group" aria-label="Φίλτρο">
-        <button class="chip" type="button" data-f="all" aria-pressed="true">Όλα</button>
+        <button class="chip" type="button" data-f="today" aria-pressed="true">Σήμερα</button>
+        <button class="chip" type="button" data-f="all" aria-pressed="false">Όλα</button>
         <button class="chip" type="button" data-f="waiting" aria-pressed="false">Περιμένουν</button>
         <button class="chip" type="button" data-f="tonotify" aria-pressed="false">Να ειδοποιηθούν</button>
         <button class="chip" type="button" data-f="remind" aria-pressed="false">Για υπενθύμιση</button>
         <button class="chip" type="button" data-f="nophone" aria-pressed="false">Χωρίς τηλέφωνο</button>
         <button class="chip" type="button" data-f="transit" aria-pressed="false">Μεταφορτώσεις</button>
         <button class="chip" type="button" data-f="cod" aria-pressed="false">Είσπραξη</button>
-        <button class="chip" type="button" data-f="today" aria-pressed="false">Σήμερα</button>
         <button class="chip" type="button" data-f="tags" aria-pressed="false">Με παρατηρήσεις</button>
         <button class="chip" type="button" data-f="bypassed" aria-pressed="false">🚫 Δεν ήρθαν στην αποθήκη</button>
         <button class="chip" type="button" data-f="direct" aria-pressed="false">⇄ Απευθείας μεταφορτώσεις</button>

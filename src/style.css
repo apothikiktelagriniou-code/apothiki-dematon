@@ -368,3 +368,10 @@ button.codb.dmg{border:0;cursor:pointer;font:inherit;font-size:12px;font-weight:
 .custrow{font:inherit;text-align:left;background:var(--surface);border:1px solid var(--line-2);border-radius:10px;padding:8px 10px;cursor:pointer;color:var(--fg)}
 .custrow:hover{border-color:var(--teal)}
 #custBody{display:flex;flex-direction:column;gap:10px}
+/* αγκύλη δρομολογίου */
+.tripgroup{position:relative;display:flex;flex-direction:column;gap:8px;padding:6px 0 6px 14px;margin-left:2px}
+.tripgroup::before{content:"";position:absolute;left:0;top:14px;bottom:6px;width:9px;border:4px solid var(--gc);border-right:0;border-radius:10px 0 0 10px}
+.tghead{font-size:12px;font-weight:800;letter-spacing:.04em;color:var(--gc);text-transform:uppercase;padding-left:2px}
+.cashtbl{width:100%;border-collapse:collapse;margin:8px 0;font-variant-numeric:tabular-nums}
+.cashtbl td{padding:8px 6px;border-bottom:1px solid var(--line-2)}.cashtbl td:last-child{text-align:right;font-weight:700}
+.cashtbl tr.tot td{font-size:18px;font-weight:900;color:var(--ok);border-bottom:0;border-top:2px solid var(--line)}
