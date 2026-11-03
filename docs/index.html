@@ -39,6 +39,7 @@
     </div>
     <div class="hdr-right">
       <button class="btn small op" id="opBtn" type="button">👤 <span id="opName">—</span><span class="opchg"> · αλλαγή</span></button>
+      <button class="btn small" id="reloadBtn" type="button" title="Ανανέωση (φέρνει και τη νεότερη έκδοση)" aria-label="Ανανέωση" onclick="(async b=>{b.disabled=true;b.textContent='…';try{const ks=await caches.keys();await Promise.all(ks.map(k=>caches.delete(k)));const r=await navigator.serviceWorker?.getRegistration();await r?.update();}catch(e){}location.reload();})(this)">⟳</button>
       <button class="btn small" id="themeBtn" type="button" aria-label="Φωτεινό / σκούρο θέμα" title="Φωτεινό / σκούρο">🌙</button>
       <details class="menu">
         <summary class="btn small">☰ Μενού</summary>
