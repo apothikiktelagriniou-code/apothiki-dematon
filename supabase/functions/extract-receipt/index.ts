@@ -98,7 +98,7 @@ Deno.serve(async req => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   const url = new URL(req.url);
   const key = Deno.env.get("ANTHROPIC_API_KEY");
-  if (url.searchParams.get("health") === "1") return json({ ok: true, hasKey: !!key, model: MODEL, version: "2026-11-03-ioannina" });
+  if (url.searchParams.get("health") === "1") return json({ ok: true, hasKey: !!key, model: MODEL, version: "2026-11-03-ioannina-2" });
   if (url.searchParams.get("health") === "2") {
     // διαγνωστικό: μια μικρή κλήση στο AI για να φανεί αν δουλεύουν κλειδί/μοντέλο/πίστωση (δεν επιστρέφει το κλειδί)
     if (!key) return json({ ok: false, error: "missing_key" });
@@ -205,8 +205,7 @@ async function bizPhone(body: Record<string, unknown>, key: string, sb: any) {
   const name = String(body.name ?? "").replace(/\s+/g, " ").trim().slice(0, 120);
   const city = String(body.city ?? "").trim().slice(0, 60);
   if (!name) return json({ error: "no_name" }, 400);
-  const tools = [{ type: "web_search_20250305", name: "web_search", max_uses: 3, allowed_callers: ["direct"],
-    user_location: { type: "approximate", city: "Agrinio", region: "Aitoloakarnania", country: "GR", timezone: "Europe/Athens" } }];
+  const tools = [{ type: "web_search_20250305", name: "web_search", max_uses: 3, allowed_callers: ["direct"] }]; // χωρίς user_location: η Google/Anthropic δεν δέχεται χώρα GR — η περιοχή δίνεται στο κείμενο
   // deno-lint-ignore no-explicit-any
   let messages: any[] = [{ role: "user", content: "Παραλήπτης δέματος: «" + name + "»" + (city ? " · περιοχή: " + city : "") + ". Αν είναι επιχείρηση, βρες το δημόσιο επαγγελματικό τηλέφωνό της. Επέστρεψε το JSON." }];
   let inT = 0, outT = 0, searches = 0, text = ""; const urls = new Set<string>();
