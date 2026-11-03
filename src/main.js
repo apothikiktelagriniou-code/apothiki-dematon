@@ -2,7 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { SUPABASE_URL, SUPABASE_KEY } from "./config.js";
 import {
   HOME, norm, shelfFor, cleanPhone, fmtPhone, parseGrDate, fmtGr, toLocalInput, money, hoursSince, daysSince,
-  tripsOf, tripLabel, sortTrips, isClosed, isTransit, parseLabel, fillTemplate, toCSV, cleanIdDoc, sameReceipt, likelySameParcel, sameNameTrip, smsFor, soundKey, greeklishToGreek } from "./lib.js";
+  tripsOf, tripLabel, sortTrips, isClosed, isTransit, parseLabel, fillTemplate, toCSV, cleanIdDoc, sameReceipt, likelySameParcel, sameNameTrip, smsFor, soundKey, greeklishToGreek, greekName, isGreeklishName, surnameFirst } from "./lib.js";
 import { initCapture, pendingReviewCount, toJpegB64 } from "./capture.js";
 import { openManifest } from "./manifest.js";
 
@@ -105,7 +105,7 @@ async function loadParcels() {
     .order("created_at", { ascending: false }).limit(5000);
   if (error) { show($("netMsg"), "Δεν φορτώθηκαν τα δέματα. Έλεγξε τη σύνδεση και ανανέωσε τη σελίδα.", "bad"); return; }
   rows = new Map(data.map(p => [p.id, p]));
-  render(); purgeAllClosed(); cleanStaleNotes(); fixKindOnce(); retentionSweep();
+  render(); purgeAllClosed(); cleanStaleNotes(); fixKindOnce(); greeklishFixOnce(); retentionSweep();
 }
 // GDPR: αριθμός εγγράφου και υπογραφή παραλαβής κρατιούνται 12 μήνες από την παράδοση, μετά σβήνονται (μία φορά τη μέρα)
 const RETAIN_DAYS = 365;
@@ -131,6 +131,28 @@ async function fixKindOnce() {
   const { error } = await sb.from("parcels").update({ kind: "Ασυνόδευτο" }).eq("kind", "Συνοδευτικό");
   if (error) return;
   store.set("kindFix1", "1"); rows.forEach(p => { if (p.kind === "Συνοδευτικό") p.kind = "Ασυνόδευτο"; }); render();
+}
+// μία φορά: παλιά δέματα με όνομα σε greeklish → ελληνικά (το ράφι ΔΕΝ αλλάζει — το δέμα είναι ήδη εκεί)
+async function greeklishFixOnce() {
+  if (store.get("glFix1")) return;
+  let { data, error } = await sb.from("parcels").select("id,recipient_name,notes,customer_id,extraction_confidence").filter("recipient_name", "match", "^[A-Za-z .'-]+$").limit(2000);
+  if (error) return;
+  const list = (data || []).filter(p => isGreeklishName(p.recipient_name) && !(p.extraction_confidence && p.extraction_confidence.biz));
+  let n = 0; const ex = [];
+  for (const p of list) {
+    const old = p.recipient_name, nu = surnameFirst(greekName(old));
+    const { data: up, error: e } = await sb.from("parcels").update({ recipient_name: nu, notes: [p.notes, "Ετικέτα σε greeklish: " + old].filter(Boolean).join(" · ") }).eq("id", p.id).select().single();
+    if (e || !up) continue;
+    n++; if (ex.length < 6) ex.push(old + " → " + nu); rows.set(up.id, up);
+    if (p.customer_id) {
+      const { data: c } = await sb.from("customers").select("full_name,aliases").eq("id", p.customer_id).maybeSingle();
+      if (c && norm(c.full_name) === norm(old)) await sb.from("customers").update({ full_name: nu, aliases: [...new Set([...(c.aliases || []), norm(old)])].slice(-20) }).eq("id", p.customer_id);
+      else await addAlias(p.customer_id, old);
+    }
+  }
+  if (n < list.length) return; // κάτι απέτυχε — ξαναδοκιμή στο επόμενο άνοιγμα
+  store.set("glFix1", "1");
+  if (n) { await sb.from("shift_notes").insert({ text: "🔤 Μετατράπηκαν " + n + " ονόματα από greeklish σε ελληνικά (π.χ. " + ex.join(", ") + "). Το αρχικό γράφεται στις Παρατηρήσεις κάθε δέματος.", operator: operator() || null }); loadNotes(); render(); }
 }
 function subscribe() {
   sb.channel("live")
