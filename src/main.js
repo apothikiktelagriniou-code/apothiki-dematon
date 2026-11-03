@@ -484,7 +484,7 @@ function matches(p) {
     case "nophone": if (isClosed(p) || isTransit(p) || phoneOk(p)) return false; break;
     case "transit": if (!(p.status === "transit" || (p.status === "forwarded" && !away(p)))) return false; break;
     case "cod": if (!(p.cod_amount_eur > 0 && !p.cod_collected)) return false; break;
-    case "today": { const td = new Date().toDateString(); if (![p.created_at, p.status_at, p.picked_up_at, p.fwd_at].some(x => x && sameDay(x, td))) return false; break; }
+    case "today": { const td = new Date().toDateString(); if (![p.created_at, p.status_at, p.picked_up_at, p.fwd_at, p.updated_at].some(x => x && sameDay(x, td))) return false; break; }
     case "done": if (!isClosed(p)) return false; break;
     case "nocheck": if (!needsCheck(p)) return false; break;
     case "tags": if (!(p.tags || []).length && !p.notes) return false; break;
@@ -1408,11 +1408,18 @@ async function openCash(dayStr) {
   const { data, error } = await sb.from("parcels").select("id,receipt_no,recipient_name,picked_by_name,picked_up_at,cod_amount_eur,cod_collected,home_delivery,operator")
     .eq("status", "done").gte("picked_up_at", from.toISOString()).lt("picked_up_at", to.toISOString()).limit(2000);
   if (error) { b.append(el("div", "msg bad", "Δεν φορτώθηκαν τα στοιχεία. Δοκίμασε ξανά.")); if (!$("dlg").open) $("dlg").showModal(); return; }
+  // δέματα που μπήκαν στην αποθήκη τη μέρα αυτή (με κόμιστρο)
+  const { data: inData } = await sb.from("parcels").select("id,fare_eur,operator,status,bypassed,source,tags,receipt_no,recipient_name,created_at")
+    .gte("created_at", from.toISOString()).lt("created_at", to.toISOString()).limit(5000);
+  const ins = (inData || []).filter(p => !(p.status === "not_arrived" || p.source === "manifest") && !(p.tags || []).includes("Παλιό απόθεμα"));
+  const fares = ins.filter(p => Number(p.fare_eur) > 0); const fareSum = fares.reduce((s, p) => s + Number(p.fare_eur), 0);
   const ps = data || []; const fee = DELIVERY_FEE();
   const cod = ps.filter(p => p.cod_collected && Number(p.cod_amount_eur) > 0), del = ps.filter(p => p.home_delivery);
-  const codSum = cod.reduce((s, p) => s + Number(p.cod_amount_eur), 0), delSum = del.length * fee, total = codSum + delSum;
-  const ops = {}; [...cod.map(p => [p.operator, Number(p.cod_amount_eur)]), ...del.map(p => [p.operator, fee])].forEach(([o, v]) => { o = o || "—"; ops[o] = (ops[o] || 0) + v; });
+  const codSum = cod.reduce((s, p) => s + Number(p.cod_amount_eur), 0), delSum = del.length * fee, total = codSum + delSum + fareSum;
+  const ops = {}; [...cod.map(p => [p.operator, Number(p.cod_amount_eur)]), ...del.map(p => [p.operator, fee]), ...fares.map(p => [p.operator, Number(p.fare_eur)])].forEach(([o, v]) => { o = o || "—"; ops[o] = (ops[o] || 0) + v; });
   const t = el("table", "cashtbl"); const tr = (a, b2, c2, cls) => { const r = el("tr", cls); [a, b2, c2].forEach(x => r.append(el("td", null, x))); t.append(r); };
+  tr("📦 Δέματα που μπήκαν στην αποθήκη", String(ins.length), "");
+  tr("🧾 Κόμιστρα δεμάτων που μπήκαν" + (ins.length - fares.length ? " (" + (ins.length - fares.length) + " χωρίς κόμιστρο)" : ""), String(fares.length), money(fareSum));
   tr("Παραδόσεις ημέρας", String(ps.length), "");
   tr("💶 Αντικαταβολές που εισπράχθηκαν", String(cod.length), money(codSum));
   tr("🏠 Delivery (" + money(fee) + " το καθένα)", String(del.length), money(delSum));
@@ -1422,8 +1429,8 @@ async function openCash(dayStr) {
   if (cod.length || del.length) { b.append(el("h3", null, "Αναλυτικά")); const l = el("div", "hist");
     [...cod.map(p => [p, "💶 " + money(p.cod_amount_eur)]), ...del.map(p => [p, "🏠 " + money(fee)])].sort((a, c) => String(a[0].picked_up_at).localeCompare(String(c[0].picked_up_at)))
       .forEach(([p, w]) => l.append(el("div", null, fmtGr(p.picked_up_at).split(" ")[1] + " · " + w + " · " + (p.recipient_name || "—") + (p.receipt_no ? " · " + p.receipt_no : "") + " · 👤 " + (p.operator || "—")))); b.append(l); }
-  b.append(el("div", "hint", "Μετράει ό,τι σημειώθηκε στην Παράδοση: «Εισπράχθηκε» και «Παράδοση στο σπίτι». Τα κόμιστρα πληρώνονται από τον αποστολέα και δεν μπαίνουν εδώ."));
-  const txt = "💶 Ταμείο " + day.split("-").reverse().join("/") + " (" + (operator() || "—") + "): σύνολο " + money(total) + " — αντικαταβολές " + cod.length + " (" + money(codSum) + "), delivery " + del.length + " (" + money(delSum) + ")" + (Object.keys(ops).length ? ". " + Object.entries(ops).map(([o, v]) => o + " " + money(v)).join(", ") : "");
+  b.append(el("div", "hint", "Κόμιστρα: όσα γράφουν οι αποδείξεις των δεμάτων που καταχωρήθηκαν αυτή τη μέρα (όχι «Δεν ήρθαν», όχι «Παλιό απόθεμα»). Αντικαταβολές και delivery: ό,τι σημειώθηκε στην Παράδοση."));
+  const txt = "💶 Ταμείο " + day.split("-").reverse().join("/") + " (" + (operator() || "—") + "): σύνολο " + money(total) + " — κόμιστρα " + fares.length + " (" + money(fareSum) + "), αντικαταβολές " + cod.length + " (" + money(codSum) + "), delivery " + del.length + " (" + money(delSum) + ")" + (Object.keys(ops).length ? ". " + Object.entries(ops).map(([o, v]) => o + " " + money(v)).join(", ") : "");
   const bar = el("div", "quick"); const nb = el("button", "btn small primary", "Καταγραφή στο σημείωμα βάρδιας"); nb.type = "button";
   nb.onclick = async () => { nb.disabled = true; await sb.from("shift_notes").insert({ text: txt, operator: operator() || null }); loadNotes(); nb.textContent = "✓ Καταγράφηκε"; };
   const cp = el("button", "btn small", "Αντιγραφή"); cp.type = "button"; cp.onclick = async () => { try { await navigator.clipboard.writeText(txt); cp.textContent = "Αντιγράφηκε ✓"; } catch { cp.textContent = "Δεν αντιγράφηκε"; } };
