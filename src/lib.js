@@ -168,6 +168,17 @@ export function handwrittenReceipt(d) {
   if (d.is_handwritten_receipt && red.length >= 2 && red.length <= 6 && blk.length >= 6) return red + " (" + blk + ")";
   return d.receipt_no || null;
 }
+/** Συχνά μικρά ονόματα (κεφαλαία χωρίς τόνους) — για να μπαίνει πρώτα το επώνυμο. */
+const FIRST_NAMES = new Set(["ΑΓΓΕΛΙΚΗ","ΑΓΓΕΛΟΣ","ΑΓΗΣ","ΑΘΑΝΑΣΙΑ","ΑΘΑΝΑΣΙΟΣ","ΑΙΚΑΤΕΡΙΝΗ","ΑΛΕΞΑΝΔΡΑ","ΑΛΕΞΑΝΔΡΟΣ","ΑΛΕΞΗΣ","ΑΝΑΣΤΑΣΙΑ","ΑΝΑΣΤΑΣΙΟΣ","ΑΝΔΡΕΑΣ","ΑΝΔΡΟΝΙΚΟΣ","ΑΝΝΑ","ΑΝΤΩΝΗΣ","ΑΝΤΩΝΙΑ","ΑΝΤΩΝΙΟΣ","ΑΠΟΣΤΟΛΟΣ","ΑΡΓΥΡΗΣ","ΑΡΓΥΡΙΟΣ","ΑΡΓΥΡΩ","ΑΡΕΤΗ","ΑΡΗΣ","ΑΡΙΣΤΕΙΔΗΣ","ΑΣΗΜΙΝΑ","ΑΦΡΟΔΙΤΗ","ΑΧΙΛΛΕΑΣ","ΒΑΓΓΕΛΗΣ","ΒΑΣΙΛΕΙΟΣ","ΒΑΣΙΛΗΣ","ΒΑΣΙΛΙΚΗ","ΒΟΥΛΑ","ΓΑΡΥΦΑΛΛΙΑ","ΓΕΩΡΓΙΑ","ΓΕΩΡΓΙΟΣ","ΓΙΑΝΝΑ","ΓΙΑΝΝΗΣ","ΓΙΩΡΓΗΣ","ΓΙΩΡΓΟΣ","ΓΙΩΤΑ","ΓΡΗΓΟΡΗΣ","ΓΡΗΓΟΡΙΟΣ","ΔΑΝΑΗ","ΔΕΣΠΟΙΝΑ","ΔΗΜΗΤΡΑ","ΔΗΜΗΤΡΗΣ","ΔΗΜΗΤΡΙΟΣ","ΔΙΑΜΑΝΤΩ","ΔΙΟΝΥΣΗΣ","ΔΙΟΝΥΣΙΟΣ","ΕΙΡΗΝΗ","ΕΛΕΝΗ","ΕΛΕΥΘΕΡΙΑ","ΕΛΠΙΔΑ","ΕΜΜΑΝΟΥΗΛ","ΕΥΑΓΓΕΛΙΑ","ΕΥΑΓΓΕΛΟΣ","ΕΥΘΥΜΙΑ","ΕΥΘΥΜΙΟΣ","ΕΥΣΤΑΘΙΟΣ","ΕΥΤΥΧΙΑ","ΕΦΗ","ΖΩΗ","ΗΛΙΑΝΑ","ΗΛΙΑΣ","ΘΑΝΑΣΗΣ","ΘΑΝΟΣ","ΘΕΟΔΩΡΑ","ΘΕΟΔΩΡΟΣ","ΘΕΟΠΙΣΤΗ","ΘΟΔΩΡΗΣ","ΘΥΜΙΟΣ","ΘΩΜΑΣ","ΙΑΣΩΝ","ΙΟΡΔΑΝΗΣ","ΙΩΑΝΝΑ","ΙΩΑΝΝΗΣ","ΚΑΛΛΙΟΠΗ","ΚΑΛΛΙΡΡΟΗ","ΚΑΤΕΡΙΝΑ","ΚΛΕΑΝΘΗΣ","ΚΥΡΙΑΚΗ","ΚΥΡΙΑΚΟΣ","ΚΩΝΣΤΑΝΤΙΑ","ΚΩΝΣΤΑΝΤΙΝΑ","ΚΩΝΣΤΑΝΤΙΝΟΣ","ΚΩΣΤΑΣ","ΚΩΣΤΗΣ","ΛΑΜΠΡΟΣ","ΛΕΩΝΙΔΑΣ","ΛΙΤΣΑ","ΜΑΓΔΑΛΗΝΗ","ΜΑΝΩΛΗΣ","ΜΑΡΙΑ","ΜΑΡΙΝΑ","ΜΑΡΙΟΣ","ΜΑΡΚΟΣ","ΜΙΛΤΙΑΔΗΣ","ΜΙΧΑΗΛ","ΜΙΧΑΛΗΣ","ΜΠΑΜΠΗΣ","ΜΥΡΤΩ","ΝΙΚΟΛΑΟΣ","ΝΙΚΟΛΕΤΑ","ΝΙΚΟΣ","ΝΤΙΝΑ","ΟΔΥΣΣΕΑΣ","ΟΛΓΑ","ΟΥΡΑΝΙΑ","ΠΑΝΑΓΙΩΤΑ","ΠΑΝΑΓΙΩΤΗΣ","ΠΑΝΟΣ","ΠΑΡΑΣΚΕΥΗ","ΠΑΥΛΟΣ","ΠΕΤΡΟΣ","ΠΗΝΕΛΟΠΗ","ΠΡΟΔΡΟΜΟΣ","ΡΑΦΑΗΛ","ΡΕΝΑ","ΣΑΒΒΑΣ","ΣΕΡΑΦΕΙΜ","ΣΟΦΙΑ","ΣΠΥΡΙΔΟΥΛΑ","ΣΠΥΡΙΔΩΝ","ΣΠΥΡΟΣ","ΣΤΑΘΗΣ","ΣΤΑΜΑΤΙΑ","ΣΤΑΥΡΟΣ","ΣΤΑΥΡΟΥΛΑ","ΣΤΕΛΙΟΣ","ΣΤΕΦΑΝΟΣ","ΣΤΥΛΙΑΝΗ","ΣΤΥΛΙΑΝΟΣ","ΣΩΤΗΡΗΣ","ΣΩΤΗΡΙΟΣ","ΤΑΣΙΑ","ΤΑΣΟΣ","ΤΡΙΑΝΤΑΦΥΛΛΟΣ","ΦΩΤΕΙΝΗ","ΦΩΤΗΝΗ","ΦΩΤΗΣ","ΦΩΤΙΟΣ","ΧΑΡΑΛΑΜΠΟΣ","ΧΑΡΗΣ","ΧΑΡΙΚΛΕΙΑ","ΧΡΗΣΤΟΣ","ΧΡΙΣΤΙΝΑ","ΧΡΙΣΤΟΦΟΡΟΣ","ΧΡΥΣΑΝΘΗ","ΧΡΥΣΟΥΛΑ"]);
+/** «ΓΙΩΡΓΟΣ ΠΑΠΑΔΟΠΟΥΛΟΣ» / «Γ. ΠΑΠΑΔΟΠΟΥΛΟΣ» → «ΠΑΠΑΔΟΠΟΥΛΟΣ ΓΙΩΡΓΟΣ» / «ΠΑΠΑΔΟΠΟΥΛΟΣ Γ.». Επιχειρήσεις μένουν όπως είναι. */
+export function surnameFirst(name, isBusiness) {
+  const s = String(name || "").replace(/\s+/g, " ").trim(); if (!s || isBusiness) return s;
+  const t = s.split(" "); if (t.length !== 2) return s;
+  const a = norm(t[0]).replace(/\./g, ""), b = norm(t[1]).replace(/\./g, "");
+  if (a.length === 1 && b.length > 2) return t[1] + " " + (t[0].endsWith(".") ? t[0] : t[0] + ".");
+  if (FIRST_NAMES.has(a) && !FIRST_NAMES.has(b)) return t[1] + " " + t[0];
+  return s;
+}
 export function extractedToParcel(d) {
   const dest = norm(d.destination_city) || HOME;
   const phone = cleanPhone(d.phone);
@@ -176,10 +187,10 @@ export function extractedToParcel(d) {
     origin_city: norm(d.origin_city) || null, destination_city: dest,
     issued_at: parseGrDate(d.issued)?.toISOString() || null, departure_at: parseGrDate(d.departure)?.toISOString() || null,
     fare_eur: d.fare_eur == null || d.fare_eur === "" ? null : Number(d.fare_eur),
-    sender_name: d.sender || null, recipient_name: String(d.recipient || "").trim(),
+    sender_name: d.sender || null, recipient_name: surnameFirst(d.recipient, d.recipient_is_business),
     recipient_phone: phone || null, phone_source: phone ? (d.phone_is_handwritten ? "handwritten" : "label") : null,
     phone_confirmed: !!phone && !d.phone_is_handwritten,
-    shelf: dest === HOME ? (shelfFor(d.recipient) || null) : null,
+    shelf: dest === HOME ? (shelfFor(surnameFirst(d.recipient, d.recipient_is_business)) || null) : null,
     status: dest === HOME ? "arrived" : "transit",
     damaged: !!d.damage_visible, notes: shortNote(d.notes), package_desc: String(d.package_desc || "").trim() || null,
     pieces_total: Math.max(1, Number(d.pieces) || 1), pieces_in: 1,

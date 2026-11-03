@@ -181,3 +181,14 @@ test("αριθμός απόδειξης ΚΤΕΛ Ιωαννίνων (σκέτο�
   const d = { receipt_no: "202682615", recipient: "ΓΑΛΑΖΟΥΛΑΣ", origin_city: "ΙΩΑΝΝΙΝΑ", fare_eur: 8, departure: "03/11/2026 13:00", unsure: [] };
   assert.deepEqual(autoSaveDecision(d, () => false).problems, []);
 });
+
+import { surnameFirst } from "../src/lib.js";
+test("πρώτα το επώνυμο", () => {
+  assert.equal(surnameFirst("ΓΙΩΡΓΟΣ ΠΑΠΑΔΟΠΟΥΛΟΣ"), "ΠΑΠΑΔΟΠΟΥΛΟΣ ΓΙΩΡΓΟΣ");
+  assert.equal(surnameFirst("Μαρία Κωστοπούλου"), "Κωστοπούλου Μαρία");
+  assert.equal(surnameFirst("Ν. ΔΗΜΟΥ"), "ΔΗΜΟΥ Ν.");
+  assert.equal(surnameFirst("ΠΑΠΑΔΟΠΟΥΛΟΣ ΓΙΩΡΓΟΣ"), "ΠΑΠΑΔΟΠΟΥΛΟΣ ΓΙΩΡΓΟΣ");
+  assert.equal(surnameFirst("ΘΩΜΑΣ ΓΙΩΡΓΟΣ"), "ΘΩΜΑΣ ΓΙΩΡΓΟΣ"); // αμφίσημο → όπως είναι
+  assert.equal(surnameFirst("ΝΙΚΟΣ ΣΤΑΘΗΣ ΑΦΟΙ", true), "ΝΙΚΟΣ ΣΤΑΘΗΣ ΑΦΟΙ");
+  assert.equal(surnameFirst("ΧΑΤΖΗΣ"), "ΧΑΤΖΗΣ");
+});

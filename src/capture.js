@@ -1,6 +1,6 @@
 // Φωτογραφίες → ανάγνωση με AI → αυτόματη καταχώρηση ή λίστα ελέγχου.
 // Οι φωτογραφίες περιμένουν σε IndexedDB αν δεν υπάρχει σύνδεση, και στέλνονται μόλις επανέλθει.
-import { norm, cleanPhone, fmtGr, parseGrDate, autoSaveDecision, extractedToParcel, problemText, shelfFor, HOME } from "./lib.js";
+import { surnameFirst, norm, cleanPhone, fmtGr, parseGrDate, autoSaveDecision, extractedToParcel, problemText, shelfFor, HOME } from "./lib.js";
 
 let D; // εξαρτήσεις από main.js
 const $ = id => document.getElementById(id);
@@ -136,6 +136,7 @@ async function processOne(it) {
     await toQueue(it, { notes: "Σφάλμα ανάγνωσης: " + (body.detail || body.error || ("HTTP " + st)) }, ["ai_unavailable"]); stats.review++; await obDel(it.id); return "review";
   }
   const d = data.data; if (it.old) d.old_stock = true;
+  d.recipient = surnameFirst(d.recipient, d.recipient_is_business); // πρώτα το επώνυμο
   // τηλέφωνο από αρχείο πελατών
   const custs = d.recipient ? (await D.findCustomers(d.recipient)).filter(c => (c.phones || []).length) : [];
   const ph = cleanPhone(d.phone);
