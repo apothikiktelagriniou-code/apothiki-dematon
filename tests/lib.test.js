@@ -250,3 +250,11 @@ test("greeklish όνομα με σωστά μικρά ονόματα", () => {
   assert.equal(greekName("PAPADOPOULOS GIORGOS"), "ΠΑΠΑΔΟΠΟΥΛΟΣ ΓΙΩΡΓΟΣ");
   assert.equal(sf2(greekName("MARIA KOSTOPOULOU")), "ΚΟΣΤΟΠΟΥΛΟΥ ΜΑΡΙΑ");
 });
+
+test("νέο κείμενο SMS", () => {
+  const am = new Date(2026, 10, 3, 9, 0), pm = new Date(2026, 10, 3, 18, 0);
+  const s = smsFor("", { receipt_no: "3401 (33950048)", pickup_code: "4821" }, pm);
+  assert.equal(s, gsmGreek("ΚΑΛΗΣΠΕΡΑ ΣΑΣ! ΤΟ ΔΕΜΑ ΣΑΣ ΗΡΘΕ ΣΤΟ ΣΤΑΘΜΟ ΚΤΕΛ ΑΓΡΙΝΙΟΥ. ΚΩΔ. ΠΑΡΑΛΑΒΗΣ 4821. ΩΡΑΡΙΟ ΔΕΥ-ΠΑΡ 06:30-21:30, ΣΚ 08:00-21:30. ΤΗΛ. 2641024446"));
+  assert.ok(smsLen(s) <= 160);
+  assert.ok(smsFor("", {}, am).startsWith(gsmGreek("ΚΑΛΗΜΕΡΑ ΣΑΣ! ΤΟ ΔΕΜΑ ΣΑΣ ΗΡΘΕ ΣΤΟ ΣΤΑΘΜΟ ΚΤΕΛ ΑΓΡΙΝΙΟΥ. ΩΡΑΡΙΟ")));
+});

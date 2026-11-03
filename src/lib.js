@@ -132,11 +132,13 @@ export function gsmGreek(text) {
 }
 /** Πόσα «κουτάκια» GSM πιάνει (τα € [ ] κ.λπ. μετράνε 2). */
 export function smsLen(text) { let n = 0; for (const ch of String(text)) n += GSM_EXT.includes(ch) ? 2 : 1; return n; }
-export const SMS_TEMPLATE = "ΚΤΕΛ ΑΓΡΙΝΙΟΥ: ΗΡΘΕ ΤΟ ΔΕΜΑ ΣΑΣ{αρ}. ΚΩΔ. {κωδ}. ΠΑΡΑΛΑΒΗ ΑΠΟ ΤΟ ΣΤΑΘΜΟ ΔΕΥ-ΠΑΡ 06:30-21:30, ΣΚ 08:00-21:30, ΜΕ ΤΑΥΤΟΤΗΤΑ. 2641024446";
-const SMS_SHORT = "ΚΤΕΛ ΑΓΡΙΝΙΟΥ: ΗΡΘΕ ΤΟ ΔΕΜΑ ΣΑΣ{αρ}. ΚΩΔ. {κωδ}. ΠΑΡΑΛΑΒΗ ΑΠΟ ΤΟ ΣΤΑΘΜΟ ΜΕ ΤΑΥΤΟΤΗΤΑ. 2641024446";
+export const SMS_TEMPLATE = "{χαιρ} ΣΑΣ! ΤΟ ΔΕΜΑ ΣΑΣ ΗΡΘΕ ΣΤΟ ΣΤΑΘΜΟ ΚΤΕΛ ΑΓΡΙΝΙΟΥ. ΚΩΔ. ΠΑΡΑΛΑΒΗΣ {κωδ}. ΩΡΑΡΙΟ ΔΕΥ-ΠΑΡ 06:30-21:30, ΣΚ 08:00-21:30. ΤΗΛ. 2641024446";
+const SMS_SHORT = "{χαιρ} ΣΑΣ! ΤΟ ΔΕΜΑ ΣΑΣ ΗΡΘΕ ΣΤΟ ΣΤΑΘΜΟ ΚΤΕΛ ΑΓΡΙΝΙΟΥ. ΚΩΔ. ΠΑΡΑΛΑΒΗΣ {κωδ}. ΤΗΛ. 2641024446";
+/** Καλημέρα έως τις 12:00, μετά καλησπέρα. */
+export const greeting = (d = new Date()) => d.getHours() < 12 ? "ΚΑΛΗΜΕΡΑ" : "ΚΑΛΗΣΠΕΡΑ";
 /** Τελικό κείμενο SMS: πάντα 1 SMS. Αν δεν χωράει, πέφτει στη σύντομη μορφή και μετά κόβει τον αριθμό απόδειξης. */
-export function smsFor(tpl, p) {
-  const fix = t => p.pickup_code ? t : t.replace(/ ?ΚΩΔ\. \{κωδ\}\./, "");
+export function smsFor(tpl, p, now = new Date()) {
+  const fix = t => (p.pickup_code ? t : t.replace(/ ?ΚΩΔ\.( ΠΑΡΑΛΑΒΗΣ)? \{κωδ\}\./, "")).replace("{χαιρ}", greeting(now));
   for (const t of [fix(tpl || SMS_TEMPLATE), fix(SMS_SHORT)]) { const s = gsmGreek(fillTemplate(t, p)); if (smsLen(s) <= 160) return s; }
   return gsmGreek(fillTemplate(fix(SMS_SHORT).replace("{αρ}", ""), p)).slice(0, 160);
 }
