@@ -39,6 +39,47 @@ export function initOutgoing(deps) {
     if (active) { if (ev.new && ev.new.report_id && !reports.has(ev.new.report_id)) loadReports([ev.new]).then(render); else render(); }
   }).subscribe();
 }
+// ---------------------------------------------------------------- ⏰ 10′ πριν φύγει κάθε δρομολόγιο: έλεγχος κατάστασης
+const REMIND = 10;
+let soon = []; // [{key, label, dep, rows}]
+async function depTick() {
+  if (!D || document.getElementById("app").hidden) return;
+  const now = Date.now(), from = new Date(now - 60e3).toISOString(), to = new Date(now + (REMIND + 1) * 60e3).toISOString();
+  const { data, error } = await D.sb.from("outgoing").select("*").gte("departure_at", from).lte("departure_at", to).neq("status", "cancelled").limit(500);
+  if (error) return;
+  await loadReports(data || []);
+  const g = new Map();
+  for (const r of data || []) {
+    const rep = r.report_id && reports.get(r.report_id); const end = rep ? rep.route.end : (r.destination_city || "—");
+    const key = hhmm(r.departure_at) + "|" + end; const x = g.get(key) || { key, label: end + " " + hhmm(r.departure_at), dep: r.departure_at, rows: [], report: false };
+    x.rows.push(r); if (r.in_report) x.report = true; g.set(key, x);
+  }
+  soon = [...g.values()].filter(x => (new Date(x.dep) - now) / 60e3 <= REMIND && new Date(x.dep) - now > -30e3).sort((a, b) => new Date(a.dep) - new Date(b.dep));
+  let fired = false;
+  for (const x of soon) {
+    const k = "outN:" + dayKey(x.dep) + ":" + x.key; let seen = ""; try { seen = localStorage.getItem(k) || ""; } catch { /* */ }
+    if (seen) continue; try { localStorage.setItem(k, "1"); } catch { /* */ } fired = true;
+    D.sysNotify("⏰ Σε " + Math.max(0, Math.round((new Date(x.dep) - now) / 60e3)) + "′ φεύγει " + x.label, summary(x) + " — έλεγξε την κατάσταση.", k);
+  }
+  if (fired) { D.beep(); try { navigator.vibrate && navigator.vibrate([300, 150, 300, 150, 300]); } catch { /* */ } }
+  renderSoon();
+}
+function summary(x) {
+  const c = outCheck(x.rows), w = x.rows.filter(r => r.status === "waiting");
+  return pcs(x.rows) + " τεμ." + (w.length ? " · " + pcs(w) + " περιμένουν" : " · όλα φορτώθηκαν") + (!x.report ? " · ⚠ δεν έχει ανέβει κατάσταση" : c.noPhoto.length ? " · ⚠ " + c.noPhoto.length + " χωρίς φωτογραφία" : "") + (x.report && c.notInReport.length ? " · ⚠ " + c.notInReport.length + " εκτός κατάστασης" : "");
+}
+function renderSoon() {
+  const tab = $("modeOut"); if (tab) tab.textContent = "📤 Εξερχόμενα" + (soon.length ? " ⏰" + soon.length : "");
+  const box = $("outAlerts"); if (!box) return; box.textContent = "";
+  for (const x of soon) {
+    const m = Math.round((new Date(x.dep) - Date.now()) / 60e3);
+    const d = el("div", "msg warn fwdalert"); d.append(el("b", null, "⏰ " + (m > 0 ? "Σε " + m + "′ φεύγει " : "Φεύγει τώρα ") + x.label), " · " + summary(x) + " ");
+    d.append(btn("Άνοιξε το δρομολόγιο", "primary", () => { D.setMode("out"); $("outDay").value = dayKey(new Date()); found = null; $("outQ").value = ""; destFilter = ""; tripSel = x.key; load(); }));
+    box.append(d);
+  }
+}
+setInterval(depTick, 30000); setTimeout(depTick, 5000);
+
 export function showOutgoing(on) { active = on; if (on) load(); }
 
 // ---------------------------------------------------------------- δεδομένα

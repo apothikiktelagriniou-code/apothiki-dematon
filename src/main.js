@@ -63,7 +63,7 @@ async function boot() {
   await loadParcels(); loadManifests(); setInterval(loadManifests, 120000);
   loadCustomers(); setInterval(loadCustomers, 300000); setTimeout(bizSweep, 6000); setInterval(bizSweep, 600000);
   subscribe();
-  if (!outInit) { outInit = true; initOutgoing({ sb, operator, needOperator, linkCustomer, findCustomers, settings: () => settings }); }
+  if (!outInit) { outInit = true; initOutgoing({ sb, operator, needOperator, linkCustomer, findCustomers, settings: () => settings, beep, sysNotify, setMode }); }
   if (store.get("mode") === "out") setMode("out");
   loadNotes();
   checkSms().then(render);
