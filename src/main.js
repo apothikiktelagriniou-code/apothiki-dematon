@@ -509,7 +509,7 @@ function matches(p) {
   // η αναζήτηση ψάχνει σε όλα· ένα επιλεγμένο δρομολόγιο δείχνει όλα του τα δέματα ακόμα κι αν είμαστε στο «Σήμερα»
   if (!qq && !(tripFilter && filter === "today")) switch (filter) {
     case "waiting": if (isClosed(p)) return false; break;
-    case "tonotify": if (p.status !== "arrived") return false; break;
+    case "tonotify": if (p.status !== "arrived" || !phoneOk(p)) return false; break; // μόνο όσα έχουν τηλέφωνο
     case "remind": if (!needsRemind(p)) return false; break;
     case "nophone": if (isClosed(p) || isTransit(p) || phoneOk(p)) return false; break;
     case "transit": if (!(p.status === "transit" || (p.status === "forwarded" && !away(p)))) return false; break;
