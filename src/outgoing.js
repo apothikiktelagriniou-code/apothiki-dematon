@@ -37,7 +37,20 @@ export function initOutgoing(deps) {
     if (active) render();
   }).subscribe();
 }
-export function showOutgoing(on) { active = on; if (on) load(); }
+export function showOutgoing(on) { active = on; if (on) { load(); photoSweep(); } }
+// φωτογραφίες αποδείξεων: σβήνονται μετά από 12 μήνες (μία φορά τη μέρα)
+async function photoSweep() {
+  const today = new Date().toDateString(); try { if (localStorage.getItem("outPhotoSweep") === today) return; } catch { /* */ }
+  const cutoff = new Date(Date.now() - 365 * 864e5).toISOString();
+  for (let i = 0; i < 10; i++) {
+    const { data, error } = await D.sb.from("outgoing").select("id,photo_path").not("photo_path", "is", null).lt("created_at", cutoff).limit(200);
+    if (error || !data || !data.length) break;
+    await D.sb.storage.from("receipts").remove(data.map(r => r.photo_path)).catch(() => {});
+    await D.sb.from("outgoing").update({ photo_path: null }).in("id", data.map(r => r.id));
+    if (data.length < 200) break;
+  }
+  try { localStorage.setItem("outPhotoSweep", today); } catch { /* */ }
+}
 
 // ---------------------------------------------------------------- δεδομένα
 const dayRange = () => { const s = new Date($("outDay").value + "T00:00:00"); const e = new Date(s); e.setDate(e.getDate() + 1); return [s, e]; };
@@ -130,6 +143,13 @@ async function onePhoto(file, loading) {
   let r;
   if (ex) r = await save(ex.id, { ...fillBlanks(ex, o), photographed: true, ...(loading && ex.status === "waiting" ? loadedPatch() : {}), ...(note && !ex.notes ? { notes: note } : {}) });
   else r = await save(null, { ...o, photographed: true, status: loading ? "loaded" : "waiting", ...(loading ? loadedPatch() : {}), operator: D.operator() || null, notes: note, extraction_confidence: { unsure: d.unsure || [] } });
+  // φωτογραφία απόδειξης ως αποδεικτικό (12 μήνες)
+  if (!r.photo_path) { try {
+    const path = new Date().toISOString().slice(0, 7) + "/" + r.id + ".jpg";
+    const u8 = Uint8Array.from(atob(img), c => c.charCodeAt(0));
+    const up = await D.sb.storage.from("receipts").upload(path, new Blob([u8], { type: "image/jpeg" }), { upsert: true, contentType: "image/jpeg" });
+    if (!up.error) r = await save(r.id, { photo_path: path });
+  } catch { /* η φωτογραφία είναι επιπλέον — τα στοιχεία έχουν ήδη σωθεί */ } }
   // πελάτες: αποστολέας → καρτέλα πελάτη· τηλέφωνο παραλήπτη από γνωστό πελάτη (μόνο αν υπάρχει ΕΝΑΣ με τηλέφωνο)
   if (r.sender_name && !r.customer_id) { const cid = await D.linkCustomer(r.sender_name, r.sender_phone); if (cid) r = await save(r.id, { customer_id: cid }); }
   if (!r.recipient_phone && r.recipient_name) { const list = (await D.findCustomers(r.recipient_name)).filter(c => (c.phones || []).length); if (list.length === 1) r = await save(r.id, { extraction_confidence: { ...(r.extraction_confidence || {}), phone_hint: list[0].phones[0] } }); }
@@ -196,6 +216,7 @@ function card(r) {
   if (r.status === "waiting") a.append(btn("✓ Φορτώθηκε", "primary", () => save(r.id, loadedPatch()).then(render)), btn("✗ Δεν φορτώθηκε", "", () => save(r.id, { status: "not_loaded", status_at: new Date().toISOString() }).then(render)));
   else if (r.status !== "cancelled") a.append(btn("↺ Περιμένει", "", () => save(r.id, { status: "waiting", loaded_at: null, status_at: new Date().toISOString() }).then(render)));
   if (canSms(r)) a.append(btn("📩 SMS παραλήπτη", "", async () => { await sendSms(r, false); render(); }));
+  if (r.photo_path) a.append(btn("🧾 Απόδειξη", "", async () => { const { data } = await D.sb.storage.from("receipts").createSignedUrl(r.photo_path, 300); if (data) window.open(data.signedUrl, "_blank", "noopener"); }));
   a.append(btn("✎ Επεξεργασία", "", () => openEdit(r)));
   c.append(a);
   return c;
@@ -243,6 +264,7 @@ async function saveEdit(forceStatus) {
 async function delEdit() {
   const b = $("outDel"); if (!editing) return;
   if (!b.dataset.sure) { b.dataset.sure = "1"; b.textContent = "Σίγουρα; Πάτα ξανά"; return; }
+  if (editing.photo_path) await D.sb.storage.from("receipts").remove([editing.photo_path]).catch(() => {});
   const { error } = await D.sb.from("outgoing").delete().eq("id", editing.id);
   if (error) { show($("outFormMsg"), "Δεν διαγράφηκε: " + error.message, "bad"); return; }
   rows.delete(editing.id); if (found) found = found.filter(x => x.id !== editing.id);
