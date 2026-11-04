@@ -282,3 +282,9 @@ test("μόνο αποδείξεις 228 (αποθήκη Αγρινίου)", () =
   assert.ok(isAgrinioReceipt("228-336-142206")); assert.ok(isAgrinioReceipt("2-228-336-142206")); assert.ok(isAgrinioReceipt("228336142206"));
   assert.ok(!isAgrinioReceipt("258-341-23682")); assert.ok(!isAgrinioReceipt("3431 (33950048)")); assert.ok(!isAgrinioReceipt("2-255-349-11663")); assert.ok(!isAgrinioReceipt(""));
 });
+
+import { routeOf } from "../src/lib.js";
+test("δρομολόγιο από την κατάσταση", () => {
+  assert.deepEqual(routeOf(["ΚΤΕΛ ΑΙΤΩΛΙΚΟΥ", "ΜΕΣΟΛΟΓΓΙ", "ΑΝΤΙΡΡΙΟ", "ΚΤΕΛ ΝΑΥΠΑΚΤΟΥ", "ΣΤΑΘΜΟΣ ΠΑΤΡΑΣ", "ΝΑΥΠΑΚΤΟΣ"]).end, "ΠΑΤΡΑ");
+  assert.equal(routeOf(["ΑΜΦΙΛΟΧΙΑ", "ΑΜΦΙΛΟΧΙΑ", "ΒΟΝΙΤΣΑ"]).end, "ΑΜΦΙΛΟΧΙΑ");
+});

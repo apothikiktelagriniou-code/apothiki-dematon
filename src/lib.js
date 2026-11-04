@@ -441,3 +441,15 @@ export function isAgrinioReceipt(rn) {
   const s = String(rn || "").trim().replace(/^\d-(?=\d{3}-)/, "");
   return /^228[-\s]?\d{3}[-\s]?\d+$/.test(s);
 }
+
+/** Δρομολόγιο από τους προορισμούς μιας κατάστασης: το τέρμα (π.χ. ΠΑΤΡΑ) + οι στάσεις.
+ *  Τέρμα = ο πρώτος «μεγάλος» προορισμός της λίστας, αλλιώς ο πιο συχνός. */
+const TERMINI = ["ΑΘΗΝΑ", "ΘΕΣΣΑΛΟΝΙΚΗ", "ΠΑΤΡΑ", "ΙΩΑΝΝΙΝΑ", "ΛΑΡΙΣΑ", "ΒΟΛΟΣ", "ΛΑΜΙΑ", "ΚΑΛΑΜΑΤΑ", "ΠΥΡΓΟΣ", "ΚΟΖΑΝΗ", "ΒΕΡΟΙΑ", "ΓΡΕΒΕΝΑ", "ΧΑΛΚΙΔΑ", "ΠΡΕΒΕΖΑ", "ΛΕΥΚΑΔΑ", "ΑΡΤΑ"];
+export function routeOf(dests) {
+  const list = dests.map(d => cityFromStation(d) || norm(d)).filter(Boolean);
+  if (!list.length) return { end: "", stops: [] };
+  const cnt = new Map(); for (const d of list) cnt.set(d, (cnt.get(d) || 0) + 1);
+  const end = TERMINI.find(t => cnt.has(t)) || [...cnt.entries()].sort((a, b) => b[1] - a[1])[0][0];
+  const stops = [...cnt.keys()].filter(d => d !== end);
+  return { end, stops };
+}
