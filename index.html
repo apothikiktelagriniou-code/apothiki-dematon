@@ -61,6 +61,11 @@
     </div>
   </header>
 
+  <nav class="modetabs" role="tablist" aria-label="Εισερχόμενα / Εξερχόμενα">
+    <button type="button" role="tab" id="modeIn" aria-selected="true">📥 Εισερχόμενα</button>
+    <button type="button" role="tab" id="modeOut" aria-selected="false">📤 Εξερχόμενα</button>
+  </nav>
+
   <form id="opForm" class="msg warn opform" hidden>
     <label for="opInput">Ποιος δουλεύει τώρα;</label>
     <select id="opInput"><option value="">— Διάλεξε όνομα —</option><option>ΑΓΗΣ</option><option>ΧΡΗΣΤΟΣ</option><option>ΓΙΩΡΓΟΣ</option><option>ΑΡΓΥΡΗΣ</option><option>ΚΩΣΤΑΣ</option><option>ΕΛΕΝΗ</option><option>ΠΑΝΑΓΙΩΤΗΣ</option></select>
@@ -89,6 +94,26 @@
     <h2 id="hReview">📋 Για έλεγχο (<span id="reviewCount">0</span>)</h2>
     <div class="hint">Διόρθωσε τα κόκκινα πεδία και πάτα Αποθήκευση (Enter). Πάτα τη φωτογραφία για μεγέθυνση. Esc = απόρριψη.</div>
     <div id="reviewList" class="rlist"></div>
+  </section>
+
+  <section id="outView" class="panel" aria-labelledby="hOut">
+    <h2 id="hOut">📤 Εξερχόμενα</h2>
+    <div class="outtools">
+      <label class="btn small" for="outReport">📄 Κατάσταση δρομολογίου</label><input id="outReport" type="file" accept="image/*" multiple hidden>
+      <label class="btn primary big" for="outPhotos"><span class="cam">📷</span> Φωτογραφίες αποδείξεων</label><input id="outPhotos" type="file" accept="image/*" multiple hidden>
+      <label class="check"><input type="checkbox" id="outLoading" checked> Φορτώνονται τώρα (→ «Φορτώθηκε»)</label>
+      <button type="button" class="btn small" id="outManual">＋ Χωρίς φωτογραφία</button>
+      <button type="button" class="btn small" id="outCashBtn">💶 Ταμείο εξερχομένων</button>
+    </div>
+    <div class="hint">Σειρά: 1) ανέβασε την κατάσταση του δρομολογίου από το σύστημα ΚΤΕΛ · 2) στη φόρτωση φωτογράφισε τις αποδείξεις · 3) κοίτα τα ⚠ (στην κατάσταση χωρίς φωτογραφία / εκτός κατάστασης). Το τηλέφωνο του παραλήπτη δεν τυπώνεται — γράψ' το με στυλό πάνω στην απόδειξη πριν τη φωτογραφία, ή στην επεξεργασία.</div>
+    <div id="outMsg" class="msg info" hidden role="status"></div>
+    <div id="outCashBox" class="panel cashbox" hidden></div>
+    <div class="toolbar outfilter">
+      <input id="outDay" type="date" aria-label="Ημέρα">
+      <input id="outQ" type="search" class="search" placeholder="Αναζήτηση σε όλα: όνομα, απόδειξη, τηλέφωνο, προορισμός" aria-label="Αναζήτηση εξερχομένων">
+    </div>
+    <div id="outCount" class="hint"></div>
+    <div id="outList"></div>
   </section>
 
   <div class="grid">
@@ -192,6 +217,25 @@
         <button type="button" class="btn" id="clearBtn">Ακύρωση</button>
         <button type="button" class="btn danger" id="delBtn" hidden>🗑 Διαγραφή δέματος</button>
       </div>
+    </form>
+  </dialog>
+  <dialog id="outDlg" class="sheet" aria-labelledby="outDlgTitle">
+    <form id="outForm">
+      <div class="sheet-head"><h2 id="outDlgTitle">Εξερχόμενο</h2><button class="btn small" type="button" id="outCancel" aria-label="Κλείσιμο">✕</button></div>
+      <div class="f"><label for="o_receipt_no">Αρ. απόδειξης</label><input id="o_receipt_no" autocomplete="off"></div>
+      <div class="f"><label for="o_parcel_code">Κωδ. δέματος / αρ. μπλοκ</label><input id="o_parcel_code" autocomplete="off"></div>
+      <div class="f"><label for="o_recipient_name">Παραλήπτης</label><input id="o_recipient_name" autocomplete="off"></div>
+      <div class="f"><label for="o_recipient_phone">Τηλ. παραλήπτη</label><input id="o_recipient_phone" inputmode="tel" autocomplete="off"></div>
+      <div class="f"><label for="o_sender_name">Αποστολέας</label><input id="o_sender_name" autocomplete="off"></div>
+      <div class="f"><label for="o_sender_phone">Τηλ. αποστολέα</label><input id="o_sender_phone" inputmode="tel" autocomplete="off"></div>
+      <div class="f"><label for="o_destination_city">Προορισμός</label><input id="o_destination_city" autocomplete="off"></div>
+      <div class="f"><label for="o_departure">Αναχώρηση (ΗΗ/ΜΜ/ΕΕΕΕ ΩΩ:ΛΛ)</label><input id="o_departure" autocomplete="off" placeholder="04/11/2026 13:00"></div>
+      <div class="f"><label for="o_fare_eur">Κόμιστρο €</label><input id="o_fare_eur" inputmode="decimal" autocomplete="off"></div>
+      <div class="f"><label for="o_pieces">Τεμάχια</label><input id="o_pieces" type="number" min="1" value="1"></div>
+      <div class="f"><label for="o_status">Κατάσταση</label><select id="o_status"><option value="waiting">Περιμένει</option><option value="loaded">Φορτώθηκε</option><option value="not_loaded">Δεν φορτώθηκε</option><option value="cancelled">Ακυρώθηκε</option></select></div>
+      <div class="f"><label for="o_notes">Παρατηρήσεις</label><input id="o_notes" autocomplete="off"></div>
+      <div id="outFormMsg" class="msg bad" hidden></div>
+      <div class="formactions toolbar"><button class="btn primary" type="submit">Αποθήκευση</button><button class="btn small" type="button" id="outVoid">Ακύρωση δέματος</button><button class="btn small danger" type="button" id="outDel">Διαγραφή</button></div>
     </form>
   </dialog>
   <dialog id="gemiDlg" class="sheet" aria-labelledby="gemiTitle">

@@ -376,3 +376,62 @@ export function sameNameTrip(a, b) {
   if (!sa || sa.length < 3 || sa !== sb || !a.origin_city || a.origin_city !== b.origin_city || !a.departure_at || !b.departure_at) return false;
   return new Date(a.departure_at).toDateString() === new Date(b.departure_at).toDateString();
 }
+
+// ================================================================ ΕΞΕΡΧΟΜΕΝΑ
+/** Ανάγνωση απόδειξης (ίδια μορφή με τις ετικέτες) → γραμμή του πίνακα outgoing. */
+export function extractedToOutgoing(d) {
+  const phone = cleanPhone(d.phone);
+  const fare = d.fare_eur == null || d.fare_eur === "" ? null : Number(d.fare_eur);
+  return {
+    receipt_no: handwrittenReceipt(d) || null, parcel_code: String(d.parcel_code || "").trim() || null,
+    fare_eur: isNaN(fare) ? null : fare,
+    issued_at: parseGrDate(d.issued)?.toISOString() || null, departure_at: parseGrDate(d.departure)?.toISOString() || null,
+    sender_name: String(d.sender || "").trim() || null,
+    recipient_name: surnameFirst(String(d.recipient || "").trim(), d.recipient_is_business) || null,
+    recipient_phone: phone || null,
+    origin_city: norm(d.origin_city) || HOME, destination_city: cityFromStation(d.destination_city) || norm(d.destination_city) || null,
+    pieces: Math.max(1, Number(d.pieces) || 1), is_handwritten: !!d.is_handwritten_receipt,
+  };
+}
+/** Ίδιο εξερχόμενο; (αριθμός απόδειξης ή κωδικός δέματος) */
+export function sameOutgoing(a, b) {
+  if (a.receipt_no && b.receipt_no && (sameReceipt(a.receipt_no, b.receipt_no) || String(a.receipt_no).trim() === String(b.receipt_no).trim())) return true;
+  const pa = String(a.parcel_code || "").toUpperCase().trim(), pb = String(b.parcel_code || "").toUpperCase().trim();
+  return pa.length >= 6 && pa === pb;
+}
+/** Συμπληρώνει μόνο τα κενά πεδία (η φωτογραφία δεν σβήνει ό,τι γράφτηκε με το χέρι). */
+export function fillBlanks(existing, incoming) {
+  const patch = {};
+  for (const [k, v] of Object.entries(incoming)) if (v != null && v !== "" && (existing[k] == null || existing[k] === "")) patch[k] = v;
+  return patch;
+}
+/** Κατάσταση δρομολογίου ↔ φωτογραφίες: τι λείπει από πού. */
+export function outCheck(rows) {
+  const live = rows.filter(r => r.status !== "cancelled");
+  return {
+    ok: live.filter(r => r.in_report && r.photographed),
+    noPhoto: live.filter(r => r.in_report && !r.photographed),           // στην κατάσταση, δεν φωτογραφήθηκε (φορτώθηκε;)
+    notInReport: live.filter(r => r.photographed && !r.in_report),       // φωτογραφήθηκε, δεν είναι στην κατάσταση
+  };
+}
+/** Ταμείο εξερχομένων μιας ημέρας. */
+export function outCash(rows, pct) {
+  const live = rows.filter(r => r.status !== "cancelled");
+  const sum = a => Math.round(a.reduce((s, r) => s + (Number(r.fare_eur) || 0), 0) * 100) / 100;
+  const group = key => { const m = new Map(); for (const r of live) { const k = key(r) || "—"; const g = m.get(k) || []; g.push(r); m.set(k, g); }
+    return [...m.entries()].map(([k, g]) => ({ key: k, count: g.length, fares: sum(g) })).sort((a, b) => b.fares - a.fares); };
+  const fares = sum(live), p = Number(pct) || 0;
+  return { count: live.length, pieces: live.reduce((s, r) => s + (Number(r.pieces) || 1), 0), fares,
+    noFare: live.filter(r => r.fare_eur == null).length, commission: Math.round(fares * p) / 100, pct: p,
+    byDest: group(r => r.destination_city), byOp: group(r => r.operator) };
+}
+/** SMS στον παραλήπτη: «το δέμα σας έφυγε» — πάντα 1 SMS. */
+export function outSmsFor(r, now = new Date()) {
+  const d = r.departure_at ? new Date(r.departure_at) : null;
+  const when = d ? String(d.getDate()).padStart(2, "0") + "/" + String(d.getMonth() + 1).padStart(2, "0") + " " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0") : "";
+  const dest = r.destination_city ? " ΠΡΟΣ " + r.destination_city : "";
+  const base = greeting(now) + " ΣΑΣ! ΣΑΣ ΣΤΑΛΘΗΚΕ ΔΕΜΑ ΜΕ ΚΤΕΛ ΑΠΟ ΑΓΡΙΝΙΟ" + dest + (when ? ", ΑΝΑΧΩΡΗΣΗ " + when : "") + ".";
+  const tail = " ΠΑΡΑΛΑΒΗ ΑΠΟ ΤΟ ΣΤΑΘΜΟ ΚΤΕΛ. ΤΗΛ. 2641024446";
+  for (const s of [base + (r.receipt_no ? " ΑΡ. " + r.receipt_no + "." : "") + tail, base + tail]) { const g = gsmGreek(s); if (smsLen(g) <= 160) return g; }
+  return gsmGreek(base + " ΤΗΛ. 2641024446").slice(0, 160);
+}

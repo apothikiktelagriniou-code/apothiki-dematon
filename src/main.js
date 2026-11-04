@@ -5,6 +5,7 @@ import {
   tripsOf, tripLabel, sortTrips, isClosed, isTransit, parseLabel, fillTemplate, toCSV, cleanIdDoc, sameReceipt, likelySameParcel, sameNameTrip, smsFor, soundKey, greeklishToGreek, greekName, isGreeklishName, surnameFirst } from "./lib.js";
 import { initCapture, pendingReviewCount, toJpegB64 } from "./capture.js";
 import { openManifest } from "./manifest.js";
+import { initOutgoing, showOutgoing } from "./outgoing.js";
 
 // «Να με θυμάσαι»: η σύνδεση μένει στη συσκευή (localStorage) και ανανεώνεται μόνη της.
 // Χωρίς αυτό (π.χ. ξένος υπολογιστής) κρατιέται μόνο μέχρι να κλείσει ο browser (sessionStorage).
@@ -62,6 +63,8 @@ async function boot() {
   await loadParcels(); loadManifests(); setInterval(loadManifests, 120000);
   loadCustomers(); setInterval(loadCustomers, 300000); setTimeout(bizSweep, 6000); setInterval(bizSweep, 600000);
   subscribe();
+  if (!outInit) { outInit = true; initOutgoing({ sb, operator, needOperator, linkCustomer, findCustomers, settings: () => settings }); }
+  if (store.get("mode") === "out") setMode("out");
   loadNotes();
   checkSms().then(render);
   initCapture({ sb, operator, attachPackage, needOperator, findCustomers, linkCustomer, lastTrip, settings: () => settings,
@@ -1466,6 +1469,14 @@ async function gemiSync() {
   } catch (e) { show(msg, "Η ενημέρωση σταμάτησε: " + String(e.message || e).slice(0, 220) + ". Πάτα ξανά για συνέχεια από την αρχή.", "bad"); }
   finally { btn.disabled = false; }
 }
+// ---------------------------------------------------------------- εισερχόμενα / εξερχόμενα (ξεχωριστές καρτέλες)
+function setMode(m) {
+  const out = m === "out"; $("app").classList.toggle("mode-out", out);
+  $("modeIn").setAttribute("aria-selected", String(!out)); $("modeOut").setAttribute("aria-selected", String(out));
+  store.set("mode", out ? "out" : "in"); showOutgoing(out); if (!out) render();
+}
+let outInit = false;
+$("modeIn").onclick = () => setMode("in"); $("modeOut").onclick = () => setMode("out");
 $("gemiBtn").onclick = () => { $("gemiBtn").closest("details").open = false; openGemi(); };
 $("gemiClose").onclick = () => $("gemiDlg").close();
 $("gemiSync").onclick = gemiSync;

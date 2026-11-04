@@ -258,3 +258,21 @@ test("νέο κείμενο SMS", () => {
   assert.ok(smsLen(s) <= 160);
   assert.ok(smsFor("", {}, am).startsWith(gsmGreek("ΚΑΛΗΜΕΡΑ ΣΑΣ! ΤΟ ΔΕΜΑ ΣΑΣ ΗΡΘΕ ΣΤΟ ΣΤΑΘΜΟ ΚΤΕΛ ΑΓΡΙΝΙΟΥ. ΩΡΑΡΙΟ")));
 });
+
+import { extractedToOutgoing, sameOutgoing, fillBlanks, outCheck, outCash, outSmsFor } from "../src/lib.js";
+test("εξερχόμενα: ανάγνωση, ταίριασμα, ταμείο, SMS", () => {
+  const o = extractedToOutgoing({ receipt_no: "228-336-142206", parcel_code: "C52WQPXG", fare_eur: 5, issued: "04/11/2026 10:34", departure: "04/11/2026 13:00",
+    sender: "", recipient: "ΝΙΚΟΛΑΟΣ ΤΣΟΥΛΟΣ", phone: "", origin_city: "ΑΓΡΙΝΙΟ", destination_city: "ΝΑΥΠΑΚΤΟΣ" });
+  assert.equal(o.receipt_no, "228-336-142206"); assert.equal(o.destination_city, "ΝΑΥΠΑΚΤΟΣ"); assert.equal(o.recipient_name, "ΤΣΟΥΛΟΣ ΝΙΚΟΛΑΟΣ"); assert.equal(o.fare_eur, 5);
+  const h = extractedToOutgoing({ receipt_no: "3431", parcel_code: "33950048", is_handwritten_receipt: true, recipient: "ΠΑΠΑΣ", destination_city: "ΑΘΗΝΑ" });
+  assert.equal(h.receipt_no, "3431 (33950048)"); assert.equal(h.is_handwritten, true);
+  assert.ok(sameOutgoing({ receipt_no: "228-336-142206" }, { receipt_no: "228336142206" }));
+  assert.ok(sameOutgoing({ parcel_code: "C52WQPXG" }, { parcel_code: "c52wqpxg" }));
+  assert.deepEqual(fillBlanks({ recipient_phone: "6900000000", sender_name: "" }, { recipient_phone: "6911111111", sender_name: "ΚΩΣΤΑΣ" }), { sender_name: "ΚΩΣΤΑΣ" });
+  const rows = [{ in_report: true, photographed: true, fare_eur: 5, destination_city: "ΝΑΥΠΑΚΤΟΣ", operator: "ΑΓΗΣ" }, { in_report: true, photographed: false, fare_eur: 8, destination_city: "ΑΘΗΝΑ", operator: "ΑΓΗΣ" },
+    { in_report: false, photographed: true, fare_eur: 7.5, destination_city: "ΑΘΗΝΑ", operator: "ΕΛΕΝΗ" }, { status: "cancelled", in_report: true, photographed: true, fare_eur: 100 }];
+  const c = outCheck(rows); assert.equal(c.ok.length, 1); assert.equal(c.noPhoto.length, 1); assert.equal(c.notInReport.length, 1);
+  const k = outCash(rows, 18); assert.equal(k.fares, 20.5); assert.equal(k.commission, 3.69); assert.equal(k.byDest[0].key, "ΑΘΗΝΑ");
+  const s = outSmsFor({ destination_city: "ΝΑΥΠΑΚΤΟΣ", departure_at: new Date(2026, 10, 4, 13, 0).toISOString(), receipt_no: "228-336-142206" }, new Date(2026, 10, 4, 10, 0));
+  assert.ok(smsLen(s) <= 160, s); assert.ok(s.includes("13:00") && s.includes("142206"), s);
+});
