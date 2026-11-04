@@ -4,6 +4,7 @@
 //      3) ο έλεγχος δείχνει: στην κατάσταση χωρίς φωτογραφία / φωτογραφία εκτός κατάστασης.
 import { routeOf, isAgrinioReceipt, norm, fmtGr, fmtPhone, cleanPhone, money, parseGrDate, cityFromStation, extractedToOutgoing, sameOutgoing, fillBlanks, outCheck, outCash, outSmsFor, surnameFirst } from "./lib.js";
 import { toJpegB64 } from "./capture.js";
+import { getWorker, find228, grabBand, sound } from "./scan.js";
 
 const $ = id => document.getElementById(id);
 const el = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
@@ -20,7 +21,7 @@ let reports = new Map(); // id → κατάσταση δρομολογίου (γ
 let busy = false, active = false, editing = null, destFilter = "", tripSel = "";
 
 export function initOutgoing(deps) {
-  D = deps;
+  D = deps; initScanner();
   $("outDay").value = dayKey(new Date());
   $("outTrip").onchange = () => { tripSel = $("outTrip").value; render(); };
   $("outDay").onchange = () => { found = null; destFilter = ""; tripSel = ""; $("outQ").value = ""; load(); };
@@ -29,6 +30,7 @@ export function initOutgoing(deps) {
   $("outReport").onchange = e => { const f = [...e.target.files].slice(0, 4); e.target.value = ""; if (f.length) runReport(f); };
   $("outManual").onclick = () => openEdit(null);
   $("outCashBtn").onclick = toggleCash;
+  $("outScanAll").onclick = () => openScanner(tripSel || "");
   $("outForm").onsubmit = e => { e.preventDefault(); saveEdit(); };
   $("outCancel").onclick = () => $("outDlg").close();
   $("outDel").onclick = delEdit;
@@ -216,6 +218,14 @@ function buildColors(list) {
   const free = PALETTE.filter(c => !used.has(c)); let i = 0;
   for (const d of ds) colorMap.set(d, cc[d] || free[i++ % (free.length || 1)] || PALETTE[0]);
 }
+// δρομολόγιο ενός δέματος (ίδιος κανόνας με τη λίστα, για την ημέρα)
+function tripKeyOf(r) {
+  const tk = x => x.departure_at ? hhmm(x.departure_at) : "—";
+  let rep = r.report_id && reports.get(r.report_id);
+  if (!rep && r.departure_at) rep = [...reports.values()].find(x => tk(x) === tk(r) && (x.route.end === r.destination_city || x.route.stops.includes(r.destination_city)));
+  return rep ? tk(rep) + "|" + (rep.route.end || "—") : tk(r) + "|" + (r.destination_city || "—");
+}
+const keyLabel = key => { const [k, d] = key.split("|"); return (d === "—" ? "Χωρίς προορισμό" : d) + " " + (k === "—" ? "(χωρίς ώρα)" : k); };
 // πλήθος = τεμάχια (ένα δέμα με 3 κομμάτια μετράει 3)
 const pcs = a => a.reduce((s, r) => s + Math.max(1, Number(r.pieces) || 1), 0);
 function render() {
@@ -282,6 +292,7 @@ function render() {
     }
     const acts = el("div", "outacts");
     const waiting = live.filter(r => r.status === "waiting");
+    if (!found && live.length) acts.append(btn("🔎 Σάρωση φόρτωσης", "primary", () => openScanner(key)));
     if (waiting.length && !found) {
       // επιβεβαίωση όταν υπάρχουν δέματα της κατάστασης που δεν φωτογραφήθηκαν — αλλιώς ο έλεγχος «σωπαίνει» χωρίς λόγο
       const doAll = async () => { for (const r of waiting) await save(r.id, loadedPatch()).catch(() => {}); render(); };
@@ -417,4 +428,83 @@ function renderCash() {
   }));
   box.append(pr);
   box.append(el("div", "hint", "Μετράνε τα εξερχόμενα με αναχώρηση (ή έκδοση) την επιλεγμένη ημέρα. Όταν μου δώσεις τα ακριβή ποσοστά ανά είδος, θα μπουν εδώ αναλυτικά."));
+}
+
+// ================================================================ 🔎 ΣΑΡΩΣΗ ΦΟΡΤΩΣΗΣ (κείμενο από την κάμερα)
+// Περνάς τις αποδείξεις μπροστά στην κάμερα· διαβάζεται ο αριθμός 228-…, σημειώνεται «Φορτώθηκε», μπιπ.
+let scan = null; // { key, stream, timer, last, hits:Map, seen:Map }
+async function openScanner(key) {
+  if (D.needOperator()) return;
+  sound.unlock();
+  const d = $("scanDlg"); $("scanTitle").textContent = "🔎 Φόρτωση · " + (key ? keyLabel(key) : "όλα τα δρομολόγια");
+  $("scanLog").textContent = ""; scanStatus("Ανοίγω την κάμερα…", "info"); d.showModal();
+  scan = { key, stream: null, timer: null, hits: new Map(), seen: new Map(), busy: false };
+  scanCounters();
+  try {
+    scan.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false });
+    const v = $("scanVideo"); v.srcObject = scan.stream; await v.play();
+  } catch (e) { scanStatus("Δεν άνοιξε η κάμερα: " + (e.name === "NotAllowedError" ? "δώσε άδεια κάμερας στον browser." : e.message), "bad"); return; }
+  scanStatus("Φορτώνω την ανάγνωση κειμένου… (την πρώτη φορά ~3 MB)", "info");
+  try { await getWorker(m => { if (m.status && /load|init/i.test(m.status)) scanStatus("Φορτώνω την ανάγνωση κειμένου… " + Math.round((m.progress || 0) * 100) + "%", "info"); }); }
+  catch (e) { scanStatus("Η ανάγνωση κειμένου δεν φόρτωσε: " + e.message, "bad"); return; }
+  scanStatus("Βάλε τον «Αρ. Απόδειξης» μέσα στο πλαίσιο.", "info");
+  scanLoop();
+}
+function closeScanner() {
+  if (!scan) return;
+  clearTimeout(scan.timer); if (scan.stream) scan.stream.getTracks().forEach(t => t.stop());
+  $("scanVideo").srcObject = null; scan = null; $("scanDlg").close(); render();
+}
+function scanStatus(t, c) { const n = $("scanStatus"); n.textContent = t; n.className = "msg " + c; }
+function scanLog(t, c) { const li = el("div", "scanline " + c, new Date().toTimeString().slice(0, 8) + " · " + t); $("scanLog").prepend(li); while ($("scanLog").childNodes.length > 30) $("scanLog").lastChild.remove(); }
+function scanCounters() {
+  const box = $("scanCount"); box.textContent = ""; if (!scan) return;
+  const live = [...rows.values()].filter(r => r.status !== "cancelled" && (!scan.key || tripKeyOf(r) === scan.key));
+  const ds = [...new Set(live.map(r => r.destination_city || "—"))];
+  for (const d of ds) { const a = live.filter(r => (r.destination_city || "—") === d), ok = pcs(a.filter(r => r.status === "loaded")), all = pcs(a);
+    const x = el("span", "scanchip" + (ok === all ? " done" : ""), d + " " + ok + "/" + all + (ok === all ? " ✓" : "")); x.style.borderColor = destColor(d); box.append(x); }
+  const ok = pcs(live.filter(r => r.status === "loaded")), all = pcs(live);
+  box.append(el("b", "scantot" + (ok === all && all ? " done" : ""), "Σύνολο " + ok + "/" + all + (ok === all && all ? " · ✓ ΠΛΗΡΕΣ" : "")));
+}
+async function scanLoop() {
+  if (!scan) return;
+  const v = $("scanVideo");
+  try {
+    const c = grabBand(v, $("scanCanvas"));
+    if (c) { const w = await getWorker(); const { data } = await w.recognize(c); if (scan) for (const n of find228(data.text)) await onNumber(n); }
+  } catch { /* επόμενο καρέ */ }
+  if (scan) scan.timer = setTimeout(scanLoop, 120);
+}
+// ίδιος αριθμός σε 2 διαδοχικά καρέ = σίγουρη ανάγνωση (3 για αριθμό που ΔΕΝ είναι στη λίστα)
+async function onNumber(n) {
+  const now = Date.now();
+  const last = scan.seen.get(n); if (last && now - last < 4000) return; // ήδη χειρίστηκε πρόσφατα
+  const h = (scan.hits.get(n) || 0) + 1; scan.hits.set(n, h); setTimeout(() => scan && scan.hits.delete(n), 2500);
+  const r = [...rows.values()].find(x => sameOutgoing(x, { receipt_no: n }));
+  if (!r && h < 3) return; if (r && h < 2) return;
+  scan.seen.set(n, now); scan.hits.delete(n);
+  if (r) {
+    const k = tripKeyOf(r);
+    if (scan.key && k !== scan.key) { sound.bad(); scanStatus("⚠ ΛΑΘΟΣ ΛΕΩΦΟΡΕΙΟ: " + (r.recipient_name || n) + " είναι για " + keyLabel(k) + " — ΟΧΙ για αυτό!", "bad"); scanLog("⚠ " + n + " · " + (r.recipient_name || "") + " → " + keyLabel(k) + " (άλλο δρομολόγιο)", "bad"); return; }
+    if (r.status === "cancelled") { sound.bad(); scanStatus("⚠ " + n + " είναι ΑΚΥΡΩΜΕΝΟ.", "bad"); scanLog("⚠ " + n + " ακυρωμένο", "bad"); return; }
+    if (r.status === "loaded") { sound.dup(); scanStatus("Ήδη σαρωμένο: " + (r.recipient_name || n), "info"); return; }
+    try { await save(r.id, { ...loadedPatch(), photographed: true }); sound.ok(); scanStatus("✓ " + (r.recipient_name || n) + " → " + (r.destination_city || "?") + (r.pieces > 1 ? " · " + r.pieces + " τεμ." : ""), "ok"); scanLog("✓ " + n + " · " + (r.recipient_name || "") + " → " + (r.destination_city || ""), "ok"); }
+    catch (e) { sound.bad(); scanStatus("Δεν αποθηκεύτηκε: " + e.message, "bad"); }
+  } else {
+    // δεν είναι στη λίστα της ημέρας → μήπως άλλη μέρα; αλλιώς καταχώρηση μόνο με τον αριθμό («εκτός κατάστασης»)
+    const ex = await findExisting({ receipt_no: n });
+    if (ex) { sound.bad(); scanStatus("⚠ " + n + " είναι καταχωρημένο για " + (ex.departure_at ? fmtGr(ex.departure_at) : "άλλη ημέρα") + " — έλεγξέ το.", "bad"); scanLog("⚠ " + n + " άλλη ημέρα", "bad"); return; }
+    const dep = scan.key ? [...rows.values()].find(x => tripKeyOf(x) === scan.key && x.departure_at)?.departure_at || null : null;
+    try { await save(null, { receipt_no: n, status: "loaded", ...loadedPatch(), photographed: true, in_report: false, departure_at: dep, operator: D.operator() || null, notes: "Σάρωση: μόνο αριθμός — εκτός κατάστασης, συμπλήρωσε στοιχεία" });
+      sound.bad(); scanStatus("⚠ " + n + " ΔΕΝ είναι στην κατάσταση — καταχωρήθηκε μόνο ο αριθμός.", "warn"); scanLog("⚠ " + n + " εκτός κατάστασης", "warn"); }
+    catch (e) { scanStatus("Δεν αποθηκεύτηκε: " + e.message, "bad"); }
+  }
+  scanCounters();
+}
+export function initScanner() {
+  $("scanClose").onclick = closeScanner;
+  $("scanDlg").addEventListener("cancel", e => { e.preventDefault(); closeScanner(); });
+  $("scanManual").onsubmit = async e => { e.preventDefault(); const v = $("scanNum").value.trim(); const m = find228(v)[0] || (/^\d{6}$/.test(v) ? [...rows.values()].find(x => String(x.receipt_no || "").endsWith(v))?.receipt_no : null);
+    $("scanNum").value = ""; if (!m) { scanStatus("Γράψε τον αριθμό σαν 228-336-142206 ή τα 6 τελευταία ψηφία.", "warn"); return; }
+    scan.hits.set(m, 5); await onNumber(m); };
 }
