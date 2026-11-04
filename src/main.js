@@ -701,6 +701,7 @@ function card(p) {
   if (p.status === "done") {
     row.append(el("div", "meta note", ["Παρέλαβε: " + (!p.picked_by_name ? "—" : norm(p.picked_by_name) === norm(p.recipient_name || "") ? "ο ίδιος" : p.picked_by_name), p.id_doc_number ? (p.id_doc_type || "Έγγραφο") + " " + p.id_doc_number : p.id_doc_last4 ? (p.id_doc_type || "Έγγραφο") + " ••••" + p.id_doc_last4 : "", p.picked_by_phone ? fmtPhone(p.picked_by_phone) : "", fmtGr(p.picked_up_at), p.home_delivery ? "🏠 Delivery" : "", p.cod_collected ? "💶 Εισπράχθηκε " + money(p.cod_amount_eur) : ""].filter(Boolean).join(" · ")));
     if (p.signature_path) { const holder = el("div", "note"); const b = mk("Υπογραφή", () => showSignature(p, holder, b)); row.append(holder); }
+    if (p.home_delivery) { const u = el("button", "btn small", "✗ Δεν ήταν delivery"); u.type = "button"; u.onclick = async () => { const { data, error } = await sb.from("parcels").update({ home_delivery: false }).eq("id", p.id).select().single(); if (error) show($("netMsg"), "Δεν άλλαξε: " + error.message, "bad"); else { rows.set(p.id, data); render(); } }; row.append(u); }
   }
   if (fwdPending(p)) { const m = minsTo(p);
     const t = el("div", "msg " + (m < 0 ? "bad" : m <= REMIND_MIN ? "warn" : "info") + " note fwdwait");
@@ -902,7 +903,8 @@ function pickupBox(p) {
   const sel = el("select"); ["Ταυτότητα", "Δίπλωμα", "Διαβατήριο"].forEach(t => sel.append(new Option(t))); field(box, "Έγγραφο", sel);
   const idn = field(box, "Αριθμός εγγράφου (προαιρετικό)", inp("", { className: "mono", autocapitalize: "characters" }));
   const chk = (text) => { const l = el("label", "check wide"); const c = el("input"); c.type = "checkbox"; l.append(c, document.createTextNode(text)); box.append(l); return c; };
-  const home = chk("Παράδοση στο σπίτι (delivery 3,50 €)");
+  // delivery: κρυφό μέχρι να ξεκινήσει η υπηρεσία (ρύθμιση delivery_enabled) — για να μην τσεκάρεται κατά λάθος
+  const home = settings.delivery_enabled === true ? chk("Παράδοση στο σπίτι (delivery " + money(DELIVERY_FEE()) + ")") : { checked: false };
   const codC = p.cod_amount_eur > 0 ? chk("Εισπράχθηκε " + money(p.cod_amount_eur) + " από τον παραλήπτη") : null;
   const pcs = (p.pieces_total || 1) > 1 ? chk("Παρέδωσα και τα " + p.pieces_total + " τεμάχια") : null;
   if (pcs && (p.pieces_in ?? 1) < p.pieces_total) box.append(el("div", "msg warn wide", "⚠ Έχουν καταχωρηθεί μόνο " + (p.pieces_in ?? 1) + " από " + p.pieces_total + " τεμάχια. Έλεγξε ότι τα έχεις όλα πριν την παράδοση."));
