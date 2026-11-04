@@ -64,9 +64,18 @@ async function depTick() {
   if (fired) { D.beep(); try { navigator.vibrate && navigator.vibrate([300, 150, 300, 150, 300]); } catch { /* */ } }
   renderSoon();
 }
+// αν οι φωτογραφίες είχαν γίνει ΠΡΙΝ ανέβει η κατάσταση: δείξε αμέσως τι λείπει
+function missAfterReport(dep) {
+  const tr = [...rows.values()].filter(r => r.departure_at === dep); if (!tr.some(r => r.photographed)) return "";
+  const ms = missingOf(tr); return ms.length ? "\n❌ ΛΕΙΠΟΥΝ από τη φόρτωση (" + ms.length + "): " + missText(ms, 20) : "\n✓ Όλα τα δέματα της κατάστασης έχουν φορτωθεί.";
+}
+// ΛΕΙΠΟΥΝ από τη φόρτωση: είναι στην κατάσταση αλλά δεν σημειώθηκαν «Φορτώθηκε»
+const missingOf = rows => rows.filter(r => r.in_report && r.status === "waiting");
+const missText = (m, max = 6) => m.slice(0, max).map(r => (r.recipient_name || r.receipt_no || "?") + " → " + (r.destination_city || "?") + (r.pieces > 1 ? " (" + r.pieces + " τεμ.)" : "")).join(" · ") + (m.length > max ? " · +" + (m.length - max) : "");
 function summary(x) {
   const c = outCheck(x.rows), w = x.rows.filter(r => r.status === "waiting");
-  return pcs(x.rows) + " τεμ." + (w.length ? " · " + pcs(w) + " περιμένουν" : " · όλα φορτώθηκαν") + (!x.report ? " · ⚠ δεν έχει ανέβει κατάσταση" : c.noPhoto.length ? " · ⚠ " + c.noPhoto.length + " χωρίς φωτογραφία" : "") + (x.report && c.notInReport.length ? " · ⚠ " + c.notInReport.length + " εκτός κατάστασης" : "");
+  const ms = missingOf(x.rows);
+  return pcs(x.rows) + " τεμ." + (ms.length ? " · ❌ ΛΕΙΠΟΥΝ: " + missText(ms, 4) : w.length ? " · " + pcs(w) + " περιμένουν" : " · όλα φορτώθηκαν") + (!x.report ? " · ⚠ δεν έχει ανέβει κατάσταση" : c.noPhoto.length ? " · ⚠ " + c.noPhoto.length + " χωρίς φωτογραφία" : "") + (x.report && c.notInReport.length ? " · ⚠ " + c.notInReport.length + " εκτός κατάστασης" : "");
 }
 function renderSoon() {
   const tab = $("modeOut"); if (tab) tab.textContent = "📤 Εξερχόμενα" + (soon.length ? " ⏰" + soon.length : "");
@@ -149,7 +158,7 @@ async function runReport(files) {
       else { await save(null, { ...o, in_report: true, report_id: rep.data?.id || null, status: "waiting", operator: D.operator() || null, notes: it.unsure ? "⚠ Έλεγξε: αβέβαιη γραμμή στην κατάσταση" : null }); added++; }
     }
     if (dep && dayKey(dep) !== $("outDay").value) { $("outDay").value = dayKey(dep); await load(); } else render();
-    show(msg, "✓ Κατάσταση " + (dep ? fmtGr(dep) : "") + ": " + items.length + " δέματα (" + added + " νέα, " + matched + " υπήρχαν)" + (skipped ? " · παραλείφθηκαν " + skipped + " που δεν ξεκινούν με 228" : "") + (m.total_declared && m.total_declared !== all.length ? " · ⚠ η κατάσταση γράφει σύνολο " + m.total_declared : "") + ". Τώρα φωτογράφισε τις αποδείξεις στη φόρτωση.", "ok");
+    show(msg, "✓ Κατάσταση " + (dep ? fmtGr(dep) : "") + ": " + items.length + " δέματα (" + added + " νέα, " + matched + " υπήρχαν)" + (skipped ? " · παραλείφθηκαν " + skipped + " που δεν ξεκινούν με 228" : "") + (m.total_declared && m.total_declared !== all.length ? " · ⚠ η κατάσταση γράφει σύνολο " + m.total_declared : "") + ". Τώρα φωτογράφισε τις αποδείξεις στη φόρτωση." + missAfterReport(dep), "ok");
   } catch (e) { show(msg, "Η κατάσταση δεν διαβάστηκε: " + String(e.message || e).slice(0, 200), "bad"); }
   finally { busy = false; }
 }
@@ -159,15 +168,20 @@ async function runPhotos(files) {
   if (busy) { show($("outMsg"), "Περίμενε να τελειώσει η προηγούμενη αποστολή.", "warn"); return; }
   if (D.needOperator()) return; busy = true;
   const msg = $("outMsg"), loading = $("outLoading").checked; const fails = [];
-  let ok = 0;
+  let ok = 0; const deps = new Set();
   try {
     for (let i = 0; i < files.length; i++) {
       show(msg, "Διαβάζω απόδειξη " + (i + 1) + " από " + files.length + "…", "info");
-      try { await onePhoto(files[i], loading); ok++; }
+      try { const r = await onePhoto(files[i], loading); ok++; if (r && r.departure_at) deps.add(r.departure_at); }
       catch (e) { fails.push((files[i].name || "φωτογραφία " + (i + 1)) + ": " + String(e.message || e).slice(0, 120)); }
       render();
     }
-    show(msg, "✓ " + ok + " αποδείξεις" + (loading ? " φορτώθηκαν" : " καταχωρήθηκαν") + (fails.length ? " · ✗ " + fails.length + " απέτυχαν: " + fails.join(" | ") : ""), fails.length ? "warn" : "ok");
+    // έλεγχος με την κατάσταση: ποια δέματα του ίδιου δρομολογίου ΔΕΝ φωτογραφήθηκαν/φορτώθηκαν ακόμα
+    const ms = missingOf([...rows.values()].filter(r => r.departure_at && deps.has(r.departure_at)));
+    show(msg, "✓ " + ok + " αποδείξεις" + (loading ? " φορτώθηκαν" : " καταχωρήθηκαν") + (fails.length ? " · ✗ " + fails.length + " απέτυχαν: " + fails.join(" | ") : "")
+      + (ms.length ? "\n❌ ΛΕΙΠΟΥΝ από τη φόρτωση (" + ms.length + "): " + missText(ms, 20) : deps.size && [...rows.values()].some(r => r.in_report && deps.has(r.departure_at)) ? "\n✓ Φορτώθηκαν όλα τα δέματα της κατάστασης." : ""),
+      ms.length ? "bad" : fails.length ? "warn" : "ok");
+    if (ms.length) { D.beep && D.beep(); try { navigator.vibrate && navigator.vibrate([200, 100, 200]); } catch { /* */ } }
   } finally { busy = false; }
 }
 async function onePhoto(file, loading) {
@@ -260,6 +274,12 @@ function render() {
     if (chk.noPhoto.length) badges.append(el("span", "badge bad", "⚠ " + chk.noPhoto.length + " στην κατάσταση χωρίς φωτογραφία"));
     if (chk.notInReport.length && live.some(r => r.in_report)) badges.append(el("span", "badge warn", "⚠ " + chk.notInReport.length + " εκτός κατάστασης"));
     head.append(badges);
+    const ms = missingOf(live);
+    if (ms.length && live.some(r => r.photographed)) { // ξεκίνησε η φόρτωση → δείξε ονομαστικά τι λείπει
+      const w = el("div", "msg bad missing"); w.append(el("b", null, "❌ Λείπουν από τη φόρτωση (" + pcs(ms) + " τεμ.): "));
+      ms.forEach((r, i) => { if (i) w.append(" · "); const a = el("a", null, (r.recipient_name || r.receipt_no || "?") + " → " + (r.destination_city || "?")); a.href = "#out-" + r.id; w.append(a); });
+      head.append(w);
+    }
     const acts = el("div", "outacts");
     const waiting = live.filter(r => r.status === "waiting");
     if (waiting.length && !found) acts.append(btn("✓ Φορτώθηκαν όλα (" + waiting.length + ")", "", async () => { for (const r of waiting) await save(r.id, loadedPatch()).catch(() => {}); render(); }));
@@ -285,7 +305,7 @@ function render() {
 const smsOn = () => D.settings().sms_enabled === true;
 const canSms = r => smsOn() && r.status === "loaded" && !r.sms_sent_at && /^69\d{8}$/.test(r.recipient_phone || "");
 function card(r) {
-  const c = el("article", "outcard st-" + r.status);
+  const c = el("article", "outcard st-" + r.status); c.id = "out-" + r.id;
   const top = el("div", "outtop");
   top.append(el("b", null, r.recipient_name || "— χωρίς όνομα —"), el("span", "chip st", STATUS[r.status] || r.status));
   if (r.in_report && !r.photographed) top.append(el("span", "badge bad", "χωρίς φωτογραφία"));
