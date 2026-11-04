@@ -6,6 +6,7 @@ import {
 import { initCapture, pendingReviewCount, toJpegB64 } from "./capture.js";
 import { openManifest } from "./manifest.js";
 import { initOutgoing, showOutgoing } from "./outgoing.js";
+import { autoBackup, downloadBackup, lastBackup } from "./backup.js";
 
 // «Να με θυμάσαι»: η σύνδεση μένει στη συσκευή (localStorage) και ανανεώνεται μόνη της.
 // Χωρίς αυτό (π.χ. ξένος υπολογιστής) κρατιέται μόνο μέχρι να κλείσει ο browser (sessionStorage).
@@ -108,7 +109,8 @@ async function loadParcels() {
     .order("created_at", { ascending: false }).limit(5000);
   if (error) { show($("netMsg"), "Δεν φορτώθηκαν τα δέματα. Έλεγξε τη σύνδεση και ανανέωσε τη σελίδα.", "bad"); return; }
   rows = new Map(data.map(p => [p.id, p]));
-  render(); purgeAllClosed(); cleanStaleNotes(); fixKindOnce(); greeklishFixOnce(); gemiStats(); retentionSweep();
+  render(); purgeAllClosed(); cleanStaleNotes(); fixKindOnce(); greeklishFixOnce(); gemiStats();
+  setTimeout(() => autoBackup(sb).then(r => { if (r && r.error) console.warn("backup:", r.error); }).catch(e => console.warn("backup:", e)), 20000); // ημερήσιο αντίγραφο retentionSweep();
 }
 // GDPR: αριθμός εγγράφου και υπογραφή παραλαβής κρατιούνται 12 μήνες από την παράδοση, μετά σβήνονται (μία φορά τη μέρα)
 const RETAIN_DAYS = 365;
@@ -1478,6 +1480,17 @@ function setMode(m) {
   store.set("mode", out ? "out" : "in"); showOutgoing(out); if (!out) render();
 }
 let outInit = false;
+// ---- αντίγραφα ασφαλείας
+$("backupBtn").onclick = async () => {
+  const b = $("backupBtn"); if (b.disabled) return; b.disabled = true; const m = $("netMsg");
+  try {
+    show(m, "Φτιάχνω αντίγραφο…", "info");
+    const r = await downloadBackup(sb, (t, n) => show(m, "Φτιάχνω αντίγραφο… " + t + " " + n, "info"));
+    const last = await lastBackup(sb).catch(() => null);
+    show(m, "✓ Κατέβηκε αντίγραφο με " + r.total.toLocaleString("el-GR") + " εγγραφές. Φύλαξέ το σε USB ή Google Drive." + (last ? " Τελευταίο αυτόματο: " + last.name.slice(0, 10) + "." : ""), "ok");
+  } catch (e) { show(m, "Το αντίγραφο απέτυχε: " + (e.message || e), "bad"); }
+  finally { b.disabled = false; }
+};
 $("modeIn").onclick = () => setMode("in"); $("modeOut").onclick = () => setMode("out");
 $("gemiBtn").onclick = () => { $("gemiBtn").closest("details").open = false; openGemi(); };
 $("gemiClose").onclick = () => $("gemiDlg").close();
