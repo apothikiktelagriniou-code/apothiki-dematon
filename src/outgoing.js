@@ -161,6 +161,8 @@ function buildColors(list) {
   const free = PALETTE.filter(c => !used.has(c)); let i = 0;
   for (const d of ds) colorMap.set(d, cc[d] || free[i++ % (free.length || 1)] || PALETTE[0]);
 }
+// πλήθος = τεμάχια (ένα δέμα με 3 κομμάτια μετράει 3)
+const pcs = a => a.reduce((s, r) => s + Math.max(1, Number(r.pieces) || 1), 0);
 function render() {
   const list = $("outList"); list.textContent = "";
   const all = found || [...rows.values()];
@@ -169,14 +171,14 @@ function render() {
   const bar = $("outDests"); bar.textContent = "";
   if (!found && all.length) {
     const liveAll = all.filter(r => r.status !== "cancelled"); const cnt = new Map();
-    for (const r of liveAll) { const d = r.destination_city || "—"; cnt.set(d, (cnt.get(d) || 0) + 1); }
+    for (const r of liveAll) { const d = r.destination_city || "—"; cnt.set(d, (cnt.get(d) || 0) + Math.max(1, Number(r.pieces) || 1)); }
     if (destFilter && !cnt.has(destFilter)) destFilter = "";
     const chip = (label, val) => { const b = el("button", "chip", label); b.type = "button"; if (val) { b.style.borderColor = destColor(val); b.prepend(Object.assign(el("span", "cdot"), { style: "background:" + destColor(val) })); } b.setAttribute("aria-pressed", String(destFilter === val)); b.onclick = () => { destFilter = destFilter === val ? "" : val; render(); }; return b; };
-    bar.append(chip("Όλοι οι προορισμοί · " + liveAll.length, ""));
+    bar.append(chip("Όλοι οι προορισμοί · " + pcs(liveAll), ""));
     [...cnt.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "el")).forEach(([d, n]) => bar.append(chip(d + " · " + n, d)));
   }
   const src = !found && destFilter ? all.filter(r => (r.destination_city || "—") === destFilter) : all;
-  $("outCount").textContent = found ? found.length + " αποτελέσματα (όλες οι ημέρες)" : src.filter(r => r.status !== "cancelled").length + " εξερχόμενα · " + money(outCash(src, 0).fares) + " κόμιστρα";
+  $("outCount").textContent = found ? found.length + " αποτελέσματα (όλες οι ημέρες)" : pcs(src.filter(r => r.status !== "cancelled")) + " τεμάχια · " + money(outCash(src, 0).fares) + " κόμιστρα";
   if (!src.length) { list.append(el("div", "hint", found ? "Δεν βρέθηκε τίποτα." : "Κανένα εξερχόμενο αυτή την ημέρα. Ανέβασε την κατάσταση δρομολογίου ή φωτογράφισε αποδείξεις.")); return; }
   const groups = new Map();
   // ομάδα = δρομολόγιο (λεωφορείο) όπως στην κατάσταση: π.χ. ΠΑΤΡΑ 13:00 με στάσεις Αιτωλικό, Μεσολόγγι, Αντίρριο, Ναύπακτο.
@@ -199,7 +201,7 @@ function render() {
   const tLabel = key => { const [k, d] = key.split("|"); return (d === "—" ? "Χωρίς προορισμό" : d) + " " + (k.endsWith("—") ? "(χωρίς ώρα)" : k); };
   if (tripSel && !keys.includes(tripSel)) tripSel = "";
   sel.append(new Option("Όλα τα δρομολόγια (" + keys.length + ")", ""));
-  for (const key of keys) { const n = groups.get(key).filter(r => r.status !== "cancelled").length; sel.append(new Option(tLabel(key) + " · " + n + (n === 1 ? " δέμα" : " δέματα"), key)); }
+  for (const key of keys) { const n = pcs(groups.get(key).filter(r => r.status !== "cancelled")); sel.append(new Option(tLabel(key) + " · " + n + " τεμ.", key)); }
   sel.value = tripSel;
   for (const key of keys) {
     if (tripSel && !found && key !== tripSel) continue;
@@ -210,9 +212,9 @@ function render() {
     const live = g.filter(r => r.status !== "cancelled"); const chk = outCheck(g);
     const sec = el("section", "outtrip"); const head = el("div", "outhead");
     const title = (dest === "—" ? "Χωρίς προορισμό" : dest) + " " + (k.endsWith("—") ? "· χωρίς ώρα" : k);
-    head.append(el("b", "outroute", title), el("span", "hint", " · " + live.length + (live.length === 1 ? " δέμα" : " δέματα") + (live.reduce((s, r) => s + (r.pieces || 1), 0) > live.length ? " (" + live.reduce((s, r) => s + (r.pieces || 1), 0) + " τεμ.)" : "")));
+    head.append(el("b", "outroute", title), el("span", "hint", " · " + pcs(live) + " τεμ." + (pcs(live) > live.length ? " (" + live.length + " αποδείξεις)" : "")));
     const badges = el("div", "outbadges");
-    badges.append(el("span", "badge", live.filter(r => r.status === "loaded").length + "/" + live.length + " φορτώθηκαν"));
+    badges.append(el("span", "badge", pcs(live.filter(r => r.status === "loaded")) + "/" + pcs(live) + " φορτώθηκαν"));
     if (live.some(r => r.in_report)) badges.append(el("span", "badge ok", "📄 " + live.filter(r => r.in_report).length + " στην κατάσταση"));
     if (chk.noPhoto.length) badges.append(el("span", "badge bad", "⚠ " + chk.noPhoto.length + " στην κατάσταση χωρίς φωτογραφία"));
     if (chk.notInReport.length && live.some(r => r.in_report)) badges.append(el("span", "badge warn", "⚠ " + chk.notInReport.length + " εκτός κατάστασης"));
@@ -228,13 +230,13 @@ function render() {
     const body = el("div", "outbody"), cards = el("div", "outcards"), sum = el("aside", "outsum");
     const dlist = [...new Set(g.map(r => r.destination_city || "—"))];
     for (const d of dlist) {
-      const n = live.filter(r => (r.destination_city || "—") === d).length; const c = destColor(d);
+      const n = pcs(live.filter(r => (r.destination_city || "—") === d)); const c = destColor(d);
       const line = el("div", "sumrow"); line.style.borderLeftColor = c;
       line.append(el("span", "sumname", d), el("b", "sumn", String(n))); line.querySelector(".sumname").style.color = c; sum.append(line);
       const sh = el("div", "desthead", d + " · " + n); sh.style.background = c; cards.append(sh);
       for (const r of g.filter(x => (x.destination_city || "—") === d)) { const cd = card(r); cd.style.borderLeftColor = c; cards.append(cd); }
     }
-    const tot = el("div", "sumrow total"); tot.append(el("span", "sumname", "Σύνολο"), el("b", "sumn", String(live.length))); sum.append(tot);
+    const tot = el("div", "sumrow total"); tot.append(el("span", "sumname", "Σύνολο"), el("b", "sumn", String(pcs(live)))); sum.append(tot);
     body.append(cards, sum); sec.append(body);
     list.append(sec);
   }
