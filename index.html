@@ -54,6 +54,7 @@
           <button class="btn small" type="button" id="tg-viber">Viber</button>
           <button class="btn small" type="button" id="tg-sms">📩 SMS</button>
           <button class="btn small" type="button" id="customersBtn">Πελάτες</button>
+          <button class="btn small" type="button" id="gemiBtn">🏢 Βάση επιχειρήσεων</button>
           <button class="btn small" type="button" id="logoutBtn">Αποσύνδεση</button>
         </div>
       </details>
@@ -192,6 +193,13 @@
         <button type="button" class="btn danger" id="delBtn" hidden>🗑 Διαγραφή δέματος</button>
       </div>
     </form>
+  </dialog>
+  <dialog id="gemiDlg" class="sheet" aria-labelledby="gemiTitle">
+    <div class="sheet-head"><h2 id="gemiTitle">🏢 Βάση επιχειρήσεων Αγρινίου</h2><button class="btn small" type="button" id="gemiClose" aria-label="Κλείσιμο">✕</button></div>
+    <div class="msg info" id="gemiMsg" role="status"></div>
+    <p class="hint">Οι ενεργές επιχειρήσεις του Δήμου Αγρινίου από το ΓΕΜΗ. Όταν ο παραλήπτης ενός δέματος ταιριάζει με επιχείρηση, η εφαρμογή προτείνει τηλέφωνο και διεύθυνση — μπαίνουν μόνο αν πατήσεις «Σωστό». Ενημέρωση μία φορά τον μήνα (διαρκεί λίγα λεπτά).</p>
+    <button class="btn primary" type="button" id="gemiSync">Ενημέρωση τώρα</button>
+    <p class="hint small">Περιέχει δεδομένα από το Γενικό Εμπορικό Μητρώο (ΓΕΜΗ), Κεντρική Υπηρεσία ΓΕΜΗ / ΚΕΕΕ — άδεια ODC-BY 1.0.</p>
   </dialog>
   <dialog id="invDlg" class="sheet" aria-labelledby="invTitle">
     <div class="sheet-head"><h2 id="invTitle">📦 Απογραφή αποθήκης</h2><button class="btn small" type="button" id="invClose" aria-label="Κλείσιμο">✕</button></div>

@@ -105,7 +105,7 @@ async function loadParcels() {
     .order("created_at", { ascending: false }).limit(5000);
   if (error) { show($("netMsg"), "Δεν φορτώθηκαν τα δέματα. Έλεγξε τη σύνδεση και ανανέωσε τη σελίδα.", "bad"); return; }
   rows = new Map(data.map(p => [p.id, p]));
-  render(); purgeAllClosed(); cleanStaleNotes(); fixKindOnce(); greeklishFixOnce(); retentionSweep();
+  render(); purgeAllClosed(); cleanStaleNotes(); fixKindOnce(); greeklishFixOnce(); gemiStats(); retentionSweep();
 }
 // GDPR: αριθμός εγγράφου και υπογραφή παραλαβής κρατιούνται 12 μήνες από την παράδοση, μετά σβήνονται (μία φορά τη μέρα)
 const RETAIN_DAYS = 365;
@@ -556,6 +556,7 @@ function render() {
   const hw = all.filter(p => !isClosed(p) && p.phone_source === "handwritten" && !p.phone_confirmed).length; if (hw) addAlert("✍ " + hw + " τηλέφωνα από χειρόγραφο θέλουν επιβεβαίωση.", "warn", "hw");
   const dups = findDuplicates().length; if (dups) { const b = el("button", "msg bad alert", "🔁 " + dups + " πιθανές διπλές καταχωρήσεις (κατάσταση + φωτογραφία) ›"); b.type = "button"; b.onclick = openDuplicates; al.append(b); }
   if (new Date().getHours() >= 21 && store.get("cashSeen") !== new Date().toDateString()) { const b = el("button", "msg info alert", "💶 Κλείσιμο ημέρας: δες το σύνολο είσπραξης ›"); b.type = "button"; b.onclick = () => openCash(); al.append(b); }
+  if (gemiCount > 0 && gemiLast && daysSince(gemiLast) > 31) { const b = el("button", "msg info alert", "🏢 Ενημέρωσε τη βάση επιχειρήσεων (ΓΕΜΗ) — πέρασε μήνας ›"); b.type = "button"; b.onclick = openGemi; al.append(b); }
   if (new Date().getDay() === 0 && store.get("invDoneDay") !== dayKey(new Date())) { const b = el("button", "msg info alert", "📦 Κυριακή: κάνε απογραφή αποθήκης ›"); b.type = "button"; b.onclick = () => { if (!needOperator()) openInventory(); }; al.append(b); }
   const cod = all.filter(p => p.cod_amount_eur > 0 && !p.cod_collected && !isClosed(p)).length; if (cod) addAlert("💶 " + cod + " δέματα με είσπραξη από τον παραλήπτη.", "warn", "cod");
 
@@ -1369,10 +1370,30 @@ function phoneHelp(p, lineEl) {
   lineEl.append(box);
 }
 async function setSuggestion(id, s) { const { data } = await sb.from("parcels").update({ phone_suggestion: s }).eq("id", id).select().single(); if (data) { rows.set(id, data); scheduleRender(); } }
+// ---- βάση επιχειρήσεων Δήμου Αγρινίου (ΓΕΜΗ Open Data, ODC-BY 1.0)
+async function gemiMatch(name) {
+  const q = String(name || "").trim(); if (q.length < 3) return [];
+  try { const { data, error } = await sb.rpc("match_business", { q: /[A-Za-z]{3}/.test(q) && !/[\u0370-\u03FF]/.test(q) ? greeklishToGreek(q) : q }); return error ? [] : (data || []); } catch { return []; }
+}
+// προσεκτικά: ατομική επιχείρηση (= όνομα ιδιώτη) μόνο αν η ετικέτα γράφει κάτι επαγγελματικό· δύο σχεδόν ίδιες → αμφίσημο
+function pickBiz(list, name) {
+  const b = list[0]; if (!b) return null;
+  const ok = b.is_sole ? bizLike(name) && b.sim >= 0.6 : b.sim >= 0.55; if (!ok) return null;
+  const c = list[1]; return { ...b, ambiguous: !!(c && c.ar_gemi !== b.ar_gemi && c.sim >= b.sim - 0.03) };
+}
+const gemiAddr = g => [[g.street, g.street_no].filter(Boolean).join(" "), g.city].filter(Boolean).join(", ");
+const gemiLabel = g => g.name + (g.titles && norm(g.titles) !== norm(g.name) ? " («" + g.titles + "»)" : "");
 async function requestBiz(p, manual) {
   await setSuggestion(p.id, { pending: true, at: new Date().toISOString() });
   try {
-    const { data, error } = await sb.functions.invoke("extract-receipt", { body: { mode: "bizphone", name: p.recipient_name, city: "ΑΓΡΙΝΙΟ" } });
+    const g = pickBiz(await gemiMatch(p.recipient_name), p.recipient_name);
+    if (g && g.phone && !g.ambiguous) { // βρέθηκε στο ΓΕΜΗ με τηλέφωνο → πρόταση χωρίς αναζήτηση στο διαδίκτυο
+      await setSuggestion(p.id, { phone: cleanPhone(g.phone), email: g.email || null, business_name: gemiLabel(g), address: gemiAddr(g), confidence: g.sim >= 0.8 ? "high" : "medium",
+        source: "gemi", ar_gemi: g.ar_gemi, source_url: "https://publicity.businessportal.gr/company/" + g.ar_gemi, at: new Date().toISOString() });
+      return;
+    }
+    const q = g && !g.ambiguous ? gemiLabel(g) + (gemiAddr(g) ? ", " + gemiAddr(g) : "") : p.recipient_name; // με το επίσημο όνομα ψάχνει πιο σωστά
+    const { data, error } = await sb.functions.invoke("extract-receipt", { body: { mode: "bizphone", name: q, city: "ΑΓΡΙΝΙΟ" } });
     if (error) { let d = ""; try { d = (await error.context.json()).detail || ""; } catch {} throw new Error(d || error.message); }
     const r = data.data || {};
     await setSuggestion(p.id, { ...r, none: !r.phone, at: new Date().toISOString() });
@@ -1384,7 +1405,7 @@ async function requestBiz(p, manual) {
 }
 async function acceptBiz(p, s) {
   try {
-    await updateParcel(p.id, { recipient_phone: s.phone, phone_source: "business_web", phone_confirmed: true });
+    await updateParcel(p.id, { recipient_phone: s.phone, phone_source: s.source === "gemi" ? "gemi" : "business_web", phone_confirmed: true });
     const cid = await linkCustomer(p.recipient_name, s.phone);
     if (cid) { addAlias(cid, p.recipient_name); await sb.from("customers").update({ is_business: true, business_source: s.source_url || null, ...(s.address ? { address: s.address } : {}), ...(s.email ? { email: s.email } : {}) }).eq("id", cid); if (!p.customer_id) await updateParcel(p.id, { customer_id: cid }); }
     loadCustomersSoon();
@@ -1399,8 +1420,55 @@ async function bizSweep() {
     const list = [...rows.values()].filter(p => !p.recipient_phone && !isClosed(p) && !isTransit(p) && p.status !== "not_arrived" && daysSince(p.created_at) <= 7 && wantsBizLookup(p)
       && (!p.phone_suggestion || (p.phone_suggestion.pending && Date.now() - new Date(p.phone_suggestion.at) > 300000))).slice(0, 5);
     for (const p of list) await requestBiz(p, false);
+    // ΓΕΜΗ: νέα δέματα που ΔΕΝ μοιάζουν με επιχείρηση αλλά το όνομα ταιριάζει καθαρά σε εταιρεία του Αγρινίου (όχι ατομική)
+    if (gemiCount > 0) {
+      const more = [...rows.values()].filter(p => !p.recipient_phone && !p.phone_suggestion && !isClosed(p) && !isTransit(p) && p.status !== "not_arrived" && daysSince(p.created_at) <= 7
+        && !wantsBizLookup(p) && !store.get("gm:" + p.id)).slice(0, 10);
+      for (const p of more) {
+        store.set("gm:" + p.id, "1");
+        const g = pickBiz(await gemiMatch(p.recipient_name), p.recipient_name);
+        if (g && !g.ambiguous && !g.is_sole && g.sim >= 0.7) await requestBiz(p, false);
+      }
+    }
   } finally { bizBusy = false; }
 }
+
+// ---- διάλογος «Βάση επιχειρήσεων»: ενημέρωση από ΓΕΜΗ (κάθε μήνα)
+var gemiCount = -1, gemiLast = null; // var: διαβάζεται και από render()
+async function gemiStats() {
+  try {
+    const { count } = await sb.from("businesses").select("ar_gemi", { count: "exact", head: true });
+    const { data } = await sb.from("businesses").select("synced_at").order("synced_at", { ascending: false }).limit(1);
+    gemiCount = count || 0; gemiLast = data && data[0] ? data[0].synced_at : null;
+  } catch { gemiCount = -1; }
+}
+async function openGemi() {
+  const d = $("gemiDlg"), msg = $("gemiMsg"); d.showModal(); show(msg, "Φορτώνω…", "info");
+  await gemiStats();
+  show(msg, gemiCount < 0 ? "Η βάση δεν είναι ακόμα στημένη (λείπει το 0013 στη βάση)." :
+    gemiCount === 0 ? "Η βάση είναι άδεια. Πάτα «Ενημέρωση τώρα»." :
+    gemiCount.toLocaleString("el-GR") + " επιχειρήσεις Δήμου Αγρινίου · τελευταία ενημέρωση " + fmtGr(gemiLast), gemiCount > 0 ? "ok" : "warn");
+}
+async function gemiSync() {
+  const btn = $("gemiSync"), msg = $("gemiMsg"); if (btn.disabled) return; btn.disabled = true;
+  let offset = 0, saved = 0, total = null;
+  try {
+    for (let i = 0; i < 200; i++) {
+      const { data, error } = await sb.functions.invoke("gemi-sync", { body: { offset } });
+      if (error) { let dt = ""; try { const j = await error.context.json(); dt = (j.error || "") + " " + (j.detail ? JSON.stringify(j.detail).slice(0, 160) : ""); } catch {} throw new Error(dt.trim() || error.message); }
+      offset = data.offset; saved += data.saved || 0; total = data.total ?? total;
+      show(msg, "Ενημέρωση από ΓΕΜΗ… " + saved.toLocaleString("el-GR") + (total ? " / ~" + Number(total).toLocaleString("el-GR") : "") + " (μην κλείσεις το παράθυρο)", "info");
+      if (data.done) break;
+      await new Promise(r => setTimeout(r, (data.wait || 15) * 1000)); // όριο ΓΕΜΗ: ~20 κλήσεις το λεπτό
+    }
+    await gemiStats();
+    show(msg, "✓ Έτοιμο: " + gemiCount.toLocaleString("el-GR") + " επιχειρήσεις.", "ok");
+  } catch (e) { show(msg, "Η ενημέρωση σταμάτησε: " + String(e.message || e).slice(0, 220) + ". Πάτα ξανά για συνέχεια από την αρχή.", "bad"); }
+  finally { btn.disabled = false; }
+}
+$("gemiBtn").onclick = () => { $("gemiBtn").closest("details").open = false; openGemi(); };
+$("gemiClose").onclick = () => $("gemiDlg").close();
+$("gemiSync").onclick = gemiSync;
 
 // καρτέλα πελάτη
 async function openCustomerFor(p) {
