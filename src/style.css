@@ -430,3 +430,4 @@ button.codb.dmg{border:0;cursor:pointer;font:inherit;font-size:12px;font-weight:
 .outcard.st-not_loaded .chip.st{background:#fee2e2;color:#991b1b;border-color:#fca5a5}
 #outTrip{width:100%;min-height:46px;font-size:16px;font-weight:700;margin:6px 0;border-radius:10px}
 #outMsg{white-space:pre-line}.missing a{color:inherit;font-weight:700;text-decoration:underline}
+.btn.sure{background:#fee2e2;border-color:#b91c1c;white-space:normal;text-align:left;font-weight:700}

@@ -282,7 +282,18 @@ function render() {
     }
     const acts = el("div", "outacts");
     const waiting = live.filter(r => r.status === "waiting");
-    if (waiting.length && !found) acts.append(btn("✓ Φορτώθηκαν όλα (" + waiting.length + ")", "", async () => { for (const r of waiting) await save(r.id, loadedPatch()).catch(() => {}); render(); }));
+    if (waiting.length && !found) {
+      // επιβεβαίωση όταν υπάρχουν δέματα της κατάστασης που δεν φωτογραφήθηκαν — αλλιώς ο έλεγχος «σωπαίνει» χωρίς λόγο
+      const doAll = async () => { for (const r of waiting) await save(r.id, loadedPatch()).catch(() => {}); render(); };
+      const b = btn("✓ Φορτώθηκαν όλα (" + pcs(waiting) + " τεμ.)", "", null);
+      b.onclick = () => {
+        const mm = missingOf(waiting); if (!mm.length || b.dataset.sure) { doAll(); return; }
+        b.dataset.sure = "1"; b.className = "btn small danger sure";
+        b.textContent = "⚠ Δεν φωτογραφήθηκαν " + mm.length + ": " + missText(mm, 3) + " — Τα είδες να μπαίνουν στο λεωφορείο; Πάτα ξανά για επιβεβαίωση";
+        setTimeout(() => { if (b.isConnected && b.dataset.sure) { delete b.dataset.sure; b.className = "btn small"; b.textContent = "✓ Φορτώθηκαν όλα (" + pcs(waiting) + " τεμ.)"; } }, 10000);
+      };
+      acts.append(b);
+    }
     const smsList = live.filter(canSms);
     if (smsList.length && !found) acts.append(btn("📩 SMS στους παραλήπτες (" + smsList.length + ")", "", async e => { e.target.disabled = true; let n = 0; for (const r of smsList) if (await sendSms(r, true)) n++; show($("outMsg"), "📩 Στάλθηκαν " + n + " από " + smsList.length + " SMS.", n === smsList.length ? "ok" : "warn"); render(); }));
     if (acts.childNodes.length) head.append(acts);
