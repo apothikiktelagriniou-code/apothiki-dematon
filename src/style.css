@@ -408,3 +408,4 @@ button.codb.dmg{border:0;cursor:pointer;font:inherit;font-size:12px;font-weight:
 .btn.danger{color:#b91c1c}
 .mode-out .bottombar{display:none!important}
 .outroute{font-size:17px}
+#outDests{flex-wrap:wrap!important;overflow:visible!important;-webkit-mask-image:none!important;mask-image:none!important;margin:6px 0 4px!important;padding:0!important}

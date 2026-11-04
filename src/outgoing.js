@@ -16,12 +16,12 @@ const hhmm = iso => { const d = new Date(iso); return String(d.getHours()).padSt
 let D = null;                 // εξαρτήσεις από main.js
 let rows = new Map();         // id → εξερχόμενο της επιλεγμένης ημέρας
 let found = null;             // αποτελέσματα αναζήτησης (όλες οι ημέρες)
-let busy = false, active = false, editing = null;
+let busy = false, active = false, editing = null, destFilter = "";
 
 export function initOutgoing(deps) {
   D = deps;
   $("outDay").value = dayKey(new Date());
-  $("outDay").onchange = () => { found = null; $("outQ").value = ""; load(); };
+  $("outDay").onchange = () => { found = null; destFilter = ""; $("outQ").value = ""; load(); };
   let qT = null; $("outQ").oninput = () => { clearTimeout(qT); qT = setTimeout(search, 300); };
   $("outPhotos").onchange = e => { const f = [...e.target.files]; e.target.value = ""; if (f.length) runPhotos(f); };
   $("outReport").onchange = e => { const f = [...e.target.files].slice(0, 4); e.target.value = ""; if (f.length) runReport(f); };
@@ -142,7 +142,18 @@ async function errText(error) { try { const j = await error.context.json(); retu
 // ---------------------------------------------------------------- λίστα ανά δρομολόγιο
 function render() {
   const list = $("outList"); list.textContent = "";
-  const src = found || [...rows.values()];
+  const all = found || [...rows.values()];
+  // πάνω πάνω: οι προορισμοί της ημέρας (πάτα για φίλτρο)
+  const bar = $("outDests"); bar.textContent = "";
+  if (!found && all.length) {
+    const liveAll = all.filter(r => r.status !== "cancelled"); const cnt = new Map();
+    for (const r of liveAll) { const d = r.destination_city || "—"; cnt.set(d, (cnt.get(d) || 0) + 1); }
+    if (destFilter && !cnt.has(destFilter)) destFilter = "";
+    const chip = (label, val) => { const b = el("button", "chip", label); b.type = "button"; b.setAttribute("aria-pressed", String(destFilter === val)); b.onclick = () => { destFilter = destFilter === val ? "" : val; render(); }; return b; };
+    bar.append(chip("Όλοι οι προορισμοί · " + liveAll.length, ""));
+    [...cnt.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "el")).forEach(([d, n]) => bar.append(chip(d + " · " + n, d)));
+  }
+  const src = !found && destFilter ? all.filter(r => (r.destination_city || "—") === destFilter) : all;
   $("outCount").textContent = found ? found.length + " αποτελέσματα (όλες οι ημέρες)" : src.filter(r => r.status !== "cancelled").length + " εξερχόμενα · " + money(outCash(src, 0).fares) + " κόμιστρα";
   if (!src.length) { list.append(el("div", "hint", found ? "Δεν βρέθηκε τίποτα." : "Κανένα εξερχόμενο αυτή την ημέρα. Ανέβασε την κατάσταση δρομολογίου ή φωτογράφισε αποδείξεις.")); return; }
   const groups = new Map();
