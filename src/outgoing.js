@@ -17,12 +17,13 @@ let D = null;                 // εξαρτήσεις από main.js
 let rows = new Map();         // id → εξερχόμενο της επιλεγμένης ημέρας
 let found = null;             // αποτελέσματα αναζήτησης (όλες οι ημέρες)
 let reports = new Map(); // id → κατάσταση δρομολογίου (για να ξέρουμε ποιο λεωφορείο)
-let busy = false, active = false, editing = null, destFilter = "";
+let busy = false, active = false, editing = null, destFilter = "", tripSel = "";
 
 export function initOutgoing(deps) {
   D = deps;
   $("outDay").value = dayKey(new Date());
-  $("outDay").onchange = () => { found = null; destFilter = ""; $("outQ").value = ""; load(); };
+  $("outTrip").onchange = () => { tripSel = $("outTrip").value; render(); };
+  $("outDay").onchange = () => { found = null; destFilter = ""; tripSel = ""; $("outQ").value = ""; load(); };
   let qT = null; $("outQ").oninput = () => { clearTimeout(qT); qT = setTimeout(search, 300); };
   $("outPhotos").onchange = e => { const f = [...e.target.files]; e.target.value = ""; if (f.length) runPhotos(f); };
   $("outReport").onchange = e => { const f = [...e.target.files].slice(0, 4); e.target.value = ""; if (f.length) runReport(f); };
@@ -193,7 +194,15 @@ function render() {
   }
   const keys = [...groups.keys()].sort((a, b) => { const [ta, da] = a.split("|"), [tb, db] = b.split("|");
     return (ta.endsWith("—")) - (tb.endsWith("—")) || (found ? tb.localeCompare(ta) : ta.localeCompare(tb)) || (da === "—") - (db === "—") || da.localeCompare(db); });
+  // drop-down: κάθε δρομολόγιο ξεχωριστά
+  const sel = $("outTrip"); sel.textContent = ""; sel.hidden = !!found || !keys.length;
+  const tLabel = key => { const [k, d] = key.split("|"); return (d === "—" ? "Χωρίς προορισμό" : d) + " " + (k.endsWith("—") ? "(χωρίς ώρα)" : k); };
+  if (tripSel && !keys.includes(tripSel)) tripSel = "";
+  sel.append(new Option("Όλα τα δρομολόγια (" + keys.length + ")", ""));
+  for (const key of keys) { const n = groups.get(key).filter(r => r.status !== "cancelled").length; sel.append(new Option(tLabel(key) + " · " + n + (n === 1 ? " δέμα" : " δέματα"), key)); }
+  sel.value = tripSel;
   for (const key of keys) {
+    if (tripSel && !found && key !== tripSel) continue;
     const [k, dest] = key.split("|");
     const stopList = stopsOf.get(key) ? [...stopsOf.get(key)] : [];
     const order = d => { const i = stopList.indexOf(d); return i < 0 ? 99 : i; };

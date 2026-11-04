@@ -428,3 +428,4 @@ button.codb.dmg{border:0;cursor:pointer;font:inherit;font-size:12px;font-weight:
 .outcard.st-loaded .chip.st{background:#dcfce7;color:#166534;border-color:#86efac}
 .outcard.st-waiting .chip.st{background:#fef3c7;color:#92400e;border-color:#fcd34d}
 .outcard.st-not_loaded .chip.st{background:#fee2e2;color:#991b1b;border-color:#fca5a5}
+#outTrip{width:100%;min-height:46px;font-size:16px;font-weight:700;margin:6px 0;border-radius:10px}
