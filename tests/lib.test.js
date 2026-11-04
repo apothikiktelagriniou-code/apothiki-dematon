@@ -276,3 +276,9 @@ test("εξερχόμενα: ανάγνωση, ταίριασμα, ταμείο, 
   const s = outSmsFor({ destination_city: "ΝΑΥΠΑΚΤΟΣ", departure_at: new Date(2026, 10, 4, 13, 0).toISOString(), receipt_no: "228-336-142206" }, new Date(2026, 10, 4, 10, 0));
   assert.ok(smsLen(s) <= 160, s); assert.ok(s.includes("13:00") && s.includes("142206"), s);
 });
+
+import { isAgrinioReceipt } from "../src/lib.js";
+test("μόνο αποδείξεις 228 (αποθήκη Αγρινίου)", () => {
+  assert.ok(isAgrinioReceipt("228-336-142206")); assert.ok(isAgrinioReceipt("2-228-336-142206")); assert.ok(isAgrinioReceipt("228336142206"));
+  assert.ok(!isAgrinioReceipt("258-341-23682")); assert.ok(!isAgrinioReceipt("3431 (33950048)")); assert.ok(!isAgrinioReceipt("2-255-349-11663")); assert.ok(!isAgrinioReceipt(""));
+});

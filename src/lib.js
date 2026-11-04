@@ -435,3 +435,9 @@ export function outSmsFor(r, now = new Date()) {
   for (const s of [base + (r.receipt_no ? " ΑΡ. " + r.receipt_no + "." : "") + tail, base + tail]) { const g = gsmGreek(s); if (smsLen(g) <= 160) return g; }
   return gsmGreek(base + " ΤΗΛ. 2641024446").slice(0, 160);
 }
+
+/** Απόδειξη που εκδόθηκε από την αποθήκη Αγρινίου (εκδότης 228): 228-336-142206 (ή 2-228-336-142206 στις καταστάσεις). */
+export function isAgrinioReceipt(rn) {
+  const s = String(rn || "").trim().replace(/^\d-(?=\d{3}-)/, "");
+  return /^228[-\s]?\d{3}[-\s]?\d+$/.test(s);
+}

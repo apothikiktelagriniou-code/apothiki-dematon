@@ -59,24 +59,20 @@ function renderTray() {
     box.append(el("div", "tnum", String(idx + 1)));
     box.append(slot(pr.label, "lbl", idx));
     if (pr.pkg) box.append(slot(pr.pkg, "pkg", idx));
-    else { const add = el("label", "tslot empty addpkg", "＋ δέμα"); add.title = "Φωτογραφία ολόκληρου του δέματος";
-      const f = el("input"); f.type = "file"; f.accept = "image/*"; f.hidden = true;
-      f.onchange = () => { const x = f.files[0]; if (!x) return; const ph = { id: crypto.randomUUID(), file: x, url: URL.createObjectURL(x), type: "parcel", extra: [] };
-        tray.splice(tray.indexOf(pr.label) + 1, 0, ph); renderTray(); };
-      add.append(f); box.append(add); }
     t.append(box);
   });
   const nPkg = pairs.filter(p => p.pkg).length;
   $("sendBtn").hidden = !tray.length; $("sendBtn").disabled = classifying > 0;
   $("sendBtn").textContent = classifying ? "Αναγνώριση φωτογραφιών…" : "Αποστολή (" + pairs.length + " δέματα" + (nPkg ? ", " + nPkg + " με φωτο δέματος" : "") + ")";
   $("trayHint").hidden = !tray.length;
-  $("trayHint").textContent = "Κάθε φωτογραφία = μία ετικέτα. Φωτογραφία δέματος (προαιρετικά): «＋ δέμα» εδώ ή αργότερα από την κάρτα του δέματος.";
+  $("trayHint").textContent = "Κάθε φωτογραφία = μία ετικέτα. Φωτογραφία δέματος: από την κάρτα του δέματος («📷 Φωτο δέματος»).";
 }
 function addFiles(files) {
   const add = [...files].filter(f => f.type.startsWith("image/")).sort((a, b) => a.lastModified - b.lastModified)
     .map(f => ({ id: crypto.randomUUID(), file: f, url: URL.createObjectURL(f), type: "label", extra: [] }));
   if (!add.length) return;
   tray.push(...add); renderTray();
+  if ($("autoSend").checked) send(); // αυτόματη αποστολή, όπως στα εξερχόμενα
 }
 
 async function send() {
@@ -274,6 +270,8 @@ export function initCapture(deps) {
   const today = new Date().toDateString(); let on = false; try { on = localStorage.getItem("oldStock") === today; } catch {}
   const sync = () => { $("oldStockL").classList.toggle("on", $("oldStock").checked); try { localStorage.setItem("oldStock", $("oldStock").checked ? today : ""); } catch {} };
   $("oldStock").checked = on; $("oldStock").onchange = sync; sync();
+  try { $("autoSend").checked = localStorage.getItem("autoSend") !== "0"; } catch {}
+  $("autoSend").onchange = () => { try { localStorage.setItem("autoSend", $("autoSend").checked ? "1" : "0"); } catch {} if ($("autoSend").checked && tray.length) send(); };
   const cap = $("captureBox");
   ["dragenter", "dragover"].forEach(t => cap.addEventListener(t, e => { e.preventDefault(); cap.classList.add("drop"); }));
   ["dragleave", "drop"].forEach(t => cap.addEventListener(t, () => cap.classList.remove("drop")));

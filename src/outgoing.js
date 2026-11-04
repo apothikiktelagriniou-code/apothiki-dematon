@@ -2,7 +2,7 @@
 // Ροή: 1) «📄 Κατάσταση δρομολογίου» από το σύστημα ΚΤΕΛ → γραμμές «περιμένει»
 //      2) στη φόρτωση «📷 Φωτογραφίες αποδείξεων» → συμπληρώνονται στοιχεία + «φορτώθηκε»
 //      3) ο έλεγχος δείχνει: στην κατάσταση χωρίς φωτογραφία / φωτογραφία εκτός κατάστασης.
-import { norm, fmtGr, fmtPhone, cleanPhone, money, parseGrDate, cityFromStation, extractedToOutgoing, sameOutgoing, fillBlanks, outCheck, outCash, outSmsFor, surnameFirst } from "./lib.js";
+import { isAgrinioReceipt, norm, fmtGr, fmtPhone, cleanPhone, money, parseGrDate, cityFromStation, extractedToOutgoing, sameOutgoing, fillBlanks, outCheck, outCash, outSmsFor, surnameFirst } from "./lib.js";
 import { toJpegB64 } from "./capture.js";
 
 const $ = id => document.getElementById(id);
@@ -37,20 +37,7 @@ export function initOutgoing(deps) {
     if (active) render();
   }).subscribe();
 }
-export function showOutgoing(on) { active = on; if (on) { load(); photoSweep(); } }
-// φωτογραφίες αποδείξεων: σβήνονται μετά από 12 μήνες (μία φορά τη μέρα)
-async function photoSweep() {
-  const today = new Date().toDateString(); try { if (localStorage.getItem("outPhotoSweep") === today) return; } catch { /* */ }
-  const cutoff = new Date(Date.now() - 365 * 864e5).toISOString();
-  for (let i = 0; i < 10; i++) {
-    const { data, error } = await D.sb.from("outgoing").select("id,photo_path").not("photo_path", "is", null).lt("created_at", cutoff).limit(200);
-    if (error || !data || !data.length) break;
-    await D.sb.storage.from("receipts").remove(data.map(r => r.photo_path)).catch(() => {});
-    await D.sb.from("outgoing").update({ photo_path: null }).in("id", data.map(r => r.id));
-    if (data.length < 200) break;
-  }
-  try { localStorage.setItem("outPhotoSweep", today); } catch { /* */ }
-}
+export function showOutgoing(on) { active = on; if (on) load(); }
 
 // ---------------------------------------------------------------- δεδομένα
 const dayRange = () => { const s = new Date($("outDay").value + "T00:00:00"); const e = new Date(s); e.setDate(e.getDate() + 1); return [s, e]; };
@@ -98,8 +85,9 @@ async function runReport(files) {
     const images = []; for (const f of files) images.push({ data: await toJpegB64(f, 2000, 0.82), media_type: "image/jpeg" });
     const { data, error } = await D.sb.functions.invoke("extract-receipt", { body: { mode: "manifest", images } });
     if (error) throw new Error(await errText(error));
-    const m = data.data || {}; const dep = parseGrDate(m.departure)?.toISOString() || null; const items = (m.items || []).filter(i => i.receipt_no);
-    if (!items.length) { show(msg, "Δεν βρήκα γραμμές στην κατάσταση. Τράβα πιο καθαρά ή σε περισσότερες σελίδες.", "warn"); return; }
+    const m = data.data || {}; const dep = parseGrDate(m.departure)?.toISOString() || null;
+    const all = (m.items || []).filter(i => i.receipt_no); const items = all.filter(i => isAgrinioReceipt(i.receipt_no)); const skipped = all.length - items.length;
+    if (!items.length) { show(msg, skipped ? "Καμία γραμμή της κατάστασης δεν ξεκινά με 228 (αποθήκη Αγρινίου) — δεν καταχωρήθηκε τίποτα." : "Δεν βρήκα γραμμές στην κατάσταση. Τράβα πιο καθαρά ή σε περισσότερες σελίδες.", "warn"); return; }
     const rep = await D.sb.from("outgoing_reports").insert({ departure_at: dep, total_declared: m.total_declared ?? null, items, operator: D.operator() || null }).select("id").single();
     let added = 0, matched = 0;
     for (const it of items) {
@@ -110,7 +98,7 @@ async function runReport(files) {
       else { await save(null, { ...o, in_report: true, report_id: rep.data?.id || null, status: "waiting", operator: D.operator() || null, notes: it.unsure ? "⚠ Έλεγξε: αβέβαιη γραμμή στην κατάσταση" : null }); added++; }
     }
     if (dep && dayKey(dep) !== $("outDay").value) { $("outDay").value = dayKey(dep); await load(); } else render();
-    show(msg, "✓ Κατάσταση " + (dep ? fmtGr(dep) : "") + ": " + items.length + " δέματα (" + added + " νέα, " + matched + " υπήρχαν)" + (m.total_declared && m.total_declared !== items.length ? " · ⚠ η κατάσταση γράφει σύνολο " + m.total_declared : "") + ". Τώρα φωτογράφισε τις αποδείξεις στη φόρτωση.", "ok");
+    show(msg, "✓ Κατάσταση " + (dep ? fmtGr(dep) : "") + ": " + items.length + " δέματα (" + added + " νέα, " + matched + " υπήρχαν)" + (skipped ? " · παραλείφθηκαν " + skipped + " που δεν ξεκινούν με 228" : "") + (m.total_declared && m.total_declared !== all.length ? " · ⚠ η κατάσταση γράφει σύνολο " + m.total_declared : "") + ". Τώρα φωτογράφισε τις αποδείξεις στη φόρτωση.", "ok");
   } catch (e) { show(msg, "Η κατάσταση δεν διαβάστηκε: " + String(e.message || e).slice(0, 200), "bad"); }
   finally { busy = false; }
 }
@@ -137,19 +125,13 @@ async function onePhoto(file, loading) {
   if (error) throw new Error(await errText(error));
   const d = data.data || {}; const o = extractedToOutgoing(d);
   if (!o.receipt_no && !o.parcel_code) { openEdit(null, o); throw new Error("δεν διαβάστηκε αριθμός απόδειξης — συμπλήρωσέ τον στη φόρμα"); }
+  if (!isAgrinioReceipt(o.receipt_no)) throw new Error("η απόδειξη " + (o.receipt_no || "") + " δεν είναι της αποθήκης Αγρινίου (δεν ξεκινά με 228) — δεν καταχωρήθηκε");
   const flags = (d.unsure || []).filter(u => ["receipt_no", "phone", "fare_eur", "recipient", "destination_city"].includes(u));
   const note = flags.length ? "⚠ Έλεγξε: " + flags.map(f => ({ receipt_no: "αριθμό", phone: "τηλέφωνο", fare_eur: "κόμιστρο", recipient: "παραλήπτη", destination_city: "προορισμό" }[f])).join(", ") : null;
   const ex = await findExisting(o);
   let r;
   if (ex) r = await save(ex.id, { ...fillBlanks(ex, o), photographed: true, ...(loading && ex.status === "waiting" ? loadedPatch() : {}), ...(note && !ex.notes ? { notes: note } : {}) });
   else r = await save(null, { ...o, photographed: true, status: loading ? "loaded" : "waiting", ...(loading ? loadedPatch() : {}), operator: D.operator() || null, notes: note, extraction_confidence: { unsure: d.unsure || [] } });
-  // φωτογραφία απόδειξης ως αποδεικτικό (12 μήνες)
-  if (!r.photo_path) { try {
-    const path = new Date().toISOString().slice(0, 7) + "/" + r.id + ".jpg";
-    const u8 = Uint8Array.from(atob(img), c => c.charCodeAt(0));
-    const up = await D.sb.storage.from("receipts").upload(path, new Blob([u8], { type: "image/jpeg" }), { upsert: true, contentType: "image/jpeg" });
-    if (!up.error) r = await save(r.id, { photo_path: path });
-  } catch { /* η φωτογραφία είναι επιπλέον — τα στοιχεία έχουν ήδη σωθεί */ } }
   // πελάτες: αποστολέας → καρτέλα πελάτη· τηλέφωνο παραλήπτη από γνωστό πελάτη (μόνο αν υπάρχει ΕΝΑΣ με τηλέφωνο)
   if (r.sender_name && !r.customer_id) { const cid = await D.linkCustomer(r.sender_name, r.sender_phone); if (cid) r = await save(r.id, { customer_id: cid }); }
   if (!r.recipient_phone && r.recipient_name) { const list = (await D.findCustomers(r.recipient_name)).filter(c => (c.phones || []).length); if (list.length === 1) r = await save(r.id, { extraction_confidence: { ...(r.extraction_confidence || {}), phone_hint: list[0].phones[0] } }); }
@@ -216,7 +198,6 @@ function card(r) {
   if (r.status === "waiting") a.append(btn("✓ Φορτώθηκε", "primary", () => save(r.id, loadedPatch()).then(render)), btn("✗ Δεν φορτώθηκε", "", () => save(r.id, { status: "not_loaded", status_at: new Date().toISOString() }).then(render)));
   else if (r.status !== "cancelled") a.append(btn("↺ Περιμένει", "", () => save(r.id, { status: "waiting", loaded_at: null, status_at: new Date().toISOString() }).then(render)));
   if (canSms(r)) a.append(btn("📩 SMS παραλήπτη", "", async () => { await sendSms(r, false); render(); }));
-  if (r.photo_path) a.append(btn("🧾 Απόδειξη", "", async () => { const { data } = await D.sb.storage.from("receipts").createSignedUrl(r.photo_path, 300); if (data) window.open(data.signedUrl, "_blank", "noopener"); }));
   a.append(btn("✎ Επεξεργασία", "", () => openEdit(r)));
   c.append(a);
   return c;
@@ -264,7 +245,6 @@ async function saveEdit(forceStatus) {
 async function delEdit() {
   const b = $("outDel"); if (!editing) return;
   if (!b.dataset.sure) { b.dataset.sure = "1"; b.textContent = "Σίγουρα; Πάτα ξανά"; return; }
-  if (editing.photo_path) await D.sb.storage.from("receipts").remove([editing.photo_path]).catch(() => {});
   const { error } = await D.sb.from("outgoing").delete().eq("id", editing.id);
   if (error) { show($("outFormMsg"), "Δεν διαγράφηκε: " + error.message, "bad"); return; }
   rows.delete(editing.id); if (found) found = found.filter(x => x.id !== editing.id);
