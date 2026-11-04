@@ -409,3 +409,22 @@ button.codb.dmg{border:0;cursor:pointer;font:inherit;font-size:12px;font-weight:
 .mode-out .bottombar{display:none!important}
 .outroute{font-size:17px}
 #outDests{flex-wrap:wrap!important;overflow:visible!important;-webkit-mask-image:none!important;mask-image:none!important;margin:6px 0 4px!important;padding:0!important}
+/* εξερχόμενα: χρώμα ανά προορισμό + σύνολα δεξιά */
+.outbody{display:flex;flex-direction:column-reverse;gap:10px}
+.outcards{min-width:0}
+.outsum{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:6px 8px;align-self:stretch}
+.sumrow{display:flex;justify-content:space-between;gap:10px;padding:5px 6px 5px 8px;border-left:5px solid var(--line);margin:3px 0;font-weight:700}
+.sumrow .sumname{font-size:14px}
+.sumrow .sumn{font-size:16px}
+.sumrow.total{border-left-color:var(--navy);border-top:1px solid var(--line);margin-top:6px;padding-top:7px}
+.desthead{color:#fff;font-weight:800;font-size:14px;letter-spacing:.3px;border-radius:8px;padding:5px 10px;margin:12px 0 4px}
+.outcard{border-left-width:6px!important}
+.cdot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:-1px}
+@media (min-width:640px){
+  .outbody{flex-direction:row;align-items:flex-start}
+  .outcards{flex:1}
+  .outsum{flex:0 0 190px;position:sticky;top:84px;align-self:flex-start}
+}
+.outcard.st-loaded .chip.st{background:#dcfce7;color:#166534;border-color:#86efac}
+.outcard.st-waiting .chip.st{background:#fef3c7;color:#92400e;border-color:#fcd34d}
+.outcard.st-not_loaded .chip.st{background:#fee2e2;color:#991b1b;border-color:#fca5a5}

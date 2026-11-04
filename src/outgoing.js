@@ -149,16 +149,28 @@ async function onePhoto(file, loading) {
 async function errText(error) { try { const j = await error.context.json(); return j.detail || j.error || error.message; } catch { return error.message; } }
 
 // ---------------------------------------------------------------- λίστα ανά δρομολόγιο
+// χρώμα ανά προορισμό: ίδιο σε όλη την ημέρα (από τα χρώματα πόλεων της εφαρμογής, αλλιώς παλέτα)
+const PALETTE = ["#1d4ed8", "#c2410c", "#15803d", "#7c3aed", "#be123c", "#0e7490", "#a16207", "#be185d", "#4d7c0f", "#475569"];
+let colorMap = new Map();
+const destColor = d => colorMap.get(d || "—") || "#475569";
+function buildColors(list) {
+  const cc = (D.settings().city_colors) || {}; colorMap = new Map();
+  const ds = [...new Set(list.map(r => r.destination_city || "—"))].sort((a, b) => a.localeCompare(b, "el"));
+  const used = new Set(ds.map(d => (cc[d] || "").toLowerCase()).filter(Boolean)); // χρώματα πόλεων της εφαρμογής πρώτα
+  const free = PALETTE.filter(c => !used.has(c)); let i = 0;
+  for (const d of ds) colorMap.set(d, cc[d] || free[i++ % (free.length || 1)] || PALETTE[0]);
+}
 function render() {
   const list = $("outList"); list.textContent = "";
   const all = found || [...rows.values()];
+  buildColors(all);
   // πάνω πάνω: οι προορισμοί της ημέρας (πάτα για φίλτρο)
   const bar = $("outDests"); bar.textContent = "";
   if (!found && all.length) {
     const liveAll = all.filter(r => r.status !== "cancelled"); const cnt = new Map();
     for (const r of liveAll) { const d = r.destination_city || "—"; cnt.set(d, (cnt.get(d) || 0) + 1); }
     if (destFilter && !cnt.has(destFilter)) destFilter = "";
-    const chip = (label, val) => { const b = el("button", "chip", label); b.type = "button"; b.setAttribute("aria-pressed", String(destFilter === val)); b.onclick = () => { destFilter = destFilter === val ? "" : val; render(); }; return b; };
+    const chip = (label, val) => { const b = el("button", "chip", label); b.type = "button"; if (val) { b.style.borderColor = destColor(val); b.prepend(Object.assign(el("span", "cdot"), { style: "background:" + destColor(val) })); } b.setAttribute("aria-pressed", String(destFilter === val)); b.onclick = () => { destFilter = destFilter === val ? "" : val; render(); }; return b; };
     bar.append(chip("Όλοι οι προορισμοί · " + liveAll.length, ""));
     [...cnt.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "el")).forEach(([d, n]) => bar.append(chip(d + " · " + n, d)));
   }
@@ -189,8 +201,7 @@ function render() {
     const live = g.filter(r => r.status !== "cancelled"); const chk = outCheck(g);
     const sec = el("section", "outtrip"); const head = el("div", "outhead");
     const title = (dest === "—" ? "Χωρίς προορισμό" : dest) + " " + (k.endsWith("—") ? "· χωρίς ώρα" : k);
-    const via = stopList.filter(s => s !== dest);
-    head.append(el("b", "outroute", title), ...(via.length ? [el("span", "hint", "στάσεις: " + via.map(s => s + " ×" + live.filter(r => r.destination_city === s).length).join(", ") + " · " + dest + " ×" + live.filter(r => r.destination_city === dest).length)] : []), el("span", "hint", " · " + live.length + (live.length === 1 ? " δέμα" : " δέματα") + (live.reduce((s, r) => s + (r.pieces || 1), 0) > live.length ? " (" + live.reduce((s, r) => s + (r.pieces || 1), 0) + " τεμ.)" : "")));
+    head.append(el("b", "outroute", title), el("span", "hint", " · " + live.length + (live.length === 1 ? " δέμα" : " δέματα") + (live.reduce((s, r) => s + (r.pieces || 1), 0) > live.length ? " (" + live.reduce((s, r) => s + (r.pieces || 1), 0) + " τεμ.)" : "")));
     const badges = el("div", "outbadges");
     badges.append(el("span", "badge", live.filter(r => r.status === "loaded").length + "/" + live.length + " φορτώθηκαν"));
     if (live.some(r => r.in_report)) badges.append(el("span", "badge ok", "📄 " + live.filter(r => r.in_report).length + " στην κατάσταση"));
@@ -204,7 +215,18 @@ function render() {
     if (smsList.length && !found) acts.append(btn("📩 SMS στους παραλήπτες (" + smsList.length + ")", "", async e => { e.target.disabled = true; let n = 0; for (const r of smsList) if (await sendSms(r, true)) n++; show($("outMsg"), "📩 Στάλθηκαν " + n + " από " + smsList.length + " SMS.", n === smsList.length ? "ok" : "warn"); render(); }));
     if (acts.childNodes.length) head.append(acts);
     sec.append(head);
-    for (const r of g) sec.append(card(r));
+    // δεξιά: σύνολο ανά προορισμό (με τη σειρά των στάσεων)· αριστερά: τα δέματα, με χρωματιστή κεφαλίδα ανά προορισμό
+    const body = el("div", "outbody"), cards = el("div", "outcards"), sum = el("aside", "outsum");
+    const dlist = [...new Set(g.map(r => r.destination_city || "—"))];
+    for (const d of dlist) {
+      const n = live.filter(r => (r.destination_city || "—") === d).length; const c = destColor(d);
+      const line = el("div", "sumrow"); line.style.borderLeftColor = c;
+      line.append(el("span", "sumname", d), el("b", "sumn", String(n))); line.querySelector(".sumname").style.color = c; sum.append(line);
+      const sh = el("div", "desthead", d + " · " + n); sh.style.background = c; cards.append(sh);
+      for (const r of g.filter(x => (x.destination_city || "—") === d)) { const cd = card(r); cd.style.borderLeftColor = c; cards.append(cd); }
+    }
+    const tot = el("div", "sumrow total"); tot.append(el("span", "sumname", "Σύνολο"), el("b", "sumn", String(live.length))); sum.append(tot);
+    body.append(cards, sum); sec.append(body);
     list.append(sec);
   }
 }
