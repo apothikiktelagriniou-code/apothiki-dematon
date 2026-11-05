@@ -41,6 +41,12 @@ export function initOutgoing(deps) {
     else if (inDay(ev.new)) rows.set(ev.new.id, ev.new); else rows.delete(ev.new.id);
     if (active) { if (ev.new && ev.new.report_id && !reports.has(ev.new.report_id)) loadReports([ev.new]).then(render); else render(); }
   }).subscribe();
+  let tt = null;
+  D.sb.channel("outgoing-transit").on("postgres_changes", { event: "*", schema: "public", table: "parcels" }, ev => {
+    const n = ev.new || {}, o = ev.old || {};
+    if (!active || !(n.status === "transit" || n.status === "forwarded" || rows.has("p:" + (n.id || o.id)))) return;
+    clearTimeout(tt); tt = setTimeout(load, 1500);
+  }).subscribe();
 }
 // ---------------------------------------------------------------- ⏰ 10′ πριν φύγει κάθε δρομολόγιο: έλεγχος κατάστασης
 const REMIND = 10;
@@ -73,7 +79,7 @@ function missAfterReport(dep) {
   const ms = missingOf(tr); return ms.length ? "\n❌ ΛΕΙΠΟΥΝ από τη φόρτωση (" + ms.length + "): " + missText(ms, 20) : "\n✓ Όλα τα δέματα της κατάστασης έχουν φορτωθεί.";
 }
 // ΛΕΙΠΟΥΝ από τη φόρτωση: είναι στην κατάσταση αλλά δεν σημειώθηκαν «Φορτώθηκε»
-const missingOf = rows => rows.filter(r => r.in_report && r.status === "waiting");
+const missingOf = rows => rows.filter(r => (r.in_report || r._parcel) && r.status === "waiting");
 const missText = (m, max = 6) => m.slice(0, max).map(r => (r.recipient_name || r.receipt_no || "?") + " → " + (r.destination_city || "?") + (r.pieces > 1 ? " (" + r.pieces + " τεμ.)" : "")).join(" · ") + (m.length > max ? " · +" + (m.length - max) : "");
 function summary(x) {
   const c = outCheck(x.rows), w = x.rows.filter(r => r.status === "waiting");
@@ -104,9 +110,44 @@ async function load() {
     .order("departure_at", { ascending: true }).limit(2000);
   if (error) { show($("outMsg"), "Δεν φορτώθηκαν τα εξερχόμενα: " + error.message + (/outgoing/.test(error.message) ? " — λείπει το 0014 στη βάση;" : ""), "bad"); return; }
   rows = new Map((data || []).map(r => [r.id, r]));
+  for (const t of await loadTransit(S, E)) rows.set(t.id, t);
   for (const x of qGet()) { const r = rows.get(x.id); if (r) rows.set(x.id, { ...r, ...x.patch }); } // φορτώσεις που περιμένουν σήμα
   await loadReports([...rows.values()]); render();
   if ($("outCashBox").hidden === false) renderCash();
+}
+// ⇄ ΔΙΕΡΧΟΜΕΝΑ: δέματα των εισερχομένων με «Μεταφόρτωση» → μπαίνουν στο λεωφορείο που περνά από τον προορισμό τους.
+// Όταν φορτωθούν εδώ, στα εισερχόμενα γίνονται «Προωθήθηκε» (με ώρα και λεωφορείο). Δεν μετράνε στο ταμείο (πληρώθηκαν αλλού).
+async function loadTransit(S, E) {
+  const today = dayKey(new Date()) === $("outDay").value;
+  const flt = (today ? "status.eq.transit," : "") + `and(status.eq.forwarded,fwd_departure_at.gte.${S},fwd_departure_at.lt.${E})`;
+  const { data, error } = await D.sb.from("parcels").select("id,receipt_no,recipient_name,recipient_phone,destination_city,origin_city,pieces,status,bypassed,fwd_destination,fwd_departure_at,fwd_bus,created_at")
+    .or(flt).limit(500);
+  if (error) return [];
+  const old = Date.now() - 10 * 864e5;
+  return (data || []).filter(p => !p.bypassed && (p.status === "transit" || p.status === "forwarded") && (p.status !== "transit" || new Date(p.created_at).getTime() > old)).map(p => ({
+    id: "p:" + p.id, _parcel: p, receipt_no: p.receipt_no, recipient_name: p.recipient_name, recipient_phone: p.recipient_phone,
+    destination_city: p.fwd_destination || p.destination_city, pieces: p.pieces || 1, fare_eur: null,
+    departure_at: p.status === "forwarded" ? p.fwd_departure_at : null, created_at: p.created_at,
+    status: p.status === "forwarded" ? "loaded" : "waiting", notes: "⇄ Μεταφόρτωση" + (p.origin_city ? " από " + p.origin_city : "") }));
+}
+/** Διερχόμενο χωρίς ώρα → στο επόμενο λεωφορείο της ημέρας που περνά από τον προορισμό του. */
+function assignTransit() {
+  const reps = [...reports.values()].filter(x => x.departure_at && inDay(x)).sort((a, b) => new Date(a.departure_at) - new Date(b.departure_at));
+  const now = Date.now() - 15 * 60e3;
+  for (const r of rows.values()) {
+    if (!r._parcel || r._parcel.status !== "transit") continue;
+    const ok = reps.filter(x => x.route.end === r.destination_city || x.route.stops.includes(r.destination_city));
+    const rep = ok.find(x => new Date(x.departure_at).getTime() >= now) || ok.at(-1);
+    r.report_id = rep ? rep.id : null; r.departure_at = rep ? rep.departure_at : null;
+  }
+}
+async function saveTransit(r, patch) {
+  const now = new Date().toISOString(); let pp = null;
+  if (patch.status === "loaded") pp = { status: "forwarded", status_at: now, fwd_at: now, fwd_destination: r.destination_city, fwd_departure_at: r.departure_at || now, fwd_bus: keyLabel(tripKeyOf(r)) };
+  else if (patch.status === "waiting" || patch.status === "not_loaded") pp = { status: "transit", status_at: now, fwd_at: null, fwd_destination: null, fwd_departure_at: null, fwd_bus: null };
+  if (pp) { const { error } = await D.sb.from("parcels").update(pp).eq("id", r._parcel.id); if (error) throw error;
+    r._parcel = { ...r._parcel, ...pp }; r.status = pp.status === "forwarded" ? "loaded" : "waiting"; if (patch.photographed) r.photographed = true; }
+  rows.set(r.id, r); return r;
 }
 async function loadReports(list) {
   const ids = [...new Set(list.map(r => r.report_id).filter(id => id && !reports.has(id)))];
@@ -132,6 +173,7 @@ async function findExisting(o) {
   return (data || []).find(x => sameOutgoing(x, o)) || null;
 }
 async function save(id, patch) {
+  if (String(id || "").startsWith("p:")) { const r = rows.get(id); if (!r) throw new Error("το διερχόμενο δεν βρέθηκε"); return saveTransit(r, patch); }
   const q = id ? D.sb.from("outgoing").update(patch).eq("id", id) : D.sb.from("outgoing").insert(patch);
   const { data, error } = await q.select().single(); if (error) throw error;
   if (inDay(data)) rows.set(data.id, data); else rows.delete(data.id);
@@ -240,11 +282,12 @@ async function runPhotos(files) {
     if (ms.length) { D.beep && D.beep(); try { navigator.vibrate && navigator.vibrate([200, 100, 200]); } catch { /* */ } }
   } finally { busy = false; }
 }
-async function onePhoto(file, loading) {
+async function onePhoto(file, loading, expectNo = null) {
   const img = await toJpegB64(file, 1600, 0.8);
   const { data, error } = await D.sb.functions.invoke("extract-receipt", { body: { images: [{ data: img, media_type: "image/jpeg" }] } });
   if (error) throw new Error(await errText(error));
   const d = data.data || {}; const o = extractedToOutgoing(d);
+  if (expectNo && !(o.receipt_no && sameOutgoing({ receipt_no: o.receipt_no }, { receipt_no: expectNo }))) o.receipt_no = expectNo; // η σάρωση (3 ίδιες αναγνώσεις) υπερισχύει
   if (!o.receipt_no && !o.parcel_code) { openEdit(null, o); throw new Error("δεν διαβάστηκε αριθμός απόδειξης — συμπλήρωσέ τον στη φόρμα"); }
   if (!isAgrinioReceipt(o.receipt_no)) throw new Error("η απόδειξη " + (o.receipt_no || "") + " δεν είναι της αποθήκης Αγρινίου (δεν ξεκινά με 228) — δεν καταχωρήθηκε");
   const flags = (d.unsure || []).filter(u => ["receipt_no", "phone", "fare_eur", "recipient", "destination_city"].includes(u));
@@ -287,6 +330,7 @@ const keyLabel = key => { const [k, d] = key.split("|"); return (d === "—" ? "
 // πλήθος = τεμάχια (ένα δέμα με 3 κομμάτια μετράει 3)
 const pcs = a => a.reduce((s, r) => s + Math.max(1, Number(r.pieces) || 1), 0);
 function render() {
+  assignTransit();
   const list = $("outList"); list.textContent = "";
   const all = found || [...rows.values()];
   buildColors(all);
@@ -393,7 +437,7 @@ function printTrip(title, g, stops, day) {
   for (const d of dests) {
     const a = live.filter(r => (r.destination_city || "—") === d).sort((x, y) => (x.recipient_name || "").localeCompare(y.recipient_name || "", "el"));
     html += `<tr class="dh"><td colspan="7">${esc(d)} · ${pcs(a)} τεμ.${pcs(a) > a.length ? " (" + a.length + " αποδ.)" : ""}</td></tr>`;
-    for (const r of a) html += `<tr><td>${++n}</td><td class="mono">${esc(r.receipt_no)}</td><td>${esc(r.recipient_name || "")}</td><td>${esc(r.recipient_phone ? fmtPhone(r.recipient_phone) : "")}</td><td class="c"><b>${r.pieces || 1}</b></td><td class="r">${r.fare_eur != null ? esc(money(r.fare_eur)) : ""}</td><td class="c">${r.status === "loaded" ? "✓" : "☐"}</td></tr>`;
+    for (const r of a) html += `<tr><td>${++n}</td><td class="mono">${esc(r.receipt_no)}</td><td>${r._parcel ? "⇄ " : ""}${esc(r.recipient_name || "")}${r._parcel ? ' <small>(διερχ.' + (r._parcel.origin_city ? " από " + esc(r._parcel.origin_city) : "") + ")</small>" : ""}</td><td>${esc(r.recipient_phone ? fmtPhone(r.recipient_phone) : "")}</td><td class="c"><b>${r.pieces || 1}</b></td><td class="r">${r.fare_eur != null ? esc(money(r.fare_eur)) : ""}</td><td class="c">${r.status === "loaded" ? "✓" : "☐"}</td></tr>`;
   }
   const area = $("printArea");
   area.innerHTML = `<h1>Κατάσταση δρομολογίου · ${esc(title)}</h1>
@@ -407,7 +451,7 @@ function printTrip(title, g, stops, day) {
   window.addEventListener("afterprint", done); setTimeout(() => window.print(), 50);
 }
 const smsOn = () => D.settings().sms_enabled === true;
-const canSms = r => smsOn() && r.status === "loaded" && !r.sms_sent_at && /^69\d{8}$/.test(r.recipient_phone || "");
+const canSms = r => !r._parcel && smsOn() && r.status === "loaded" && !r.sms_sent_at && /^69\d{8}$/.test(r.recipient_phone || "");
 function card(r) {
   const c = el("article", "outcard st-" + r.status); c.id = "out-" + r.id;
   const top = el("div", "outtop");
@@ -415,11 +459,12 @@ function card(r) {
   if (r.in_report && !r.photographed) top.append(el("span", "badge bad", "χωρίς φωτογραφία"));
   if (r.photographed && !r.in_report) top.append(el("span", "badge warn", "εκτός κατάστασης"));
   if (r.in_cash) top.append(el("span", "badge ok", "🧾 ταμείο"));
+  if (r._parcel) { c.classList.add("is-transit"); top.append(el("span", "badge transit", "⇄ ΔΙΕΡΧΟΜΕΝΟ" + (r._parcel.origin_city ? " από " + r._parcel.origin_city : ""))); }
   c.append(top);
   const info = el("div", "outinfo");
   const add = (l, v) => { if (v == null || v === "") return; const x = el("div", "line"); x.append(el("span", "lbl", l), el("span", null, v)); info.append(x); };
   add("Προορισμός", r.destination_city); add("Απόδειξη", r.receipt_no + (r.parcel_code && !/\(/.test(r.receipt_no || "") ? " · " + r.parcel_code : ""));
-  add("Κόμιστρο", r.fare_eur != null ? money(r.fare_eur) + (r.pieces > 1 ? " · " + r.pieces + " τεμ." : "") : "⚠ λείπει");
+  if (!r._parcel) add("Κόμιστρο", r.fare_eur != null ? money(r.fare_eur) + (r.pieces > 1 ? " · " + r.pieces + " τεμ." : "") : "⚠ λείπει");
   add("Αναχώρηση", r.departure_at ? fmtGr(r.departure_at) : null); add("Έκδοση", r.issued_at ? fmtGr(r.issued_at) : null); add("Αποστολέας", [r.sender_name, r.sender_phone ? fmtPhone(r.sender_phone) : ""].filter(Boolean).join(" · "));
   add("Τηλ. παραλήπτη", r.recipient_phone ? fmtPhone(r.recipient_phone) + (r.sms_sent_at ? " · 📩 SMS " + fmtGr(r.sms_sent_at) : "") : null);
   add("Υπάλληλος", r.operator); add("Παρατηρήσεις", r.notes);
@@ -437,10 +482,10 @@ function card(r) {
     c.append(w);
   }
   const a = el("div", "outacts");
-  if (r.status === "waiting") a.append(btn("✓ Φορτώθηκε", "primary", () => save(r.id, loadedPatch()).then(render)), btn("✗ Δεν φορτώθηκε", "", () => save(r.id, { status: "not_loaded", status_at: new Date().toISOString() }).then(render)));
+  if (r.status === "waiting") { a.append(btn("✓ Φορτώθηκε", "primary", () => save(r.id, loadedPatch()).then(render))); if (!r._parcel) a.append(btn("✗ Δεν φορτώθηκε", "", () => save(r.id, { status: "not_loaded", status_at: new Date().toISOString() }).then(render))); }
   else if (r.status !== "cancelled") a.append(btn("↺ Περιμένει", "", () => save(r.id, { status: "waiting", loaded_at: null, status_at: new Date().toISOString() }).then(render)));
   if (canSms(r)) a.append(btn("📩 SMS παραλήπτη", "", async () => { await sendSms(r, false); render(); }));
-  a.append(btn("✎ Επεξεργασία", "", () => openEdit(r)));
+  if (!r._parcel) a.append(btn("✎ Επεξεργασία", "", () => openEdit(r)));
   c.append(a);
   return c;
 }
@@ -498,7 +543,7 @@ function toggleCash() { const b = $("outCashBox"); b.hidden = !b.hidden; if (!b.
 function renderCash() {
   const box = $("outCashBox"); box.textContent = "";
   const pct = Number((D.settings().out_rates || {}).commission_pct ?? 18);
-  const dayRows = [...rows.values()];
+  const dayRows = [...rows.values()].filter(r => !r._parcel);
   const k = outCash(dayRows, pct);
   box.append(el("h3", null, "💶 Ταμείο εξερχομένων · " + new Date($("outDay").value + "T12:00").toLocaleDateString("el-GR", { weekday: "long", day: "numeric", month: "long" })));
   const t = el("table", "cash"); const tr = (a, b, strong) => { const x = el("tr"); x.append(el("td", null, a)); const v = el("td", "num", b); if (strong) v.style.fontWeight = "700"; x.append(v); t.append(x); };
@@ -649,7 +694,9 @@ async function onNumber(n, conf = 0) {
   const now = Date.now();
   const last = scan.seen.get(n); if (last && now - last < 4000) return; // ήδη χειρίστηκε πρόσφατα
   const h = (scan.hits.get(n) || 0) + 1; scan.hits.set(n, h); setTimeout(() => scan && scan.hits.delete(n), 2500);
-  const r = [...rows.values()].find(x => sameOutgoing(x, { receipt_no: n }));
+  const is228 = isAgrinioReceipt(n);
+  const r = [...rows.values()].find(x => (is228 || x._parcel) && sameOutgoing(x, { receipt_no: n }));
+  if (!is228 && (!r || h < 2)) return; // αριθμοί άλλων σταθμών: μόνο τα διερχόμενα της λίστας
   if (!r && h < 3) return; if (r && h < (conf >= 80 ? 1 : 2)) return;
   scan.seen.set(n, now); scan.hits.delete(n);
   if (r) {
@@ -666,12 +713,39 @@ async function onNumber(n, conf = 0) {
     // δεν είναι στη λίστα της ημέρας → μήπως άλλη μέρα; αλλιώς καταχώρηση μόνο με τον αριθμό («εκτός κατάστασης»)
     const ex = await findExisting({ receipt_no: n });
     if (ex) { flash("bad", "✋ ΑΛΛΗ ΗΜΕΡΑ", n, ex.departure_at ? fmtGr(ex.departure_at) : "έλεγξέ το"); sound.bad(); scanStatus("⚠ " + n + " είναι καταχωρημένο για " + (ex.departure_at ? fmtGr(ex.departure_at) : "άλλη ημέρα") + " — έλεγξέ το.", "bad"); scanLog("⚠ " + n + " άλλη ημέρα", "bad"); return; }
+    // ΧΩΡΙΣ κατάσταση (ή εκτός της): καταχωρείται αμέσως με τον αριθμό και το καρέ διαβάζεται από το AI στο παρασκήνιο
+    // για όνομα/προορισμό/ώρα/κόμιστρο. Η εικόνα ΔΕΝ αποθηκεύεται πουθενά.
+    const withReport = scan.key && [...rows.values()].some(x => x.in_report && tripKeyOf(x) === scan.key);
     const dep = scan.key ? [...rows.values()].find(x => tripKeyOf(x) === scan.key && x.departure_at)?.departure_at || null : null;
-    try { await save(null, { receipt_no: n, status: "loaded", ...loadedPatch(), photographed: true, in_report: false, departure_at: dep, operator: D.operator() || null, notes: "Σάρωση: μόνο αριθμός — εκτός κατάστασης, συμπλήρωσε στοιχεία" });
-      flash("warn", "⚠ ΕΚΤΟΣ ΚΑΤΑΣΤΑΣΗΣ", n, "καταχωρήθηκε μόνο ο αριθμός"); sound.bad(); scanStatus("⚠ " + n + " ΔΕΝ είναι στην κατάσταση — καταχωρήθηκε μόνο ο αριθμός.", "warn"); scanLog("⚠ " + n + " εκτός κατάστασης", "warn"); }
-    catch (e) { scanStatus("Δεν αποθηκεύτηκε: " + e.message, "bad"); }
+    const shot = await grabFull($("scanVideo"));
+    try { await save(null, { receipt_no: n, ...loadedPatch(), photographed: true, in_report: false, departure_at: dep, operator: D.operator() || null, notes: withReport ? "Σάρωση: εκτός κατάστασης" : "Σάρωση" });
+      if (withReport) { flash("warn", "⚠ ΕΚΤΟΣ ΚΑΤΑΣΤΑΣΗΣ", n, "διαβάζω τα στοιχεία…"); sound.bad(); scanStatus("⚠ " + n + " ΔΕΝ είναι στην κατάσταση — διαβάζω τα στοιχεία της ετικέτας…", "warn"); }
+      else { flash("ok", "✓ ΝΕΟ", n, "διαβάζω τα στοιχεία…", true); sound.ok(); scanStatus("✓ " + n + " — διαβάζω όνομα/προορισμό…", "ok"); }
+      scanLog((withReport ? "⚠ " : "✓ ") + n + " · διαβάζω…", withReport ? "warn" : "ok");
+      if (shot) enrichScan(shot, n, scan.key);
+    }
+    catch (e) { flash("bad", "⚠ ΔΕΝ ΑΠΟΘΗΚΕΥΤΗΚΕ", n, netErr(e) ? "χωρίς ίντερνετ — ξανασάρωσέ το" : "ξανασάρωσέ το"); scan.seen.delete(n); sound.bad(); scanStatus("Δεν αποθηκεύτηκε: " + e.message, "bad"); }
   }
   scanCounters();
+}
+/** Ολόκληρο το καρέ (για ανάγνωση στοιχείων από το AI· δεν αποθηκεύεται). */
+function grabFull(v) {
+  return new Promise(res => {
+    const w = v.videoWidth, h = v.videoHeight; if (!w || !h) return res(null);
+    const k = Math.min(1, 1600 / Math.max(w, h)), c = document.createElement("canvas"); c.width = Math.round(w * k); c.height = Math.round(h * k);
+    c.getContext("2d").drawImage(v, 0, 0, c.width, c.height); c.toBlob(b => res(b), "image/jpeg", 0.85);
+  });
+}
+async function enrichScan(blob, n, key) {
+  try {
+    const r = await onePhoto(blob, true, n);
+    const line = n + " → " + (r.recipient_name || "?") + " · " + (r.destination_city || "?") + (r.departure_at ? " · " + hhmm(r.departure_at) : "");
+    if (scan && key && tripKeyOf(r) !== key && r.destination_city) {
+      flash("bad", "✋ ΛΑΘΟΣ ΛΕΩΦΟΡΕΙΟ;", (r.recipient_name || n), r.destination_city + " — είναι για " + keyLabel(tripKeyOf(r))); sound.bad();
+      scanLog("⚠ " + line + " (άλλο δρομολόγιο;)", "bad");
+    } else if (scan) scanLog("📄 " + line, "ok");
+    render(); if (scan) scanCounters();
+  } catch (e) { if (scan) scanLog("⚠ " + n + ": δεν διαβάστηκαν στοιχεία (" + String(e.message || e).slice(0, 60) + ") — συμπλήρωσέ τα μετά", "warn"); }
 }
 // Μεγάλη έγχρωμη ένδειξη πάνω στην κάμερα: πράσινο = ΟΚ (σβήνει μόνη σε 1,2″), κόκκινο/κίτρινο = στάσου (2,5″ ή πάτημα).
 let flashT = null;

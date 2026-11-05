@@ -484,3 +484,4 @@ dialog.scanner.pulse-ok{animation:pulseok .6s}dialog.scanner.pulse-bad{animation
   @page{size:A4;margin:12mm}
 }
 .scanflash .sf-btns{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:14px}.scanflash .sf-btns:empty{display:none}.scanflash .sfchoice{display:inline-block;font-size:clamp(20px,6vw,30px);font-weight:900;padding:14px 22px;border-radius:12px;border:3px solid #fff;background:rgba(0,0,0,.3);color:#fff;min-width:40%}
+.badge.transit{background:#ede9fe;color:#5b21b6;border-color:#c4b5fd}.outcard.is-transit{background:linear-gradient(90deg,rgba(124,58,237,.06),transparent 40%)}

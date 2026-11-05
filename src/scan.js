@@ -29,8 +29,12 @@ export function getWorker(onProgress, i = 0) {
 export function find228(text) {
   const out = [];
   for (const line of String(text || "").split(/\n/)) {
-    const m = line.replace(/\s+/g, " ").match(/(?:^|[^\d])228 ?-? ?(\d{3}) ?-? ?(\d{5,7})(?!\d)/);
-    if (m) out.push("228-" + m[1] + "-" + m[2]);
+    const s = line.replace(/\s+/g, " ");
+    const m = s.match(/(?:^|[^\d])228 ?-? ?(\d{3}) ?-? ?(\d{5,7})(?!\d)/);
+    if (m) { out.push("228-" + m[1] + "-" + m[2]); continue; }
+    // αποδείξεις ΑΛΛΩΝ σταθμών (για τα διερχόμενα): ddd-ddd-ddddd με παύλες — δεκτές μόνο αν υπάρχουν στη λίστα
+    const o = s.match(/(?:^|[^\d])(\d{3}) ?- ?(\d{3}) ?- ?(\d{4,6})(?![\d])/);
+    if (o) out.push(o[1] + "-" + o[2] + "-" + o[3]);
   }
   return out;
 }
