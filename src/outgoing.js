@@ -4,7 +4,7 @@
 //      3) ο έλεγχος δείχνει: στην κατάσταση χωρίς φωτογραφία / φωτογραφία εκτός κατάστασης.
 import { cashReconcile, routeOf, isAgrinioReceipt, norm, fmtGr, fmtPhone, cleanPhone, money, parseGrDate, cityFromStation, extractedToOutgoing, sameOutgoing, fillBlanks, outCheck, outCash, outSmsFor, surnameFirst } from "./lib.js";
 import { toJpegB64 } from "./capture.js";
-import { getWorker, find228, grabBand, sound } from "./scan.js";
+import { getWorker, getWorkers, find228, grabBand, sound } from "./scan.js";
 
 const $ = id => document.getElementById(id);
 const el = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
@@ -524,7 +524,9 @@ async function openScanner(key) {
   try { await getWorker(m => { if (m.status && /load|init/i.test(m.status)) scanStatus("Φορτώνω την ανάγνωση κειμένου… " + Math.round((m.progress || 0) * 100) + "%", "info"); }); }
   catch (e) { scanStatus("Η ανάγνωση κειμένου δεν φόρτωσε: " + e.message, "bad"); return; }
   scanStatus("Βάλε τον «Αρ. Απόδειξης» μέσα στο πλαίσιο.", "info");
-  scanLoop();
+  const pool = await getWorkers().catch(() => []); if (!scan) return;
+  scan.ms = [];
+  pool.forEach((w, i) => setTimeout(() => scanLoop(w, i), i * 150)); // παράλληλες αναγνώσεις, μετατοπισμένες στον χρόνο
 }
 function closeScanner() {
   if (!scan) return;
@@ -542,14 +544,15 @@ function scanCounters() {
   const ok = pcs(live.filter(r => r.status === "loaded")), all = pcs(live);
   box.append(el("b", "scantot" + (ok === all && all ? " done" : ""), "Σύνολο " + ok + "/" + all + (ok === all && all ? " · ✓ ΠΛΗΡΕΣ" : "")));
 }
-async function scanLoop() {
+const canv = [];
+async function scanLoop(w, i) {
   if (!scan) return;
-  const v = $("scanVideo");
+  const v = $("scanVideo"); const me = scan;
   try {
-    const c = grabBand(v, $("scanCanvas"));
-    if (c) { const w = await getWorker(); const { data } = await w.recognize(c); if (scan) for (const n of find228(data.text)) await onNumber(n, data.confidence || 0); }
+    const c = grabBand(v, canv[i] || (canv[i] = document.createElement("canvas")));
+    if (c) { const t = performance.now(); const { data } = await w.recognize(c); if (scan === me) { me.ms.push(performance.now() - t); if (me.ms.length > 20) me.ms.shift(); window.__scanMs = me.ms; for (const n of find228(data.text)) await onNumber(n, data.confidence || 0); } }
   } catch { /* επόμενο καρέ */ }
-  if (scan) scan.timer = setTimeout(scanLoop, 30);
+  if (scan === me) me.timer = setTimeout(() => scanLoop(w, i), 15);
 }
 // Γρήγορο: αριθμός της λίστας με καθαρή ανάγνωση (≥80%) = 1 καρέ· θολή ανάγνωση = 2 ίδια καρέ· άγνωστος αριθμός = 3.
 async function onNumber(n, conf = 0) {
@@ -585,7 +588,7 @@ function flash(kind, big, name, sub, quick) {
   f.className = "scanflash " + kind; f.hidden = false;
   $("scanFlashBig").textContent = big; $("scanFlashName").textContent = name || ""; $("scanFlashSub").textContent = sub || ""; $("scanFlashCnt").textContent = "";
   $("scanDlg").classList.remove("pulse-ok", "pulse-bad"); void f.offsetWidth; $("scanDlg").classList.add(kind === "ok" ? "pulse-ok" : "pulse-bad");
-  flashT = setTimeout(() => { f.hidden = true; }, quick ? 1200 : 2500);
+  flashT = setTimeout(() => { f.hidden = true; }, quick ? 900 : 2500);
 }
 function flashCount() {
   if (!scan) return; const live = [...rows.values()].filter(r => r.status !== "cancelled" && (!scan.key || tripKeyOf(r) === scan.key));

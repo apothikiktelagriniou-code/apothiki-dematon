@@ -1,19 +1,27 @@
 // Σάρωση ΚΕΙΜΕΝΟΥ από την κάμερα, μέσα στο κινητό (Tesseract, χωρίς AI, χωρίς ανέβασμα φωτογραφιών).
 // Ψάχνει μόνο αριθμούς απόδειξης της αποθήκης Αγρινίου: 228-ddd-dddddd.
 
-let worker = null, starting = null;
-export function getWorker(onProgress) {
-  if (worker) return Promise.resolve(worker);
-  if (starting) return starting;
+// 2 «αναγνώστες» παράλληλα σε κινητά με ≥4 πυρήνες → διπλάσια καρέ το δευτερόλεπτο
+export const WORKERS = Math.min(2, Math.max(1, Math.floor((navigator.hardwareConcurrency || 2) / 2)));
+const pool = [];
+export async function getWorkers(onProgress) {
+  const first = await getWorker(onProgress, 0); pool[0] = first;
+  for (let i = 1; i < WORKERS; i++) if (!pool[i]) { try { pool[i] = await getWorker(null, i); } catch { break; } }
+  return pool.filter(Boolean);
+}
+const ws = [], st = [];
+export function getWorker(onProgress, i = 0) {
+  if (ws[i]) return Promise.resolve(ws[i]);
+  if (st[i]) return st[i];
   const base = import.meta.env.BASE_URL + "tess/";
-  starting = (async () => {
+  const starting = st[i] = (async () => {
     const { createWorker, PSM } = await import("tesseract.js"); // φορτώνεται μόνο όταν ανοίξει η σάρωση
     const w = await createWorker("eng", 1, { workerPath: base + "worker.min.js", corePath: base, langPath: base, gzip: true,
       logger: m => onProgress && m.progress != null && onProgress(m) });
     await w.setParameters({ tessedit_char_whitelist: "0123456789- ", tessedit_pageseg_mode: PSM.SPARSE_TEXT });
-    worker = w; return w;
+    ws[i] = w; return w;
   })();
-  starting.catch(() => { starting = null; });
+  starting.catch(() => { st[i] = null; });
   return starting;
 }
 
@@ -28,13 +36,13 @@ export function find228(text) {
 }
 
 /** Παίρνει τη μεσαία λωρίδα του βίντεο (εκεί που είναι το πλαίσιο), μεγεθυμένη και ασπρόμαυρη. */
-export function grabBand(video, canvas, band = [0.3, 0.7]) {
+export function grabBand(video, canvas, band = [0.37, 0.63]) {
   const vw = video.videoWidth, vh = video.videoHeight; if (!vw || !vh) return null;
   const y0 = Math.round(vh * band[0]), h = Math.round(vh * (band[1] - band[0]));
-  const scale = Math.min(1.6, 1000 / vw); // μικρότερη εικόνα = πιο γρήγορη ανάγνωση (ο αριθμός μένει ευανάγνωστος)
+  const scale = Math.min(1.4, 900 / vw); // μικρότερη εικόνα = πιο γρήγορη ανάγνωση (ο αριθμός μένει ευανάγνωστος)
   canvas.width = Math.round(vw * scale); canvas.height = Math.round(h * scale);
   const ctx = canvas.getContext("2d", { willReadFrequently: true });
-  ctx.filter = "grayscale(1) contrast(1.4)";
+  ctx.filter = "grayscale(1) contrast(1.8) brightness(1.05)";
   ctx.drawImage(video, 0, y0, vw, h, 0, 0, canvas.width, canvas.height);
   return canvas;
 }

@@ -465,3 +465,4 @@ dialog.scanner.pulse-ok{animation:pulseok .6s}dialog.scanner.pulse-bad{animation
 @media (prefers-reduced-motion:reduce){.scanflash,dialog.scanner.pulse-ok,dialog.scanner.pulse-bad{animation:none}}
 .scanflash *{color:#fff!important;display:block}.scanflash .sf-cnt:empty{display:none}.scanflash.ok{background:rgba(22,163,74,.97)}
 .scanflash .sf-cnt{display:inline-block}
+.scanframe{top:37%;height:26%}
