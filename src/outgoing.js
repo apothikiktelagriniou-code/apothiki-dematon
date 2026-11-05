@@ -21,7 +21,7 @@ let reports = new Map(); // id → κατάσταση δρομολογίου (γ
 let busy = false, active = false, editing = null, destFilter = "", tripSel = "";
 
 export function initOutgoing(deps) {
-  D = deps; initScanner();
+  D = deps; initScanner(); setTimeout(flushQueue, 3000);
   $("outDay").value = dayKey(new Date());
   $("outTrip").onchange = () => { tripSel = $("outTrip").value; render(); };
   $("outDay").onchange = () => { found = null; destFilter = ""; tripSel = ""; $("outQ").value = ""; load(); };
@@ -104,6 +104,7 @@ async function load() {
     .order("departure_at", { ascending: true }).limit(2000);
   if (error) { show($("outMsg"), "Δεν φορτώθηκαν τα εξερχόμενα: " + error.message + (/outgoing/.test(error.message) ? " — λείπει το 0014 στη βάση;" : ""), "bad"); return; }
   rows = new Map((data || []).map(r => [r.id, r]));
+  for (const x of qGet()) { const r = rows.get(x.id); if (r) rows.set(x.id, { ...r, ...x.patch }); } // φορτώσεις που περιμένουν σήμα
   await loadReports([...rows.values()]); render();
   if ($("outCashBox").hidden === false) renderCash();
 }
@@ -137,6 +138,32 @@ async function save(id, patch) {
   if (found) found = found.map(x => (x.id === data.id ? data : x));
   return data;
 }
+// Χωρίς σήμα στην αποβάθρα: η «φόρτωση» κρατιέται στο κινητό και στέλνεται μόλις επανέλθει το ίντερνετ.
+const QK = "outQueue";
+const qGet = () => { try { return JSON.parse(localStorage.getItem(QK) || "[]"); } catch { return []; } };
+const qSet = q => { try { localStorage.setItem(QK, JSON.stringify(q)); } catch { /* */ } };
+const netErr = e => !navigator.onLine || /fetch|network|Failed to|timeout|Load failed/i.test(String(e && (e.message || e)));
+async function saveQueued(r, patch) {
+  try { return await save(r.id, patch); }
+  catch (e) {
+    if (!netErr(e)) throw e;
+    const q = qGet().filter(x => x.id !== r.id); q.push({ id: r.id, patch: { ...(q.find(x => x.id === r.id)?.patch || {}), ...patch } }); qSet(q);
+    const local = { ...r, ...patch }; rows.set(r.id, local); queueBadge(); return local;
+  }
+}
+let flushing = false;
+async function flushQueue() {
+  const q = qGet(); if (!q.length || flushing || !navigator.onLine) { queueBadge(); return; } flushing = true;
+  const left = [];
+  for (const x of q) { try { await save(x.id, x.patch); } catch (e) { if (netErr(e)) left.push(x); } }
+  qSet(left); flushing = false; queueBadge(); if (q.length !== left.length) render();
+}
+function queueBadge() {
+  const n = qGet().length, m = $("outMsg"); if (!m) return;
+  const t = $("scanStatus");
+  if (n) { show(m, "📴 Χωρίς ίντερνετ: " + n + " φορτώσεις κρατήθηκαν στο κινητό — θα σταλούν μόλις έρθει σήμα. ΜΗΝ κλείσεις την εφαρμογή.", "warn"); if (t && scan) t.textContent = "📴 " + n + " σε αναμονή αποστολής"; }
+}
+window.addEventListener("online", flushQueue); setInterval(flushQueue, 20000);
 const loadedPatch = () => ({ status: "loaded", loaded_at: new Date().toISOString(), status_at: new Date().toISOString() });
 
 // ---------------------------------------------------------------- 1) κατάσταση δρομολογίου (σύστημα ΚΤΕΛ)
@@ -633,7 +660,7 @@ async function onNumber(n, conf = 0) {
     const alt = r.extraction_confidence?.dest_alt;
     if (alt) { flash("warn", "⚠ ΚΟΙΤΑ ΤΗΝ ΕΤΙΚΕΤΑ", r.recipient_name || n, "ΠΟΙΟΣ ΠΡΟΟΡΙΣΜΟΣ;", false, [r.destination_city, alt].filter(Boolean).map(d => [d, () => save(r.id, { destination_city: d, extraction_confidence: { ...r.extraction_confidence, dest_alt: null }, notes: (r.notes || "").replace(/⚠ ΕΛΕΓΞΕ ΠΡΟΟΡΙΣΜΟ[^·]*(· )?/, "").trim() || null }).then(() => { scanCounters(); scanLog("✎ " + n + " → " + d, "ok"); })])); sound.bad(); }
     else { flash("ok", "✓", r.recipient_name || n, (r.destination_city || "?") + (r.pieces > 1 ? " · " + r.pieces + " ΤΕΜ." : ""), true); sound.ok(); }
-    try { await save(r.id, { ...loadedPatch(), photographed: true }); scanCounters(); flashCount(); scanStatus("✓ " + (r.recipient_name || n) + " → " + (r.destination_city || "?") + (r.pieces > 1 ? " · " + r.pieces + " τεμ." : ""), "ok"); scanLog("✓ " + n + " · " + (r.recipient_name || "") + " → " + (r.destination_city || ""), "ok"); }
+    try { await saveQueued(r, { ...loadedPatch(), photographed: true }); scanCounters(); flashCount(); scanStatus("✓ " + (r.recipient_name || n) + " → " + (r.destination_city || "?") + (r.pieces > 1 ? " · " + r.pieces + " τεμ." : ""), "ok"); scanLog("✓ " + n + " · " + (r.recipient_name || "") + " → " + (r.destination_city || ""), "ok"); }
     catch (e) { flash("bad", "⚠ ΔΕΝ ΑΠΟΘΗΚΕΥΤΗΚΕ", r.recipient_name || n, "ξανασάρωσέ το"); scan.seen.delete(n); sound.bad(); scanStatus("Δεν αποθηκεύτηκε: " + e.message, "bad"); }
   } else {
     // δεν είναι στη λίστα της ημέρας → μήπως άλλη μέρα; αλλιώς καταχώρηση μόνο με τον αριθμό («εκτός κατάστασης»)
