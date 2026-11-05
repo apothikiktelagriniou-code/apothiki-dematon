@@ -1621,3 +1621,8 @@ async function openCash(dayStr) {
   if (!$("dlg").open) $("dlg").showModal();
 }
 $("cashBtn").onclick = () => { $("cashBtn").closest("details").open = false; openCash(); };
+
+// ▲ πάνω πάνω — σε κάθε σελίδα
+{ const b = document.getElementById("toTop");
+  if (b) { const upd = () => { b.hidden = window.scrollY < 400; }; window.addEventListener("scroll", upd, { passive: true }); upd();
+    b.onclick = () => window.scrollTo({ top: 0, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" }); } }

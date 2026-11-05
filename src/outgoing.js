@@ -156,9 +156,10 @@ async function runReport(files) {
     for (const it of items) {
       const tk = it.checked === true; if (tk) ticked++; // ✓ με στυλό = καταχωρήθηκε & φορτώθηκε
       const o = { receipt_no: it.receipt_no, recipient_name: it.recipient ? surnameFirst(it.recipient) : null, destination_city: cityFromStation(it.destination_city) || null,
-        fare_eur: it.fare_eur, pieces: it.pieces || 1, departure_at: dep };
+        fare_eur: it.fare_eur, pieces: Math.min(99, Math.max(1, Number(it.pieces) || 1)), departure_at: dep };
+      const pcFix = Number(it.pieces) > 0 ? Math.min(99, Number(it.pieces)) : null; // τα τεμάχια της κατάστασης υπερισχύουν
       const ex = await findExisting(o);
-      if (ex) { await save(ex.id, { ...fillBlanks(ex, o), in_report: true, report_id: rep.data?.id || null, ...(tk && ex.status === "waiting" ? loadedPatch() : {}) }); matched++; }
+      if (ex) { await save(ex.id, { ...fillBlanks(ex, o), ...(pcFix && pcFix !== ex.pieces ? { pieces: pcFix } : {}), in_report: true, report_id: rep.data?.id || null, ...(tk && ex.status === "waiting" ? loadedPatch() : {}) }); matched++; }
       else { await save(null, { ...o, in_report: true, report_id: rep.data?.id || null, status: "waiting", ...(tk ? loadedPatch() : {}), operator: D.operator() || null, notes: it.unsure ? "⚠ Έλεγξε: αβέβαιη γραμμή στην κατάσταση" : null }); added++; }
     }
     if (dep && dayKey(dep) !== $("outDay").value) { $("outDay").value = dayKey(dep); await load(); } else render();
@@ -308,6 +309,7 @@ function render() {
       acts.append(b);
     }
     const smsList = live.filter(canSms);
+    if (live.length) acts.append(btn("🖨 Εκτύπωση", "", () => printTrip(title, g, stopList, found ? null : $("outDay").value)));
     if (smsList.length && !found) acts.append(btn("📩 SMS στους παραλήπτες (" + smsList.length + ")", "", async e => { e.target.disabled = true; let n = 0; for (const r of smsList) if (await sendSms(r, true)) n++; show($("outMsg"), "📩 Στάλθηκαν " + n + " από " + smsList.length + " SMS.", n === smsList.length ? "ok" : "warn"); render(); }));
     if (acts.childNodes.length) head.append(acts);
     sec.append(head);
@@ -325,6 +327,29 @@ function render() {
     body.append(cards, sum); sec.append(body);
     list.append(sec);
   }
+}
+// ---------------------------------------------------------------- 🖨 εκτυπώσιμη κατάσταση δρομολογίου
+function printTrip(title, g, stops, day) {
+  const live = g.filter(r => r.status !== "cancelled");
+  const order = d => { const i = stops.indexOf(d); return i < 0 ? 99 : i; };
+  const dests = [...new Set(live.map(r => r.destination_city || "—"))].sort((a, b) => order(a) - order(b) || a.localeCompare(b, "el"));
+  const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+  let n = 0, html = "";
+  for (const d of dests) {
+    const a = live.filter(r => (r.destination_city || "—") === d).sort((x, y) => (x.recipient_name || "").localeCompare(y.recipient_name || "", "el"));
+    html += `<tr class="dh"><td colspan="7">${esc(d)} · ${pcs(a)} τεμ.${pcs(a) > a.length ? " (" + a.length + " αποδ.)" : ""}</td></tr>`;
+    for (const r of a) html += `<tr><td>${++n}</td><td class="mono">${esc(r.receipt_no)}</td><td>${esc(r.recipient_name || "")}</td><td>${esc(r.recipient_phone ? fmtPhone(r.recipient_phone) : "")}</td><td class="c"><b>${r.pieces || 1}</b></td><td class="r">${r.fare_eur != null ? esc(money(r.fare_eur)) : ""}</td><td class="c">${r.status === "loaded" ? "✓" : "☐"}</td></tr>`;
+  }
+  const area = $("printArea");
+  area.innerHTML = `<h1>Κατάσταση δρομολογίου · ${esc(title)}</h1>
+    <div class="pmeta">${day ? esc(new Date(day + "T12:00").toLocaleDateString("el-GR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })) + " · " : ""}Αποθήκη ΚΤΕΛ Αγρινίου · εκτύπωση ${esc(new Date().toLocaleString("el-GR"))}${D.operator() ? " · " + esc(D.operator()) : ""}</div>
+    <table class="ptab"><thead><tr><th>#</th><th>Απόδειξη</th><th>Παραλήπτης</th><th>Τηλέφωνο</th><th>Τεμ.</th><th>Κόμιστρο</th><th>Φορτ.</th></tr></thead><tbody>${html}</tbody>
+    <tfoot><tr><td colspan="4">Σύνολο: ${live.length} αποδείξεις</td><td class="c"><b>${pcs(live)}</b></td><td class="r">${esc(money(outCash(live, 0).fares))}</td><td></td></tr></tfoot></table>
+    <div class="psum">${dests.map(d => esc(d) + ": <b>" + pcs(live.filter(r => (r.destination_city || "—") === d)) + "</b>").join(" · ")}</div>
+    <div class="psign"><span>Παρέδωσε: ____________________</span><span>Παρέλαβε (οδηγός): ____________________</span></div>`;
+  document.body.classList.add("printing");
+  const done = () => { document.body.classList.remove("printing"); area.innerHTML = ""; window.removeEventListener("afterprint", done); };
+  window.addEventListener("afterprint", done); setTimeout(() => window.print(), 50);
 }
 const smsOn = () => D.settings().sms_enabled === true;
 const canSms = r => smsOn() && r.status === "loaded" && !r.sms_sent_at && /^69\d{8}$/.test(r.recipient_phone || "");

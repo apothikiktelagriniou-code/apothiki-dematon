@@ -70,6 +70,7 @@ const SYSTEM_MANIFEST = `Διαβάζεις φωτογραφίες από ΚΑΤ
 - Διάβασε μόνο ό,τι φαίνεται· ό,τι λείπει → "". Αμφιβολία σε γραμμή → "unsure": true.
 - Αριθμός απόδειξης συνήθως σε μορφή 258-341-23682.
 - Πόλεις κεφαλαία χωρίς τόνους. Ημερομηνία/ώρα DD/MM/YYYY HH:MM.
+- pieces = ΤΕΜΑΧΙΑ της γραμμής: στήλη «Ποσ» / «Ποσότητα» / «Τεμ.» / «Τεμάχια» (ή «1/3», «3 ΤΕΜ» δίπλα στη γραμμή). Διάβασέ τη για ΚΑΘΕ γραμμή· αν δεν υπάρχει τέτοια στήλη → null. Μην τη μπερδέψεις με την τιμή ή με αριθμό απόδειξης.
 - ΣΗΜΑΔΙ ΜΕ ΣΤΥΛΟ: αν δίπλα ή πάνω σε μια γραμμή υπάρχει χειρόγραφο τσεκ (✓), Χ, κύκλος, υπογράμμιση ή διαγράμμιση με στυλό/μαρκαδόρο → "checked": true. Χωρίς σημάδι → false. Κοίτα προσεκτικά κάθε γραμμή.
 
 Απάντησε ΜΟΝΟ με JSON:
@@ -119,7 +120,7 @@ Deno.serve(async req => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   const url = new URL(req.url);
   const key = Deno.env.get("ANTHROPIC_API_KEY");
-  if (url.searchParams.get("health") === "1") return json({ ok: true, hasKey: !!key, model: MODEL, version: "2026-11-05-cashclose" });
+  if (url.searchParams.get("health") === "1") return json({ ok: true, hasKey: !!key, model: MODEL, version: "2026-11-05-pieces" });
   if (url.searchParams.get("health") === "2") {
     // διαγνωστικό: μια μικρή κλήση στο AI για να φανεί αν δουλεύουν κλειδί/μοντέλο/πίστωση (δεν επιστρέφει το κλειδί)
     if (!key) return json({ ok: false, error: "missing_key" });

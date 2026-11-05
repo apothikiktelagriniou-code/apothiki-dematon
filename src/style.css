@@ -466,3 +466,20 @@ dialog.scanner.pulse-ok{animation:pulseok .6s}dialog.scanner.pulse-bad{animation
 .scanflash *{color:#fff!important;display:block}.scanflash .sf-cnt:empty{display:none}.scanflash.ok{background:rgba(22,163,74,.97)}
 .scanflash .sf-cnt{display:inline-block}
 .scanframe{top:37%;height:26%}
+
+/* ▲ πάνω πάνω */
+.totop{position:fixed;right:max(14px,env(safe-area-inset-right));bottom:max(18px,env(safe-area-inset-bottom));z-index:40;width:52px;height:52px;border-radius:50%;border:0;background:var(--navy,#1e3a8a);color:#fff;font-size:22px;font-weight:900;box-shadow:0 4px 14px rgba(0,0,0,.3);cursor:pointer}
+.totop[hidden]{display:none}
+@media (max-width:900px){.totop{bottom:calc(78px + env(safe-area-inset-bottom))}}
+/* 🖨 εκτύπωση κατάστασης */
+#printArea{display:none}
+@media print{
+  body.printing>*:not(#printArea){display:none!important}
+  body.printing #printArea{display:block;color:#000;font:11pt/1.35 Arial,sans-serif}
+  #printArea h1{font-size:16pt;margin:0 0 2mm;color:#000}.pmeta{font-size:9.5pt;margin-bottom:4mm}
+  .ptab{width:100%;border-collapse:collapse}.ptab th,.ptab td{border:1px solid #000;padding:1.6mm 2mm;text-align:left;vertical-align:top}
+  .ptab th{background:#e5e5e5}.ptab .dh td{background:#f0f0f0;font-weight:700}.ptab .c{text-align:center}.ptab .r{text-align:right}.ptab .mono{font-family:monospace;white-space:nowrap}
+  .ptab tr{break-inside:avoid}.ptab tfoot td{font-weight:700}
+  .psum{margin-top:4mm}.psign{display:flex;justify-content:space-between;margin-top:14mm}
+  @page{size:A4;margin:12mm}
+}
