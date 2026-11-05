@@ -502,7 +502,7 @@ async function runCashClose(files) {
       else if (to && r.destination_city && to !== r.destination_city && !it.unsure) { p.destination_city = to; p.notes = ((r.notes ? r.notes + " · " : "") + "Προορισμός διορθώθηκε από το ταμείο: " + r.destination_city + " → " + to); destFixed.push((r.recipient_name || it.receipt_no) + " " + r.destination_city + "→" + to); }
       if (it.amount != null && r.fare_eur == null) p.fare_eur = it.amount;
       if (it.amount != null && r.fare_eur != null && Math.abs(Number(r.fare_eur) - it.amount) > 0.009 && !String(r.notes || "").includes("ταμείο"))
-        p.notes = ((r.notes ? r.notes + " · " : "") + "⚠ Ταμείο: ποσό " + money(it.amount) + " (εδώ " + money(r.fare_eur) + ")");
+        p.notes = (((p.notes || r.notes) ? (p.notes || r.notes) + " · " : "") + "⚠ Ταμείο: ποσό " + money(it.amount) + " (εδώ " + money(r.fare_eur) + ")");
       try { await save(r.id, p); upd++; } catch (x) { errs.push(it.receipt_no + ": " + x.message); }
     }
     for (const it of rec.added) {
