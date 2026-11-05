@@ -200,7 +200,10 @@ async function onePhoto(file, loading) {
   const note = flags.length ? "⚠ Έλεγξε: " + flags.map(f => ({ receipt_no: "αριθμό", phone: "τηλέφωνο", fare_eur: "κόμιστρο", recipient: "παραλήπτη", destination_city: "προορισμό" }[f])).join(", ") : null;
   const ex = await findExisting(o);
   let r;
-  if (ex) r = await save(ex.id, { ...fillBlanks(ex, o), photographed: true, ...(loading && ex.status === "waiting" ? loadedPatch() : {}), ...(note && !ex.notes ? { notes: note } : {}) });
+  // η ίδια η απόδειξη υπερισχύει της κατάστασης για τον προορισμό (η κατάσταση διαβάζεται σε πίνακα και μπορεί να «γλιστρήσει» γραμμή)
+  const destFix = ex && o.destination_city && ex.destination_city && ex.destination_city !== o.destination_city && !(d.unsure || []).includes("destination_city")
+    ? { destination_city: o.destination_city, notes: ((ex.notes ? ex.notes + " · " : "") + "Προορισμός διορθώθηκε από την απόδειξη: " + ex.destination_city + " → " + o.destination_city) } : {};
+  if (ex) r = await save(ex.id, { ...fillBlanks(ex, o), ...destFix, photographed: true, ...(loading && ex.status === "waiting" ? loadedPatch() : {}), ...(note && !ex.notes ? { notes: note } : {}) });
   else r = await save(null, { ...o, photographed: true, status: loading ? "loaded" : "waiting", ...(loading ? loadedPatch() : {}), operator: D.operator() || null, notes: note, extraction_confidence: { unsure: d.unsure || [] } });
   // πελάτες: αποστολέας → καρτέλα πελάτη· τηλέφωνο παραλήπτη από γνωστό πελάτη (μόνο αν υπάρχει ΕΝΑΣ με τηλέφωνο)
   if (r.sender_name && !r.customer_id) { const cid = await D.linkCustomer(r.sender_name, r.sender_phone); if (cid) r = await save(r.id, { customer_id: cid }); }
@@ -488,13 +491,15 @@ async function runCashClose(files) {
       .or(`and(issued_at.gte.${S},issued_at.lt.${E}),and(departure_at.gte.${S},departure_at.lt.${E}),and(created_at.gte.${S},created_at.lt.${E})`).limit(3000);
     if (nerr) throw nerr;
     const rec = cashReconcile(items, near || []);
-    let upd = 0, ins = 0; const errs = [];
+    let upd = 0, ins = 0; const errs = [], destFixed = [];
     show(msg, "Αντιπαραβολή " + rec.count + " αποδείξεων…", "info");
     for (const { item: it, row: r } of rec.matched) {
       const p = { in_cash: true, cash_date: cashDay };
       const iss = parseGrDate(it.issued); if (iss) p.issued_at = iss.toISOString(); // η ώρα έκδοσης του POS είναι η σωστή
       const dep = parseGrDate(it.departure); if (dep && !r.departure_at) p.departure_at = dep.toISOString();
       const to = cityFromStation(it.to) || norm(it.to); if (to && !r.destination_city) p.destination_city = to;
+      // το POS γράφει τον προορισμό ανά απόδειξη, δίπλα στον αριθμό → υπερισχύει της κατάστασης
+      else if (to && r.destination_city && to !== r.destination_city && !it.unsure) { p.destination_city = to; p.notes = ((r.notes ? r.notes + " · " : "") + "Προορισμός διορθώθηκε από το ταμείο: " + r.destination_city + " → " + to); destFixed.push((r.recipient_name || it.receipt_no) + " " + r.destination_city + "→" + to); }
       if (it.amount != null && r.fare_eur == null) p.fare_eur = it.amount;
       if (it.amount != null && r.fare_eur != null && Math.abs(Number(r.fare_eur) - it.amount) > 0.009 && !String(r.notes || "").includes("ταμείο"))
         p.notes = ((r.notes ? r.notes + " · " : "") + "⚠ Ταμείο: ποσό " + money(it.amount) + " (εδώ " + money(r.fare_eur) + ")");
@@ -519,6 +524,7 @@ async function runCashClose(files) {
       : "⚠ Η αναφορά γράφει " + (head.total_count ?? "?") + " δέματα / " + (head.total_amount != null ? money(head.total_amount) : "?") + " — λείπουν " + Math.max(0, (head.total_count || 0) - rec.count) + " γραμμές από τις φωτογραφίες.");
     if (rec.gaps.length) L.push("⚠ Δεν διαβάστηκαν οι αριθμοί …" + rec.gaps.slice(0, 15).join(", …") + (rec.gaps.length > 15 ? " (+" + (rec.gaps.length - 15) + ")" : "") + " — ξανατράβηξε εκείνη τη σελίδα και ανέβασέ την (ό,τι υπάρχει ήδη δεν διπλασιάζεται).");
     L.push("✓ Ενημερώθηκαν " + upd + " (ώρα έκδοσης κ.λπ.)" + (ins ? " · ＋ " + ins + " νέα που υπήρχαν μόνο στο ταμείο (χωρίς όνομα — συμπλήρωσε)" : "") + ".");
+    if (destFixed.length) L.push("✎ Διορθώθηκε προορισμός σε " + destFixed.length + ": " + destFixed.slice(0, 8).join(" · "));
     if (rec.fareDiff.length) L.push("⚠ Διαφορά ποσού σε " + rec.fareDiff.length + ": " + rec.fareDiff.slice(0, 8).map(x => (x.row.recipient_name || x.item.receipt_no) + " ταμείο " + money(x.item.amount) + " / εδώ " + money(x.row.fare_eur)).join(" · "));
     if (notIn.length) L.push("❌ Στην εφαρμογή αλλά ΟΧΙ στο ταμείο (" + notIn.length + "): " + notIn.slice(0, 10).map(r => (r.recipient_name || "?") + " " + (r.receipt_no || "")).join(" · "));
     if (fails.length || errs.length) L.push("⚠ Σφάλματα: " + [...fails, ...errs].slice(0, 5).join(" · "));
