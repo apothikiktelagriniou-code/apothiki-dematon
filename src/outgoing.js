@@ -2,7 +2,7 @@
 // Ροή: 1) «📄 Κατάσταση δρομολογίου» από το σύστημα ΚΤΕΛ → γραμμές «περιμένει»
 //      2) στη φόρτωση «📷 Φωτογραφίες αποδείξεων» → συμπληρώνονται στοιχεία + «φορτώθηκε»
 //      3) ο έλεγχος δείχνει: στην κατάσταση χωρίς φωτογραφία / φωτογραφία εκτός κατάστασης.
-import { routeOf, isAgrinioReceipt, norm, fmtGr, fmtPhone, cleanPhone, money, parseGrDate, cityFromStation, extractedToOutgoing, sameOutgoing, fillBlanks, outCheck, outCash, outSmsFor, surnameFirst } from "./lib.js";
+import { cashReconcile, routeOf, isAgrinioReceipt, norm, fmtGr, fmtPhone, cleanPhone, money, parseGrDate, cityFromStation, extractedToOutgoing, sameOutgoing, fillBlanks, outCheck, outCash, outSmsFor, surnameFirst } from "./lib.js";
 import { toJpegB64 } from "./capture.js";
 import { getWorker, find228, grabBand, sound } from "./scan.js";
 
@@ -30,6 +30,7 @@ export function initOutgoing(deps) {
   $("outReport").onchange = e => { const f = [...e.target.files].slice(0, 4); e.target.value = ""; if (f.length) runReport(f); };
   $("outManual").onclick = () => openEdit(null);
   $("outCashBtn").onclick = toggleCash;
+  $("outCashClose").onchange = e => { const f = [...e.target.files].slice(0, 12); e.target.value = ""; if (f.length) runCashClose(f); };
   $("outScanAll").onclick = () => openScanner(tripSel || "");
   $("outForm").onsubmit = e => { e.preventDefault(); saveEdit(); };
   $("outCancel").onclick = () => $("outDlg").close();
@@ -151,16 +152,17 @@ async function runReport(files) {
     if (!items.length) { show(msg, skipped ? "Καμία γραμμή της κατάστασης δεν ξεκινά με 228 (αποθήκη Αγρινίου) — δεν καταχωρήθηκε τίποτα." : "Δεν βρήκα γραμμές στην κατάσταση. Τράβα πιο καθαρά ή σε περισσότερες σελίδες.", "warn"); return; }
     const rep = await D.sb.from("outgoing_reports").insert({ departure_at: dep, total_declared: m.total_declared ?? null, items, operator: D.operator() || null }).select("id").single();
     if (rep.data) reports.set(rep.data.id, { id: rep.data.id, departure_at: dep, items, route: routeOf(items.map(i => i.destination_city)) });
-    let added = 0, matched = 0;
+    let added = 0, matched = 0, ticked = 0;
     for (const it of items) {
+      const tk = it.checked === true; if (tk) ticked++; // ✓ με στυλό = καταχωρήθηκε & φορτώθηκε
       const o = { receipt_no: it.receipt_no, recipient_name: it.recipient ? surnameFirst(it.recipient) : null, destination_city: cityFromStation(it.destination_city) || null,
         fare_eur: it.fare_eur, pieces: it.pieces || 1, departure_at: dep };
       const ex = await findExisting(o);
-      if (ex) { await save(ex.id, { ...fillBlanks(ex, o), in_report: true, report_id: rep.data?.id || null }); matched++; }
-      else { await save(null, { ...o, in_report: true, report_id: rep.data?.id || null, status: "waiting", operator: D.operator() || null, notes: it.unsure ? "⚠ Έλεγξε: αβέβαιη γραμμή στην κατάσταση" : null }); added++; }
+      if (ex) { await save(ex.id, { ...fillBlanks(ex, o), in_report: true, report_id: rep.data?.id || null, ...(tk && ex.status === "waiting" ? loadedPatch() : {}) }); matched++; }
+      else { await save(null, { ...o, in_report: true, report_id: rep.data?.id || null, status: "waiting", ...(tk ? loadedPatch() : {}), operator: D.operator() || null, notes: it.unsure ? "⚠ Έλεγξε: αβέβαιη γραμμή στην κατάσταση" : null }); added++; }
     }
     if (dep && dayKey(dep) !== $("outDay").value) { $("outDay").value = dayKey(dep); await load(); } else render();
-    show(msg, "✓ Κατάσταση " + (dep ? fmtGr(dep) : "") + ": " + items.length + " δέματα (" + added + " νέα, " + matched + " υπήρχαν)" + (skipped ? " · παραλείφθηκαν " + skipped + " που δεν ξεκινούν με 228" : "") + (m.total_declared && m.total_declared !== all.length ? " · ⚠ η κατάσταση γράφει σύνολο " + m.total_declared : "") + ". Τώρα φωτογράφισε τις αποδείξεις στη φόρτωση." + missAfterReport(dep), "ok");
+    show(msg, "✓ Κατάσταση " + (dep ? fmtGr(dep) : "") + ": " + items.length + " δέματα (" + added + " νέα, " + matched + " υπήρχαν)" + (skipped ? " · παραλείφθηκαν " + skipped + " που δεν ξεκινούν με 228" : "") + (ticked ? " · ✓ " + ticked + " τσεκαρισμένα → «Φορτώθηκε»" + (ticked < items.length ? ", " + (items.length - ticked) + " χωρίς τσεκ → «Περιμένει»" : "") : "") + (m.total_declared && m.total_declared !== all.length ? " · ⚠ η κατάσταση γράφει σύνολο " + m.total_declared : "") + ". Τώρα φωτογράφισε τις αποδείξεις στη φόρτωση." + missAfterReport(dep), "ok");
   } catch (e) { show(msg, "Η κατάσταση δεν διαβάστηκε: " + String(e.message || e).slice(0, 200), "bad"); }
   finally { busy = false; }
 }
@@ -332,12 +334,13 @@ function card(r) {
   top.append(el("b", null, r.recipient_name || "— χωρίς όνομα —"), el("span", "chip st", STATUS[r.status] || r.status));
   if (r.in_report && !r.photographed) top.append(el("span", "badge bad", "χωρίς φωτογραφία"));
   if (r.photographed && !r.in_report) top.append(el("span", "badge warn", "εκτός κατάστασης"));
+  if (r.in_cash) top.append(el("span", "badge ok", "🧾 ταμείο"));
   c.append(top);
   const info = el("div", "outinfo");
   const add = (l, v) => { if (v == null || v === "") return; const x = el("div", "line"); x.append(el("span", "lbl", l), el("span", null, v)); info.append(x); };
   add("Προορισμός", r.destination_city); add("Απόδειξη", r.receipt_no + (r.parcel_code && !/\(/.test(r.receipt_no || "") ? " · " + r.parcel_code : ""));
   add("Κόμιστρο", r.fare_eur != null ? money(r.fare_eur) + (r.pieces > 1 ? " · " + r.pieces + " τεμ." : "") : "⚠ λείπει");
-  add("Αναχώρηση", r.departure_at ? fmtGr(r.departure_at) : null); add("Αποστολέας", [r.sender_name, r.sender_phone ? fmtPhone(r.sender_phone) : ""].filter(Boolean).join(" · "));
+  add("Αναχώρηση", r.departure_at ? fmtGr(r.departure_at) : null); add("Έκδοση", r.issued_at ? fmtGr(r.issued_at) : null); add("Αποστολέας", [r.sender_name, r.sender_phone ? fmtPhone(r.sender_phone) : ""].filter(Boolean).join(" · "));
   add("Τηλ. παραλήπτη", r.recipient_phone ? fmtPhone(r.recipient_phone) + (r.sms_sent_at ? " · 📩 SMS " + fmtGr(r.sms_sent_at) : "") : null);
   add("Υπάλληλος", r.operator); add("Παρατηρήσεις", r.notes);
   c.append(info);
@@ -428,6 +431,75 @@ function renderCash() {
   }));
   box.append(pr);
   box.append(el("div", "hint", "Μετράνε τα εξερχόμενα με αναχώρηση (ή έκδοση) την επιλεγμένη ημέρα. Όταν μου δώσεις τα ακριβή ποσοστά ανά είδος, θα μπουν εδώ αναλυτικά."));
+}
+
+// ---------------------------------------------------------------- 🧾 ΚΛΕΙΣΙΜΟ ΤΑΜΕΙΟΥ ΚΤΕΛ → αντιπαραβολή
+// Φωτογραφίες της αναφοράς «Κλείσιμο Ταμείου» του POS: για κάθε αριθμό απόδειξης συμπληρώνει ώρα έκδοσης,
+// αναχώρηση, προορισμό, ποσό· όσα λείπουν από την εφαρμογή μπαίνουν ως νέα· δείχνει όσα δεν είναι στο ταμείο.
+async function runCashClose(files) {
+  if (busy) { show($("outMsg"), "Περίμενε να τελειώσει η προηγούμενη αποστολή.", "warn"); return; }
+  if (D.needOperator()) return; busy = true; const msg = $("outMsg");
+  try {
+    const probe = await D.sb.from("outgoing").select("in_cash").limit(1);
+    if (probe.error) throw new Error("λείπει το 0015 στη βάση — τρέξε πρώτα το 0015_outgoing_cash.sql");
+    let head = { date: "", user: "", total_count: null, total_amount: null }; const items = []; const fails = [];
+    for (let i = 0; i < files.length; i += 3) {
+      show(msg, "Διαβάζω το κλείσιμο ταμείου… σελίδες " + (i + 1) + "–" + Math.min(files.length, i + 3) + " από " + files.length, "info");
+      const images = []; for (const f of files.slice(i, i + 3)) images.push({ data: await toJpegB64(f, 2200, 0.85), media_type: "image/jpeg" });
+      const { data, error } = await D.sb.functions.invoke("extract-receipt", { body: { mode: "cashclose", images } });
+      if (error) { fails.push((i + 1) + "–" + Math.min(files.length, i + 3) + ": " + await errText(error)); continue; }
+      const c = data.data || {};
+      if (c.date && !head.date) head.date = c.date; if (c.user && !head.user) head.user = c.user;
+      if (c.total_count != null && head.total_count == null) head.total_count = c.total_count;
+      if (c.total_amount != null && head.total_amount == null) head.total_amount = c.total_amount;
+      items.push(...(c.items || []));
+    }
+    if (!items.length) throw new Error(fails.length ? fails.join(" · ") : "δεν βρήκα γραμμές — μήπως η εφαρμογή στον server είναι παλιά; (ξανά-deploy το extract-receipt)");
+    const cd = parseGrDate(head.date || items[0].issued); if (!cd) throw new Error("δεν διάβασα την ημερομηνία του ταμείου");
+    const cashDay = dayKey(cd);
+    // εξερχόμενα γύρω από την ημέρα του ταμείου (έκδοση/αναχώρηση/καταχώριση −2…+4 μέρες)
+    const s = new Date(cd); s.setDate(s.getDate() - 2); const e = new Date(cd); e.setDate(e.getDate() + 5); const S = s.toISOString(), E = e.toISOString();
+    const { data: near, error: nerr } = await D.sb.from("outgoing").select("*")
+      .or(`and(issued_at.gte.${S},issued_at.lt.${E}),and(departure_at.gte.${S},departure_at.lt.${E}),and(created_at.gte.${S},created_at.lt.${E})`).limit(3000);
+    if (nerr) throw nerr;
+    const rec = cashReconcile(items, near || []);
+    let upd = 0, ins = 0; const errs = [];
+    show(msg, "Αντιπαραβολή " + rec.count + " αποδείξεων…", "info");
+    for (const { item: it, row: r } of rec.matched) {
+      const p = { in_cash: true, cash_date: cashDay };
+      const iss = parseGrDate(it.issued); if (iss) p.issued_at = iss.toISOString(); // η ώρα έκδοσης του POS είναι η σωστή
+      const dep = parseGrDate(it.departure); if (dep && !r.departure_at) p.departure_at = dep.toISOString();
+      const to = cityFromStation(it.to) || norm(it.to); if (to && !r.destination_city) p.destination_city = to;
+      if (it.amount != null && r.fare_eur == null) p.fare_eur = it.amount;
+      if (it.amount != null && r.fare_eur != null && Math.abs(Number(r.fare_eur) - it.amount) > 0.009 && !String(r.notes || "").includes("ταμείο"))
+        p.notes = ((r.notes ? r.notes + " · " : "") + "⚠ Ταμείο: ποσό " + money(it.amount) + " (εδώ " + money(r.fare_eur) + ")");
+      try { await save(r.id, p); upd++; } catch (x) { errs.push(it.receipt_no + ": " + x.message); }
+    }
+    for (const it of rec.added) {
+      const iss = parseGrDate(it.issued), dep = parseGrDate(it.departure);
+      try { await save(null, { receipt_no: it.receipt_no, issued_at: iss?.toISOString() || null, departure_at: dep?.toISOString() || null,
+        destination_city: cityFromStation(it.to) || norm(it.to) || null, fare_eur: it.amount, status: "waiting", in_cash: true, cash_date: cashDay,
+        operator: D.operator() || null, notes: "Μόνο στο κλείσιμο ταμείου — δεν σημειώθηκε σε κατάσταση/φόρτωση" + (it.unsure ? " · ⚠ αβέβαιη ανάγνωση" : "") }); ins++; }
+      catch (x) { errs.push(it.receipt_no + ": " + x.message); }
+    }
+    // στην εφαρμογή με έκδοση εκείνη την ημέρα, αλλά όχι στο ταμείο
+    const notIn = rec.notInCash.filter(r => dayKey(r.issued_at || r.departure_at || r.created_at) === cashDay && !r.in_cash);
+    const sumOk = head.total_amount == null || Math.abs(head.total_amount - rec.amount) < 0.01, cntOk = head.total_count == null || head.total_count === rec.count;
+    await D.sb.from("outgoing_cash").insert({ cash_date: cashDay, user_no: head.user || null, total_count: head.total_count, total_amount: head.total_amount,
+      read_count: rec.count, read_amount: rec.amount, operator: D.operator() || null,
+      summary: { first: rec.first, last: rec.last, gaps: rec.gaps, updated: upd, added: ins, fare_diff: rec.fareDiff.map(x => x.item.receipt_no), not_in_cash: notIn.map(r => r.receipt_no) } });
+    if ($("outDay").value !== cashDay) { $("outDay").value = cashDay; found = null; } await load();
+    const L = ["🧾 Κλείσιμο ταμείου " + fmtGr(cd).slice(0, 10) + (head.user ? " · χρήστης " + head.user : "") + ": διάβασα " + rec.count + " αποδείξεις, " + money(rec.amount) + "."];
+    L.push(cntOk && sumOk ? "✓ Ταιριάζει με το σύνολο της αναφοράς (" + (head.total_count ?? rec.count) + " δέματα, " + money(head.total_amount ?? rec.amount) + ")."
+      : "⚠ Η αναφορά γράφει " + (head.total_count ?? "?") + " δέματα / " + (head.total_amount != null ? money(head.total_amount) : "?") + " — λείπουν " + Math.max(0, (head.total_count || 0) - rec.count) + " γραμμές από τις φωτογραφίες.");
+    if (rec.gaps.length) L.push("⚠ Δεν διαβάστηκαν οι αριθμοί …" + rec.gaps.slice(0, 15).join(", …") + (rec.gaps.length > 15 ? " (+" + (rec.gaps.length - 15) + ")" : "") + " — ξανατράβηξε εκείνη τη σελίδα και ανέβασέ την (ό,τι υπάρχει ήδη δεν διπλασιάζεται).");
+    L.push("✓ Ενημερώθηκαν " + upd + " (ώρα έκδοσης κ.λπ.)" + (ins ? " · ＋ " + ins + " νέα που υπήρχαν μόνο στο ταμείο (χωρίς όνομα — συμπλήρωσε)" : "") + ".");
+    if (rec.fareDiff.length) L.push("⚠ Διαφορά ποσού σε " + rec.fareDiff.length + ": " + rec.fareDiff.slice(0, 8).map(x => (x.row.recipient_name || x.item.receipt_no) + " ταμείο " + money(x.item.amount) + " / εδώ " + money(x.row.fare_eur)).join(" · "));
+    if (notIn.length) L.push("❌ Στην εφαρμογή αλλά ΟΧΙ στο ταμείο (" + notIn.length + "): " + notIn.slice(0, 10).map(r => (r.recipient_name || "?") + " " + (r.receipt_no || "")).join(" · "));
+    if (fails.length || errs.length) L.push("⚠ Σφάλματα: " + [...fails, ...errs].slice(0, 5).join(" · "));
+    show(msg, L.join("\n"), cntOk && sumOk && !rec.gaps.length && !notIn.length && !errs.length ? "ok" : "warn");
+  } catch (e) { show(msg, "Το κλείσιμο ταμείου δεν διαβάστηκε: " + String(e.message || e).slice(0, 220), "bad"); }
+  finally { busy = false; }
 }
 
 // ================================================================ 🔎 ΣΑΡΩΣΗ ΦΟΡΤΩΣΗΣ (κείμενο από την κάμερα)

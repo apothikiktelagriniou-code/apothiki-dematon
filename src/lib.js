@@ -437,8 +437,12 @@ export function outSmsFor(r, now = new Date()) {
 }
 
 /** Απόδειξη που εκδόθηκε από την αποθήκη Αγρινίου (εκδότης 228): 228-336-142206 (ή 2-228-336-142206 στις καταστάσεις). */
+/** «2-000-228-336-142315» (κλείσιμο ταμείου) / «2-228-336-…» (καταστάσεις) → «228-336-142315» */
+export function ktelNo(rn) {
+  return String(rn || "").trim().replace(/\s/g, "").replace(/^\d-0{3}-(?=\d{3}-)/, "").replace(/^\d-(?=\d{3}-\d{3}-)/, "");
+}
 export function isAgrinioReceipt(rn) {
-  const s = String(rn || "").trim().replace(/^\d-(?=\d{3}-)/, "");
+  const s = ktelNo(rn);
   return /^228[-\s]?\d{3}[-\s]?\d+$/.test(s);
 }
 
@@ -452,4 +456,25 @@ export function routeOf(dests) {
   const end = TERMINI.find(t => cnt.has(t)) || [...cnt.entries()].sort((a, b) => b[1] - a[1])[0][0];
   const stops = [...cnt.keys()].filter(d => d !== end);
   return { end, stops };
+}
+
+/** Κλείσιμο ταμείου ↔ εξερχόμενα. items: γραμμές του ταμείου, rows: εξερχόμενα (της ημέρας + όσα βρέθηκαν με αριθμό). */
+export function cashReconcile(items, rows) {
+  const seen = new Map();
+  for (const it of items) { const n = ktelNo(it.receipt_no); if (isAgrinioReceipt(n) && !seen.has(n)) seen.set(n, { ...it, receipt_no: n }); }
+  const list = [...seen.values()];
+  const byNo = new Map(rows.map(r => [ktelNo(r.receipt_no), r]));
+  const matched = [], added = [], fareDiff = [];
+  for (const it of list) {
+    const r = byNo.get(it.receipt_no) || rows.find(x => sameReceipt(x.receipt_no, it.receipt_no));
+    if (r) { matched.push({ item: it, row: r }); if (it.amount != null && r.fare_eur != null && Math.abs(Number(r.fare_eur) - it.amount) > 0.009) fareDiff.push({ item: it, row: r }); }
+    else added.push(it);
+  }
+  const inCash = new Set(list.map(i => i.receipt_no));
+  const notInCash = rows.filter(r => r.status !== "cancelled" && isAgrinioReceipt(r.receipt_no) && !inCash.has(ktelNo(r.receipt_no)));
+  // κενά στη συνεχή αρίθμηση = σειρές που δεν διαβάστηκαν (π.χ. σελίδα που λείπει)
+  const tails = list.map(i => Number(i.receipt_no.split("-").pop())).filter(n => !isNaN(n)).sort((a, b) => a - b);
+  const gaps = []; for (let i = 1; i < tails.length; i++) for (let n = tails[i - 1] + 1; n < tails[i] && gaps.length < 50; n++) gaps.push(n);
+  const amount = Math.round(list.reduce((s, i) => s + (Number(i.amount) || 0), 0) * 100) / 100;
+  return { list, matched, added, fareDiff, notInCash, gaps, count: list.length, amount, first: tails[0], last: tails.at(-1) };
 }

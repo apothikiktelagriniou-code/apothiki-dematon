@@ -297,3 +297,13 @@ test("σάρωση: βρίσκει μόνο 228-…", () => {
   assert.deepEqual(find228("258-341-23682"), []);
   assert.deepEqual(find228("1228-336-142206"), []);
 });
+
+import { ktelNo, cashReconcile } from "../src/lib.js";
+test("κλείσιμο ταμείου: αντιπαραβολή", () => {
+  assert.equal(ktelNo("2-000-228-336-142315"), "228-336-142315"); assert.equal(ktelNo("2-228-336-142315"), "228-336-142315"); assert.ok(isAgrinioReceipt("2-000-228-336-142315"));
+  const items = [{ receipt_no: "2-000-228-336-142300", amount: 10 }, { receipt_no: "2-000-228-336-142301", amount: 5 }, { receipt_no: "2-000-228-336-142301", amount: 5 }, { receipt_no: "2-000-228-336-142304", amount: 6 }];
+  const rows = [{ receipt_no: "228-336-142300", fare_eur: 10 }, { receipt_no: "228-336-142304", fare_eur: 5 }, { receipt_no: "228-336-142399", fare_eur: 5 }, { receipt_no: "228-336-142398", status: "cancelled" }];
+  const r = cashReconcile(items, rows);
+  assert.equal(r.count, 3); assert.equal(r.amount, 21); assert.equal(r.matched.length, 2); assert.equal(r.added.length, 1);
+  assert.equal(r.fareDiff.length, 1); assert.deepEqual(r.notInCash.map(x => x.receipt_no), ["228-336-142399"]); assert.deepEqual(r.gaps, [142302, 142303]);
+});
