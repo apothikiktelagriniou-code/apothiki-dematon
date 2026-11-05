@@ -31,7 +31,7 @@ export function find228(text) {
 export function grabBand(video, canvas, band = [0.3, 0.7]) {
   const vw = video.videoWidth, vh = video.videoHeight; if (!vw || !vh) return null;
   const y0 = Math.round(vh * band[0]), h = Math.round(vh * (band[1] - band[0]));
-  const scale = Math.min(2, 1400 / vw);
+  const scale = Math.min(1.6, 1000 / vw); // μικρότερη εικόνα = πιο γρήγορη ανάγνωση (ο αριθμός μένει ευανάγνωστος)
   canvas.width = Math.round(vw * scale); canvas.height = Math.round(h * scale);
   const ctx = canvas.getContext("2d", { willReadFrequently: true });
   ctx.filter = "grayscale(1) contrast(1.4)";
@@ -45,12 +45,12 @@ function tone(freq, ms, at = 0, type = "sine") {
   try {
     ac = ac || new (window.AudioContext || window.webkitAudioContext)();
     const o = ac.createOscillator(), g = ac.createGain(); o.type = type; o.frequency.value = freq;
-    g.gain.setValueAtTime(0.25, ac.currentTime + at); g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + at + ms / 1000);
+    g.gain.setValueAtTime(0.6, ac.currentTime + at); g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + at + ms / 1000);
     o.connect(g).connect(ac.destination); o.start(ac.currentTime + at); o.stop(ac.currentTime + at + ms / 1000 + 0.02);
   } catch { /* χωρίς ήχο */ }
 }
 export const sound = {
-  ok() { tone(1200, 90); try { navigator.vibrate && navigator.vibrate(60); } catch { /* */ } },
+  ok() { tone(1400, 110); tone(1800, 120, 0.12); try { navigator.vibrate && navigator.vibrate(120); } catch { /* */ } }, // δυνατό διπλό «μπιπ-μπιπ»
   dup() { tone(500, 70); },
   bad() { tone(220, 260, 0, "square"); tone(220, 260, 0.32, "square"); try { navigator.vibrate && navigator.vibrate([250, 120, 250]); } catch { /* */ } },
   unlock() { tone(1, 1); }, // iOS: ο ήχος ξεκλειδώνει μόνο μετά από πάτημα

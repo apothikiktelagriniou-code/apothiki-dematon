@@ -228,7 +228,9 @@
   </dialog>
   <dialog id="scanDlg" class="scanner" aria-labelledby="scanTitle">
     <div class="scanhead"><h2 id="scanTitle">🔎 Φόρτωση</h2><button class="btn" type="button" id="scanClose">Τέλος</button></div>
-    <div class="scanview"><video id="scanVideo" playsinline muted></video><div class="scanframe" aria-hidden="true"></div></div>
+    <div class="scanview"><video id="scanVideo" playsinline muted></video><div class="scanframe" aria-hidden="true"></div>
+      <div id="scanFlash" class="scanflash" hidden role="alert"><div id="scanFlashBig" class="sf-big"></div><div id="scanFlashName" class="sf-name"></div><div id="scanFlashSub" class="sf-sub"></div><div id="scanFlashCnt" class="sf-cnt"></div></div>
+      <button class="btn small torch" type="button" id="scanTorch" hidden aria-label="Φακός">🔦</button></div>
     <canvas id="scanCanvas" hidden></canvas>
     <div id="scanStatus" class="msg info" role="status" aria-live="polite"></div>
     <div id="scanCount" class="scancount"></div>
