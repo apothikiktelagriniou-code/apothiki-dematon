@@ -507,3 +507,13 @@ article.row.is-star{box-shadow:inset 4px 0 0 #f59e0b}
 .schedrow.past{opacity:.5}.schedrow.has{border-color:#16a34a;box-shadow:inset 4px 0 0 #16a34a}
 .schedrow .schedt{font-size:1.15em;min-width:3.2em}.schedrow .scheddest{flex:1;min-width:12em}.schedrow .hint{flex-basis:100%}
 .routeline{margin-top:2px}
+
+.schedrow.edit{gap:6px}.schedrow.edit input{padding:6px 8px;border:1px solid rgba(127,127,127,.4);border-radius:8px;background:var(--bg,#fff);color:inherit;font:inherit}
+.schedrow.edit .schedt{width:4.6em;font-weight:800}.schedrow.edit .schednote{flex:1;min-width:10em}
+.schedrow.edit .linename{width:9em;font-weight:800}.schedrow.edit .linestops{flex:1;min-width:14em}
+.daypick{display:inline-flex;gap:2px}.daypick .dp,.schedrow .dp{display:inline-flex;align-items:center;gap:2px;padding:2px 4px;border:1px solid rgba(127,127,127,.3);border-radius:6px;font-size:.9em;cursor:pointer}
+.schedgroup{border:1px solid rgba(127,127,127,.25);border-radius:10px;padding:6px 10px}.schedgroup summary{font-weight:800;cursor:pointer;padding:4px 0}
+.schedgroup .schedrow{border:0;border-top:1px solid rgba(127,127,127,.15);border-radius:0}
+.schedadd{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:8px;border:1px dashed rgba(127,127,127,.5);border-radius:10px}
+.schedadd input{padding:6px 8px;border:1px solid rgba(127,127,127,.4);border-radius:8px;font:inherit}
+#schedDlg .chips{flex-wrap:wrap;overflow:visible}

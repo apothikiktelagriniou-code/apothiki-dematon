@@ -143,7 +143,103 @@ function assignSched() {
     if (nb && dayKey(nb.at) === day) { r.departure_at = nb.at.toISOString(); r._schedDep = true; }
   }
 }
+let schedView = "day";
+function schedSay(t, k) { const m = $("schedMsg"); m.textContent = t; m.className = "msg " + (k || "info"); m.hidden = !t; }
+async function schedChanged(t) { await loadSchedule(); schedSay(t || "✓ Αποθηκεύτηκε.", "ok"); }
+const DAYN = ["Δ", "Τ", "Τ", "Π", "Π", "Σ", "Κ"], DAYF = ["Δευτέρα", "Τρίτη", "Τετάρτη", "Πέμπτη", "Παρασκευή", "Σάββατο", "Κυριακή"];
+const okTime = s => /^([01]\d|2[0-3]):[0-5]\d$/.test(s);
+const normTime = s => { const m = String(s || "").trim().match(/^(\d{1,2})[:.]?(\d{2})$/); return m ? m[1].padStart(2, "0") + ":" + m[2] : ""; };
+/** ✎ Αναχωρήσεις: ώρα, ημέρες, σημείωση, express, ενεργό, διαγραφή, νέα. */
+function renderTimesEditor() {
+  const box = $("schedList"); box.textContent = "";
+  const add = el("form", "schedadd"); add.innerHTML = '<b>＋ Νέα αναχώρηση</b>';
+  const dI = el("input"); dI.placeholder = "Προορισμός"; dI.setAttribute("list", "cities"); dI.setAttribute("aria-label", "Προορισμός"); dI.autocapitalize = "characters";
+  const tI = el("input"); tI.placeholder = "ΩΩ:ΛΛ"; tI.inputMode = "numeric"; tI.setAttribute("aria-label", "Ώρα"); tI.size = 6;
+  const dayBox = dayPicker("1111111");
+  const sb = el("button", "btn small primary", "Προσθήκη"); sb.type = "submit";
+  add.append(dI, tI, dayBox.el, sb);
+  add.onsubmit = async e => { e.preventDefault(); const dest = cityFromStation(dI.value) || norm(dI.value), time = normTime(tI.value);
+    if (!dest) return schedSay("Γράψε προορισμό.", "warn"); if (!okTime(time)) return schedSay("Η ώρα σαν 09:30.", "warn");
+    const { error } = await D.sb.from("route_times").insert({ dest, time, days: dayBox.value(), source: "χειροκίνητα" });
+    if (error) return schedSay(/duplicate|23505/.test(error.message + error.code) ? "Υπάρχει ήδη αυτή η αναχώρηση." : "Δεν αποθηκεύτηκε: " + error.message, "bad");
+    await schedChanged("✓ Προστέθηκε " + dest + " " + time + "."); renderTimesEditor(); };
+  box.append(add);
+  const q = el("input", "search"); q.type = "search"; q.placeholder = "Φίλτρο προορισμού"; q.setAttribute("aria-label", "Φίλτρο προορισμού"); q.value = renderTimesEditor.q || "";
+  q.oninput = () => { renderTimesEditor.q = q.value; clearTimeout(q._t); q._t = setTimeout(() => { renderTimesEditor(); const n = $("schedList").querySelector("input.search"); n && (n.focus(), n.setSelectionRange(n.value.length, n.value.length)); }, 250); };
+  box.append(q);
+  const f = norm(q.value);
+  const byDest = new Map(); for (const t of sched.times) { if (f && !norm(t.dest).includes(f)) continue; const a = byDest.get(t.dest) || []; a.push(t); byDest.set(t.dest, a); }
+  for (const [dest, ts] of [...byDest.entries()].sort((a, b) => a[0].localeCompare(b[0], "el"))) {
+    const sec = el("details", "schedgroup"); sec.open = !!f; sec.append(el("summary", null, dest + " · " + ts.filter(t => t.active !== false).length + " αναχωρήσεις"));
+    for (const t of ts.sort((a, b) => a.time.localeCompare(b.time))) sec.append(timeRow(t));
+    box.append(sec);
+  }
+}
+function dayPicker(days) {
+  const w = el("span", "daypick"); const cbs = [];
+  DAYN.forEach((n, i) => { const l = el("label", "dp"); const c = el("input"); c.type = "checkbox"; c.checked = String(days)[i] === "1"; c.setAttribute("aria-label", DAYF[i]); l.title = DAYF[i]; l.append(c, n); w.append(l); cbs.push(c); });
+  return { el: w, cbs, value: () => cbs.map(c => c.checked ? "1" : "0").join("") };
+}
+function timeRow(t) {
+  const row = el("div", "schedrow edit" + (t.active === false ? " past" : ""));
+  const tI = el("input", "schedt"); tI.value = t.time; tI.size = 5; tI.inputMode = "numeric"; tI.setAttribute("aria-label", "Ώρα");
+  const dp = dayPicker(t.days);
+  const nI = el("input", "schednote"); nI.value = t.notes || ""; nI.placeholder = "Σημείωση (π.χ. αλλαγή στη Βόνιτσα)"; nI.setAttribute("aria-label", "Σημείωση");
+  const ex = el("label", "dp"); const exC = el("input"); exC.type = "checkbox"; exC.checked = !!t.express; ex.append(exC, " Express");
+  const on = btn(t.active === false ? "▶ Ενεργοποίηση" : "⏸ Δεν εκτελείται", "", async () => upd({ active: t.active === false }));
+  const del = btn("🗑", "danger", async () => { if (!del.dataset.sure) { del.dataset.sure = "1"; del.textContent = "Σίγουρα;"; return; }
+    const { error } = await D.sb.from("route_times").delete().eq("id", t.id); if (error) return schedSay("Δεν διαγράφηκε: " + error.message, "bad"); await schedChanged("✓ Διαγράφηκε " + t.dest + " " + t.time + "."); renderTimesEditor(); });
+  del.setAttribute("aria-label", "Διαγραφή");
+  async function upd(p) {
+    const { error } = await D.sb.from("route_times").update({ ...p, updated_at: new Date().toISOString() }).eq("id", t.id);
+    if (error) return schedSay("Δεν αποθηκεύτηκε: " + error.message, "bad");
+    await schedChanged("✓ " + t.dest + " " + (p.time || t.time) + " αποθηκεύτηκε."); if ("active" in p) renderTimesEditor();
+  }
+  tI.onchange = () => { const v = normTime(tI.value); if (!okTime(v)) { tI.value = t.time; return schedSay("Η ώρα σαν 09:30.", "warn"); } tI.value = v; upd({ time: v }); };
+  dp.cbs.forEach(c => c.onchange = () => upd({ days: dp.value() }));
+  nI.onchange = () => upd({ notes: nI.value.trim() || null });
+  exC.onchange = () => upd({ express: exC.checked });
+  row.append(tI, dp.el, ex, nI, on, del); return row;
+}
+/** ✎ Λεωφορεία: ποιοι προορισμοί πάνε μαζί και με ποια σειρά στάσεων. */
+function renderLinesEditor() {
+  const box = $("schedList"); box.textContent = "";
+  box.append(el("p", "hint", "Κάθε γραμμή = ένα λεωφορείο που περνά από αυτές τις στάσεις, με τη σειρά (το τελευταίο είναι το τέρμα). Δέματα για προορισμούς της ίδιας γραμμής που φεύγουν την ίδια ώρα μπαίνουν στο ίδιο λεωφορείο. Αν ένας προορισμός είναι σε δύο γραμμές, μπαίνει σε όποια έχει περισσότερες στάσεις εκείνη την ώρα (σε ισοπαλία: η πιο πάνω)."));
+  sched.lines.forEach((l, i) => {
+    const row = el("div", "schedrow edit");
+    const nI = el("input", "linename"); nI.value = l.name; nI.setAttribute("aria-label", "Όνομα γραμμής"); nI.size = 12;
+    const sI = el("input", "linestops"); sI.value = l.stops.join(", "); sI.setAttribute("aria-label", "Στάσεις με τη σειρά, χωρισμένες με κόμμα");
+    const up = btn("▲", "", () => move(i, -1)); up.setAttribute("aria-label", "Πιο πάνω"); up.disabled = i === 0;
+    const del = btn("🗑", "danger", async () => { if (!del.dataset.sure) { del.dataset.sure = "1"; del.textContent = "Σίγουρα;"; return; }
+      const { error } = await D.sb.from("route_lines").delete().eq("name", l.name); if (error) return schedSay("Δεν διαγράφηκε: " + error.message, "bad"); await schedChanged("✓ Διαγράφηκε η γραμμή " + l.name + "."); renderLinesEditor(); });
+    const save = async () => {
+      const stops = sI.value.split(/[,>→]+/).map(s => cityFromStation(s) || norm(s)).filter(Boolean); const name = norm(nI.value) || stops.at(-1);
+      if (!stops.length) return schedSay("Βάλε τουλάχιστον μία στάση.", "warn");
+      const { error } = name === l.name ? await D.sb.from("route_lines").update({ stops }).eq("name", l.name)
+        : await D.sb.from("route_lines").update({ name, stops }).eq("name", l.name);
+      if (error) return schedSay("Δεν αποθηκεύτηκε: " + error.message, "bad"); await schedChanged("✓ Γραμμή " + name + ": " + stops.join(" → ")); renderLinesEditor();
+    };
+    nI.onchange = save; sI.onchange = save;
+    row.append(nI, sI, up, del); box.append(row);
+  });
+  const add = btn("＋ Νέα γραμμή", "primary", async () => {
+    const name = "ΝΕΑ " + (sched.lines.length + 1);
+    const { error } = await D.sb.from("route_lines").insert({ name, stops: ["ΑΓΡΙΝΙΟ"], ord: sched.lines.length });
+    if (error) return schedSay("Δεν προστέθηκε: " + error.message, "bad"); await schedChanged("Γράψε όνομα και στάσεις στη νέα γραμμή (τελευταία)."); renderLinesEditor();
+  });
+  box.append(add);
+  async function move(i, d) {
+    const a = sched.lines[i], b = sched.lines[i + d]; if (!a || !b) return;
+    await D.sb.from("route_lines").update({ ord: i + d }).eq("name", a.name); await D.sb.from("route_lines").update({ ord: i }).eq("name", b.name);
+    await schedChanged("✓ Άλλαξε η σειρά."); renderLinesEditor();
+  }
+}
 function openSchedule() {
+  for (const c of document.querySelectorAll("#schedDlg [data-sv]")) { c.setAttribute("aria-pressed", String(c.dataset.sv === schedView)); c.onclick = () => { schedView = c.dataset.sv; schedSay(""); openSchedule(); }; }
+  if (schedView !== "day" && !sched.fromDb) { $("schedList").textContent = ""; $("schedSrc").textContent = "";
+    schedSay("Για να αλλάζεις τα δρομολόγια, τρέξε πρώτα το 0017_routes.sql στη Supabase (SQL Editor → Run) και πάτα ⟳.", "warn"); if (!$("schedDlg").open) $("schedDlg").showModal(); return; }
+  if (schedView === "times") { $("schedSrc").textContent = "Οι αλλαγές αποθηκεύονται μόλις φύγεις από το πεδίο. Ημέρες: Δ Τ Τ Π Π Σ Κ."; renderTimesEditor(); if (!$("schedDlg").open) $("schedDlg").showModal(); return; }
+  if (schedView === "lines") { $("schedSrc").textContent = ""; renderLinesEditor(); if (!$("schedDlg").open) $("schedDlg").showModal(); return; }
   const day = $("outDay").value; const box = $("schedList"); box.textContent = "";
   $("schedTitle").textContent = "🚌 Δρομολόγια · " + new Date(day + "T12:00").toLocaleDateString("el-GR", { weekday: "long", day: "numeric", month: "long" });
   const counts = new Map(); for (const r of rows.values()) if (r.status !== "cancelled" && r.departure_at) { const k = tripKeyOf(r); counts.set(k, (counts.get(k) || 0) + Math.max(1, Number(r.pieces) || 1)); }
@@ -164,7 +260,7 @@ function openSchedule() {
     box.append(row);
   }
   if (!box.childNodes.length) box.append(el("p", "hint", "Κανένα δρομολόγιο αυτή την ημέρα."));
-  $("schedSrc").textContent = (sched.fromDb ? "Από τη βάση" : "Ενσωματωμένα (τρέξε το 0017 για να αλλάζουν)") + " · πηγή ktel-aitolnias.gr (6/11/2026). Ποιοι προορισμοί πάνε μαζί είναι εκτίμηση — αν κάτι δεν ισχύει, πες το να διορθωθεί.";
+  $("schedSrc").textContent = (sched.fromDb ? "Από τη βάση" : "Ενσωματωμένα (τρέξε το 0017 για να αλλάζουν)") + " · αρχική πηγή ktel-aitolnias.gr (6/11/2026). Διόρθωσέ τα από «✎ Αναχωρήσεις» και «✎ Λεωφορεία».";
   if (!$("schedDlg").open) $("schedDlg").showModal();
 }
 

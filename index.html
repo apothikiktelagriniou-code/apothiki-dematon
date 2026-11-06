@@ -263,7 +263,13 @@
   </dialog>
   <dialog id="schedDlg" class="sheet" aria-labelledby="schedTitle">
     <div class="sheet-head"><h2 id="schedTitle">🚌 Δρομολόγια</h2><button class="btn small" type="button" id="schedClose" aria-label="Κλείσιμο">✕</button></div>
+    <div class="chips" role="tablist" aria-label="Προβολή δρομολογίων">
+      <button class="chip" type="button" data-sv="day" aria-pressed="true">Σήμερα</button>
+      <button class="chip" type="button" data-sv="times" aria-pressed="false">✎ Αναχωρήσεις</button>
+      <button class="chip" type="button" data-sv="lines" aria-pressed="false">✎ Λεωφορεία (στάσεις)</button>
+    </div>
     <p class="hint" id="schedSrc"></p>
+    <div id="schedMsg" class="msg" hidden role="status"></div>
     <div id="schedList" class="schedlist"></div>
   </dialog>
   <dialog id="regDlg" class="sheet" aria-labelledby="regTitle">
