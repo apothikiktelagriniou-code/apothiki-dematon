@@ -498,3 +498,39 @@ export function senderStats(rows) {
     recipients: top(r => r.recipient_name ? r.recipient_name + "|" + (r.destination_city || "") : null, 8),
     dests: top(r => r.destination_city, 5) };
 }
+
+// ================================================================ 🚌 ΔΡΟΜΟΛΟΓΙΑ (βάση αναχωρήσεων από Αγρίνιο)
+export const weekdayIdx = d => (new Date(d).getDay() + 6) % 7; // Δευ=0 … Κυρ=6
+/** Τα λεωφορεία μιας ημέρας: ίδια ώρα + ίδια «γραμμή» = ένα λεωφορείο. → [{hhmm, line, end, stops, members, notes}] */
+export function busesFor(times, lines, date) {
+  const wd = weekdayIdx(date);
+  const act = times.filter(t => t.active !== false && String(t.days || "")[wd] === "1");
+  const byT = new Map(); for (const t of act) { const a = byT.get(t.time) || []; a.push(t); byT.set(t.time, a); }
+  const out = [];
+  for (const [hhmm, ts] of [...byT.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
+    const present = new Set(ts.map(t => t.dest)); const groups = new Map();
+    for (const t of ts) {
+      const cand = lines.filter(l => l.stops.includes(t.dest));
+      const best = cand.map(l => ({ l, n: l.stops.filter(s => present.has(s)).length })).sort((a, b) => b.n - a.n)[0];
+      const name = best ? best.l.name : t.dest; const g = groups.get(name) || { line: best ? best.l : null, ts: [] }; g.ts.push(t); groups.set(name, g);
+    }
+    for (const [name, g] of groups) {
+      const order = g.line ? g.line.stops : [];
+      const members = [...new Set(g.ts.map(t => t.dest))].sort((a, b) => order.indexOf(a) - order.indexOf(b));
+      out.push({ hhmm, line: name, end: members.at(-1), stops: members.slice(0, -1), members,
+        notes: [...new Set(g.ts.map(t => t.notes).filter(Boolean))], express: g.ts.some(t => t.express) });
+    }
+  }
+  return out;
+}
+/** Επόμενο λεωφορείο για έναν προορισμό από τη στιγμή «from» (ψάχνει έως 3 μέρες μπροστά). */
+export function nextBusFor(times, lines, dest, from = new Date()) {
+  const f = new Date(from);
+  for (let i = 0; i < 4; i++) {
+    const d = new Date(f); d.setDate(d.getDate() + i); d.setHours(0, 0, 0, 0);
+    const minT = i === 0 ? String(f.getHours()).padStart(2, "0") + ":" + String(f.getMinutes()).padStart(2, "0") : "00:00";
+    const b = busesFor(times, lines, d).find(x => x.members.includes(dest) && x.hhmm >= minT);
+    if (b) { const [h, m] = b.hhmm.split(":").map(Number); d.setHours(h, m, 0, 0); return { ...b, at: d }; }
+  }
+  return null;
+}

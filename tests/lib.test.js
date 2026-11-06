@@ -316,3 +316,17 @@ test("επιχειρήσεις & τακτικοί", () => {
   const s = senderStats([{ recipient_name: "Α", destination_city: "ΠΑΤΡΑ", fare_eur: 5, created_at: new Date().toISOString() }, { recipient_name: "Α", destination_city: "ΠΑΤΡΑ", fare_eur: 7, created_at: new Date().toISOString() }, { recipient_name: "Β", destination_city: "ΑΘΗΝΑ", status: "cancelled", created_at: new Date().toISOString() }]);
   assert.equal(s.count, 2); assert.equal(s.fares, 12); assert.equal(s.recipients[0].n, 2); assert.equal(s.dests[0].k, "ΠΑΤΡΑ");
 });
+
+import { busesFor, nextBusFor } from "../src/lib.js";
+import { SCHEDULE_TIMES, SCHEDULE_LINES } from "../src/schedule-seed.js";
+test("δρομολόγια: λεωφορεία ημέρας και επόμενο λεωφορείο", () => {
+  const fri = new Date(2026, 10, 6, 8, 0); // Παρασκευή
+  const b = busesFor(SCHEDULE_TIMES, SCHEDULE_LINES, fri);
+  const lef = b.find(x => x.hhmm === "09:30" && x.line === "ΛΕΥΚΑΔΑ");
+  assert.deepEqual(lef.members, ["ΑΜΦΙΛΟΧΙΑ", "ΒΟΝΙΤΣΑ", "ΠΡΕΒΕΖΑ", "ΛΕΥΚΑΔΑ"]); assert.equal(lef.end, "ΛΕΥΚΑΔΑ");
+  const nth = b.find(x => x.hhmm === "09:30" && x.line === "ΘΕΣΣΑΛΟΝΙΚΗ"); assert.equal(nth.members.length, 4);
+  const p14 = b.find(x => x.hhmm === "14:00" && x.members.includes("ΜΕΣΟΛΟΓΓΙ")); assert.equal(p14.end, "ΠΑΤΡΑ");
+  const v14 = b.find(x => x.hhmm === "14:00" && x.members.includes("ΝΑΥΠΑΚΤΟΣ")); assert.equal(v14.end, "ΒΟΛΟΣ");
+  const n = nextBusFor(SCHEDULE_TIMES, SCHEDULE_LINES, "ΒΟΝΙΤΣΑ", new Date(2026, 10, 6, 10, 0)); assert.equal(n.hhmm, "15:00"); // Παρ 15:00 υπάρχει
+  const n2 = nextBusFor(SCHEDULE_TIMES, SCHEDULE_LINES, "ΑΣΤΑΚΟΣ", new Date(2026, 10, 6, 15, 0)); assert.equal(n2.at.getDate(), 7); assert.equal(n2.hhmm, "10:30"); // Σάββατο
+});

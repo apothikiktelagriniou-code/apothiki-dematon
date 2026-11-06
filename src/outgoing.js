@@ -2,8 +2,9 @@
 // Ροή: 1) «📄 Κατάσταση δρομολογίου» από το σύστημα ΚΤΕΛ → γραμμές «περιμένει»
 //      2) στη φόρτωση «📷 Φωτογραφίες αποδείξεων» → συμπληρώνονται στοιχεία + «φορτώθηκε»
 //      3) ο έλεγχος δείχνει: στην κατάσταση χωρίς φωτογραφία / φωτογραφία εκτός κατάστασης.
-import { senderStats, ktelNo, cashReconcile, routeOf, isAgrinioReceipt, norm, fmtGr, fmtPhone, cleanPhone, money, parseGrDate, cityFromStation, extractedToOutgoing, sameOutgoing, fillBlanks, outCheck, outCash, outSmsFor, surnameFirst } from "./lib.js";
+import { busesFor, nextBusFor, senderStats, ktelNo, cashReconcile, routeOf, isAgrinioReceipt, norm, fmtGr, fmtPhone, cleanPhone, money, parseGrDate, cityFromStation, extractedToOutgoing, sameOutgoing, fillBlanks, outCheck, outCash, outSmsFor, surnameFirst } from "./lib.js";
 import { toJpegB64 } from "./capture.js";
+import { SCHEDULE_TIMES, SCHEDULE_LINES } from "./schedule-seed.js";
 import { getWorker, getWorkers, find228, grabBand, sound } from "./scan.js";
 
 const $ = id => document.getElementById(id);
@@ -21,7 +22,10 @@ let reports = new Map(); // id → κατάσταση δρομολογίου (γ
 let busy = false, active = false, editing = null, destFilter = "", tripSel = "";
 
 export function initOutgoing(deps) {
-  D = deps; initScanner(); setTimeout(flushQueue, 3000);
+  D = deps; initScanner(); setTimeout(flushQueue, 3000); loadSchedule();
+  $("outSchedBtn").onclick = openSchedule; $("schedClose").onclick = () => $("schedDlg").close();
+  $("o_destination_city").addEventListener("input", () => { const d = cityFromStation($("o_destination_city").value) || norm($("o_destination_city").value);
+    const nb = d ? nextBusFor(sched.times, sched.lines, d, new Date()) : null; $("o_departure").placeholder = nb ? fmtGr(nb.at) + " (επόμενο λεωφορείο)" : "04/11/2026 13:00"; });
   $("outDay").value = dayKey(new Date());
   $("outTrip").onchange = () => { tripSel = $("outTrip").value; render(); };
   $("outDay").onchange = () => { found = null; destFilter = ""; tripSel = ""; $("outQ").value = ""; load(); };
@@ -62,7 +66,8 @@ async function depTick() {
   await loadReports(data || []);
   const g = new Map();
   for (const r of data || []) {
-    const rep = r.report_id && reports.get(r.report_id); const end = rep ? rep.route.end : (r.destination_city || "—");
+    const rep = (r.report_id && reports.get(r.report_id)) || schedReps(dayKey(r.departure_at)).find(x => hhmm(x.departure_at) === hhmm(r.departure_at) && x.members.includes(r.destination_city));
+    const end = rep ? rep.route.end : (r.destination_city || "—");
     const key = hhmm(r.departure_at) + "|" + end; const x = g.get(key) || { key, label: end + " " + hhmm(r.departure_at), dep: r.departure_at, rows: [], report: false };
     x.rows.push(r); if (r.in_report) x.report = true; g.set(key, x);
   }
@@ -102,6 +107,66 @@ function renderSoon() {
 setInterval(depTick, 30000); setTimeout(depTick, 5000);
 
 export function showOutgoing(on) { active = on; if (on) { load(); loadStarred(); } }
+
+// ---------------------------------------------------------------- 🚌 ΒΑΣΗ ΔΡΟΜΟΛΟΓΙΩΝ
+// Αναχωρήσεις από Αγρίνιο (ktel-aitolnias.gr) + «γραμμές» (ποιοι προορισμοί πάνε με το ίδιο λεωφορείο).
+// Χρησιμεύει όταν ΔΕΝ υπάρχει κατάσταση: ομαδοποίηση σε λεωφορεία, στάσεις με σειρά, διερχόμενα στο επόμενο λεωφορείο.
+let sched = { times: SCHEDULE_TIMES, lines: SCHEDULE_LINES, fromDb: false };
+const schedCache = new Map();
+async function loadSchedule() {
+  try {
+    const [t, l] = await Promise.all([D.sb.from("route_times").select("*"), D.sb.from("route_lines").select("*").order("ord")]);
+    if (!t.error && !l.error && (t.data || []).length) sched = { times: t.data, lines: l.data, fromDb: true };
+  } catch { /* μένουν τα ενσωματωμένα */ }
+  schedCache.clear(); if (active) render();
+}
+/** Τα λεωφορεία του προγράμματος για μια ημέρα, στη μορφή των «καταστάσεων» (ώστε να ομαδοποιούνται το ίδιο). */
+function schedReps(day) {
+  if (!day) return [];
+  if (schedCache.has(day)) return schedCache.get(day);
+  const list = busesFor(sched.times, sched.lines, new Date(day + "T12:00")).map(b => {
+    const at = new Date(day + "T00:00"); const [h, m] = b.hhmm.split(":").map(Number); at.setHours(h, m, 0, 0);
+    return { id: "s:" + b.hhmm + "|" + b.end, sched: true, departure_at: at.toISOString(), route: { end: b.end, stops: b.stops }, notes: b.notes, line: b.line, members: b.members };
+  });
+  schedCache.set(day, list); return list;
+}
+const repsFor = day => [...reports.values(), ...schedReps(day)]; // πρώτα οι πραγματικές καταστάσεις
+/** Εξερχόμενα χωρίς ώρα αναχώρησης → το επόμενο λεωφορείο του προγράμματος για τον προορισμό τους (μόνο για εμφάνιση). */
+function assignSched() {
+  if (found) return;
+  const day = $("outDay").value;
+  for (const r of rows.values()) {
+    if (r._parcel || r.status === "cancelled" || !r.destination_city) continue;
+    if (r.departure_at && !r._schedDep) continue;
+    const from = new Date(Math.max(new Date(day + "T00:00").getTime(), new Date(r.created_at || Date.now()).getTime()));
+    const nb = nextBusFor(sched.times, sched.lines, r.destination_city, from);
+    if (nb && dayKey(nb.at) === day) { r.departure_at = nb.at.toISOString(); r._schedDep = true; }
+  }
+}
+function openSchedule() {
+  const day = $("outDay").value; const box = $("schedList"); box.textContent = "";
+  $("schedTitle").textContent = "🚌 Δρομολόγια · " + new Date(day + "T12:00").toLocaleDateString("el-GR", { weekday: "long", day: "numeric", month: "long" });
+  const counts = new Map(); for (const r of rows.values()) if (r.status !== "cancelled" && r.departure_at) { const k = tripKeyOf(r); counts.set(k, (counts.get(k) || 0) + Math.max(1, Number(r.pieces) || 1)); }
+  const now = Date.now();
+  for (const rep of schedReps(day)) {
+    const k = hhmm(rep.departure_at) + "|" + rep.route.end, n = counts.get(k) || 0, past = new Date(rep.departure_at).getTime() < now - 5 * 60e3;
+    const row = el("div", "schedrow" + (past ? " past" : "") + (n ? " has" : ""));
+    row.append(el("b", "schedt", hhmm(rep.departure_at)), el("span", "scheddest", rep.members.join(" → ")));
+    if (n) row.append(el("span", "badge ok", n + " τεμ."));
+    if (rep.notes.length) row.append(el("div", "hint", rep.notes.join(" · ")));
+    if (sched.fromDb) {
+      const off = btn("Δεν εκτελείται", "", async () => {
+        if (!off.dataset.sure) { off.dataset.sure = "1"; off.textContent = "Σίγουρα; Πάτα ξανά"; return; }
+        for (const dst of rep.members) await D.sb.from("route_times").update({ active: false, updated_at: new Date().toISOString() }).eq("dest", dst).eq("time", hhmm(rep.departure_at));
+        await loadSchedule(); openSchedule();
+      }); row.append(off);
+    }
+    box.append(row);
+  }
+  if (!box.childNodes.length) box.append(el("p", "hint", "Κανένα δρομολόγιο αυτή την ημέρα."));
+  $("schedSrc").textContent = (sched.fromDb ? "Από τη βάση" : "Ενσωματωμένα (τρέξε το 0017 για να αλλάζουν)") + " · πηγή ktel-aitolnias.gr (6/11/2026). Ποιοι προορισμοί πάνε μαζί είναι εκτίμηση — αν κάτι δεν ισχύει, πες το να διορθωθεί.";
+  if (!$("schedDlg").open) $("schedDlg").showModal();
+}
 
 // ---------------------------------------------------------------- ⭐ ΤΑΚΤΙΚΟΙ (αποστολείς)
 let starred = new Map(); // customer_id → customer
@@ -195,7 +260,7 @@ async function loadTransit(S, E) {
 }
 /** Διερχόμενο χωρίς ώρα → στο επόμενο λεωφορείο της ημέρας που περνά από τον προορισμό του. */
 function assignTransit() {
-  const reps = [...reports.values()].filter(x => x.departure_at && inDay(x)).sort((a, b) => new Date(a.departure_at) - new Date(b.departure_at));
+  const reps = repsFor($("outDay").value).filter(x => x.departure_at && inDay(x)).sort((a, b) => new Date(a.departure_at) - new Date(b.departure_at));
   const now = Date.now() - 15 * 60e3;
   for (const r of rows.values()) {
     if (!r._parcel || r._parcel.status !== "transit") continue;
@@ -387,14 +452,14 @@ function buildColors(list) {
 function tripKeyOf(r) {
   const tk = x => x.departure_at ? hhmm(x.departure_at) : "—";
   let rep = r.report_id && reports.get(r.report_id);
-  if (!rep && r.departure_at) rep = [...reports.values()].find(x => tk(x) === tk(r) && (x.route.end === r.destination_city || x.route.stops.includes(r.destination_city)));
+  if (!rep && r.departure_at) rep = repsFor(dayKey(r.departure_at)).find(x => tk(x) === tk(r) && (x.route.end === r.destination_city || x.route.stops.includes(r.destination_city)));
   return rep ? tk(rep) + "|" + (rep.route.end || "—") : tk(r) + "|" + (r.destination_city || "—");
 }
 const keyLabel = key => { const [k, d] = key.split("|"); return (d === "—" ? "Χωρίς προορισμό" : d) + " " + (k === "—" ? "(χωρίς ώρα)" : k); };
 // πλήθος = τεμάχια (ένα δέμα με 3 κομμάτια μετράει 3)
 const pcs = a => a.reduce((s, r) => s + Math.max(1, Number(r.pieces) || 1), 0);
 function render() {
-  assignTransit();
+  assignTransit(); assignSched();
   const list = $("outList"); list.textContent = "";
   const all = found || [...rows.values()];
   buildColors(all);
@@ -416,13 +481,14 @@ function render() {
   // Δέμα χωρίς κατάσταση μπαίνει στο λεωφορείο της ίδιας ώρας που περνά από τον προορισμό του· αλλιώς ομάδα «προορισμός + ώρα».
   const tKey = r => (found ? dayKey(r.departure_at || r.created_at) + " " : "") + (r.departure_at ? hhmm(r.departure_at) : "—");
   const routeKey = rep => tKey(rep) + "|" + (rep.route.end || "—");
-  const byTime = new Map(); for (const rep of reports.values()) { const k = tKey(rep); (byTime.get(k) || byTime.set(k, []).get(k)).push(rep); }
+  const schedNotes = new Map();
+  const byTime = new Map(); for (const rep of (found ? [...reports.values()] : repsFor($("outDay").value))) { const k = tKey(rep); (byTime.get(k) || byTime.set(k, []).get(k)).push(rep); }
   const stopsOf = new Map();
   for (const r of src) {
     let rep = r.report_id && reports.get(r.report_id);
     if (!rep && r.departure_at) rep = (byTime.get(tKey(r)) || []).find(x => x.route.end === r.destination_city || x.route.stops.includes(r.destination_city));
     const k = rep ? routeKey(rep) : tKey(r) + "|" + (r.destination_city || "—");
-    if (rep) { const s = stopsOf.get(k) || new Set(); [...rep.route.stops, rep.route.end].forEach(x => s.add(x)); stopsOf.set(k, s); }
+    if (rep) { const s = stopsOf.get(k) || new Set(); [...rep.route.stops, rep.route.end].forEach(x => s.add(x)); stopsOf.set(k, s); if (rep.sched && rep.notes.length) schedNotes.set(k, rep.notes); }
     const g = groups.get(k) || []; g.push(r); groups.set(k, g);
   }
   const keys = [...groups.keys()].sort((a, b) => { const [ta, da] = a.split("|"), [tb, db] = b.split("|");
@@ -444,6 +510,7 @@ function render() {
     const sec = el("section", "outtrip"); const head = el("div", "outhead");
     const title = (dest === "—" ? "Χωρίς προορισμό" : dest) + " " + (k.endsWith("—") ? "· χωρίς ώρα" : k);
     head.append(el("b", "outroute", title), el("span", "hint", " · " + pcs(live) + " τεμ." + (pcs(live) > live.length ? " (" + live.length + " αποδείξεις)" : "")));
+    if (stopList.length > 1 || schedNotes.has(key)) head.append(el("div", "hint routeline", "🚌 " + stopList.join(" → ") + (schedNotes.has(key) ? " · " + schedNotes.get(key).join(" · ") : "")));
     const badges = el("div", "outbadges");
     badges.append(el("span", "badge", pcs(live.filter(r => r.status === "loaded")) + "/" + pcs(live) + " φορτώθηκαν"));
     if (live.some(r => r.in_report)) badges.append(el("span", "badge ok", "📄 " + live.filter(r => r.in_report).length + " στην κατάσταση"));
@@ -531,7 +598,7 @@ function card(r) {
   const add = (l, v) => { if (v == null || v === "") return; const x = el("div", "line"); x.append(el("span", "lbl", l), el("span", null, v)); info.append(x); };
   add("Προορισμός", r.destination_city); add("Απόδειξη", r.receipt_no + (r.parcel_code && !/\(/.test(r.receipt_no || "") ? " · " + r.parcel_code : ""));
   if (!r._parcel) add("Κόμιστρο", r.fare_eur != null ? money(r.fare_eur) + (r.pieces > 1 ? " · " + r.pieces + " τεμ." : "") : "⚠ λείπει");
-  add("Αναχώρηση", r.departure_at ? fmtGr(r.departure_at) : null); add("Έκδοση", r.issued_at ? fmtGr(r.issued_at) : null); add("Αποστολέας", [r.sender_name, r.sender_phone ? fmtPhone(r.sender_phone) : ""].filter(Boolean).join(" · "));
+  add("Αναχώρηση", r.departure_at ? fmtGr(r.departure_at) + (r._schedDep ? " (επόμενο λεωφορείο κατά το πρόγραμμα)" : "") : null); add("Έκδοση", r.issued_at ? fmtGr(r.issued_at) : null); add("Αποστολέας", [r.sender_name, r.sender_phone ? fmtPhone(r.sender_phone) : ""].filter(Boolean).join(" · "));
   add("Τηλ. παραλήπτη", r.recipient_phone ? fmtPhone(r.recipient_phone) + (r.sms_sent_at ? " · 📩 SMS " + fmtGr(r.sms_sent_at) : "") : null);
   add("Υπάλληλος", r.operator); add("Παρατηρήσεις", r.notes);
   c.append(info);

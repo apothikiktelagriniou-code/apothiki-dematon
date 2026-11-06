@@ -107,6 +107,7 @@
       <button type="button" class="btn small" id="outManual">＋ Χωρίς φωτογραφία</button>
       <button type="button" class="btn small" id="outCashBtn">💶 Ταμείο εξερχομένων</button>
       <button type="button" class="btn small star" id="outRegBtn">⭐ Τακτικοί</button>
+      <button type="button" class="btn small" id="outSchedBtn">🚌 Δρομολόγια</button>
       <button type="button" class="btn small" id="outScanAll">🔎 Σάρωση φόρτωσης</button>
       <label class="btn small" for="outPeople">📇 Αποστολείς/παραλήπτες ΚΤΕΛ</label><input id="outPeople" type="file" accept="image/*" multiple hidden>
       <label class="btn small" for="outCashClose">🧾 Κλείσιμο ταμείου ΚΤΕΛ</label><input id="outCashClose" type="file" accept="image/*" multiple hidden>
@@ -259,6 +260,11 @@
       <div id="outFormMsg" class="msg bad" hidden></div>
       <div class="formactions toolbar"><button class="btn primary" type="submit">Αποθήκευση</button><button class="btn small" type="button" id="outVoid">Ακύρωση δέματος</button><button class="btn small danger" type="button" id="outDel">Διαγραφή</button></div>
     </form>
+  </dialog>
+  <dialog id="schedDlg" class="sheet" aria-labelledby="schedTitle">
+    <div class="sheet-head"><h2 id="schedTitle">🚌 Δρομολόγια</h2><button class="btn small" type="button" id="schedClose" aria-label="Κλείσιμο">✕</button></div>
+    <p class="hint" id="schedSrc"></p>
+    <div id="schedList" class="schedlist"></div>
   </dialog>
   <dialog id="regDlg" class="sheet" aria-labelledby="regTitle">
     <div class="sheet-head"><h2 id="regTitle">⭐ Τακτικοί πελάτες</h2><button class="btn small" type="button" id="regClose" aria-label="Κλείσιμο">✕</button></div>
