@@ -1070,7 +1070,7 @@ async function addOutside(n, shot) {
   try {
     let r;
     if (n) { r = await save(null, { receipt_no: n, ...loadedPatch(), photographed: true, in_report: false, departure_at: dep, operator: D.operator() || null, notes: "Εκτός κατάστασης — προστέθηκε στη φόρτωση" });
-      await enrichScan(shot, n, null); r = rows.get(r.id) || r; }
+      await enrichScan(shot, n, key); r = rows.get(r.id) || r; }
     else { r = await onePhoto(shot, true); const p = { in_report: false, notes: (r.notes ? r.notes + " · " : "") + "Εκτός κατάστασης — προστέθηκε στη φόρτωση" }; if (!r.departure_at && dep) p.departure_at = dep; r = await save(r.id, p); }
     scan.seen.set(r.receipt_no, Date.now());
     flash("warn", "＋ ΠΡΟΣΤΕΘΗΚΕ", r.recipient_name || r.receipt_no, (r.destination_city || "?") + " · εκτός κατάστασης", true); sound.ok();
