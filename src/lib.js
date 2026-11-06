@@ -639,3 +639,44 @@ export function expectProgress(man, parcels) {
   const piecesFound = found.reduce((s, f) => s + Math.min(piecesIn(f.parcel), itemPieces(f.item)), 0);
   return { total: items.length, found, missing: r.missing, extra, pieces, piecesFound, partial, before: found.filter(f => f.before).length, early: found.filter(f => f.early) };
 }
+
+// ================================================================ ΚΛΕΙΣΙΜΟ ΤΑΜΕΙΟΥ: όταν το άθροισμα δεν ταιριάζει
+/**
+ * Δύο ανεξάρτητες αναγνώσεις του ίδιου ταμείου + το σύνολο της αναφοράς → διόρθωση ποσών.
+ * Όπου οι δύο αναγνώσεις διαφωνούν, δοκιμάζει τους συνδυασμούς· αν ΑΚΡΙΒΩΣ ένας δίνει το σύνολο, τον κρατά.
+ * Αλλιώς επιστρέφει «ύποπτες» γραμμές: διαφωνίες, ποσό εκτός του συνηθισμένου για τον προορισμό, διαφορά με την εφαρμογή.
+ * appFare(receipt_no) → ποσό που ξέρει η εφαρμογή (από τη σάρωση), ή null.
+ */
+export function cashFix(items, items2, total, appFare = () => null) {
+  const r2 = new Map((items2 || []).map(i => [ktelNo(i.receipt_no), i]));
+  const out = items.map(i => ({ ...i }));
+  const sum = a => Math.round(a.reduce((s, i) => s + (Number(i.amount) || 0), 0) * 100) / 100;
+  const before = sum(out);
+  const dis = [];
+  out.forEach((it, idx) => { const b = r2.get(ktelNo(it.receipt_no)); if (b && b.amount != null && Number(b.amount) !== Number(it.amount)) dis.push({ idx, a: Number(it.amount) || 0, b: Number(b.amount) }); });
+  const changed = [];
+  let resolved = total == null ? true : Math.abs(before - total) < 0.01;
+  if (!resolved && dis.length && dis.length <= 16) {
+    const base = before - dis.reduce((s, d) => s + d.a, 0), sols = [];
+    for (let m = 0; m < (1 << dis.length) && sols.length < 2; m++) {
+      const s = base + dis.reduce((t, d, k) => t + (m >> k & 1 ? d.b : d.a), 0);
+      if (Math.abs(s - total) < 0.01) sols.push(m);
+    }
+    if (sols.length === 1) {
+      dis.forEach((d, k) => { if (sols[0] >> k & 1) { changed.push({ receipt_no: out[d.idx].receipt_no, from: d.a, to: d.b }); out[d.idx].amount = d.b; } });
+      resolved = true;
+    }
+  }
+  // ύποπτες γραμμές για έλεγχο με το μάτι
+  const suspects = new Map();
+  const add = (it, why) => { const k = ktelNo(it.receipt_no); const s = suspects.get(k) || { receipt_no: it.receipt_no, to: it.to, amount: it.amount, why: [] }; s.why.push(why); suspects.set(k, s); };
+  if (!resolved) {
+    dis.forEach(d => add(out[d.idx], "2η ανάγνωση: " + d.b));
+    const byTo = new Map(); out.forEach(i => { const k = i.to || ""; const m = byTo.get(k) || new Map(); m.set(Number(i.amount) || 0, (m.get(Number(i.amount) || 0) || 0) + 1); byTo.set(k, m); });
+    out.forEach(i => { const m = byTo.get(i.to || ""); const n = [...m.values()].reduce((a, b) => a + b, 0); if (n < 3) return;
+      const [mode, c] = [...m.entries()].sort((a, b) => b[1] - a[1])[0]; if (c >= n * 0.6 && (Number(i.amount) || 0) !== mode) add(i, "συνήθως " + mode + " για " + (i.to || "—")); });
+    out.forEach(i => { const f = appFare(i.receipt_no); if (f != null && Math.abs(Number(f) - (Number(i.amount) || 0)) > 0.009) add(i, "η ετικέτα έγραφε " + f); });
+    out.filter(i => i.unsure).forEach(i => add(i, "αβέβαιη ανάγνωση"));
+  }
+  return { items: out, before, after: sum(out), changed, resolved, suspects: [...suspects.values()] };
+}

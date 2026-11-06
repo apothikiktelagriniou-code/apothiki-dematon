@@ -404,3 +404,13 @@ test("expectProgress: ίδιος αριθμός πριν το λεωφορείο
   const sameBus = { id: "y", receipt_no: "255-349-11663", recipient_name: "ΠΑΠΑΣ", departure_at: dep.toISOString(), created_at: new Date(2026, 10, 6, 21, 0).toISOString() };
   assert.equal(expectProgress(man, [sameBus]).found.length, 1);
 });
+
+test("cashFix: 2η ανάγνωση + σύνολο διορθώνει ποσά· αλλιώς ύποπτες", async () => {
+  const { cashFix } = await import("../src/lib.js");
+  const R = n => "2-000-228-336-1423" + String(n).padStart(2, "0");
+  const a = [1, 2, 3, 4, 5].map(n => ({ receipt_no: R(n), to: "ΑΘΗΝΑ", amount: 6 })); a[2].amount = 1; // 16 διαβάστηκε 1
+  const b = a.map(i => ({ ...i })); b[2].amount = 16;
+  let r = cashFix(a, b, 40); assert.ok(r.resolved); assert.equal(r.after, 40); assert.deepEqual(r.changed.map(c => c.to), [16]);
+  // η 2η ανάγνωση έκανε το ίδιο λάθος → ύποπτη από τον προορισμό
+  r = cashFix(a, a, 40); assert.ok(!r.resolved); assert.equal(r.suspects.length, 1); assert.match(r.suspects[0].why[0], /συνήθως 6/);
+});
