@@ -330,3 +330,14 @@ test("δρομολόγια: λεωφορεία ημέρας και επόμεν�
   const n = nextBusFor(SCHEDULE_TIMES, SCHEDULE_LINES, "ΒΟΝΙΤΣΑ", new Date(2026, 10, 6, 10, 0)); assert.equal(n.hhmm, "15:00"); // Παρ 15:00 υπάρχει
   const n2 = nextBusFor(SCHEDULE_TIMES, SCHEDULE_LINES, "ΑΣΤΑΚΟΣ", new Date(2026, 10, 6, 15, 0)); assert.equal(n2.at.getDate(), 7); assert.equal(n2.hhmm, "10:30"); // Σάββατο
 });
+
+test("δρομολόγια: γραμμή μόνο για συγκεκριμένη ώρα", () => {
+  const times = [{ dest: "ΜΥΤΙΚΑΣ", time: "15:00", days: "1111111" }, { dest: "ΚΑΤΟΥΝΑ", time: "15:00", days: "1111111" }, { dest: "ΒΟΝΙΤΣΑ", time: "15:00", days: "1111111" }, { dest: "ΑΜΦΙΛΟΧΙΑ", time: "15:00", days: "1111111" },
+    { dest: "ΜΥΤΙΚΑΣ", time: "05:00", days: "1111111" }, { dest: "ΚΑΤΟΥΝΑ", time: "05:00", days: "1111111" }];
+  const lines = [{ name: "ΛΕΥΚΑΔΑ", stops: ["ΑΜΦΙΛΟΧΙΑ", "ΒΟΝΙΤΣΑ", "ΛΕΥΚΑΔΑ"] }, { name: "ΜΥΤΙΚΑΣ", stops: ["ΑΣΤΑΚΟΣ", "ΜΥΤΙΚΑΣ"] }, { name: "ΚΑΤΟΥΝΑ", stops: ["ΚΑΤΟΥΝΑ"] },
+    { name: "ΜΥΤΙΚΑΣ 15:00", stops: ["ΚΑΤΟΥΝΑ", "ΜΥΤΙΚΑΣ", "ΒΟΝΙΤΣΑ"], times: ["15:00"] }];
+  const b = busesFor(times, lines, new Date(2026, 10, 6));
+  assert.deepEqual(b.find(x => x.hhmm === "15:00" && x.line === "ΜΥΤΙΚΑΣ 15:00").members, ["ΚΑΤΟΥΝΑ", "ΜΥΤΙΚΑΣ", "ΒΟΝΙΤΣΑ"]);
+  assert.deepEqual(b.find(x => x.hhmm === "15:00" && x.members.includes("ΑΜΦΙΛΟΧΙΑ")).members, ["ΑΜΦΙΛΟΧΙΑ"]);
+  assert.equal(b.filter(x => x.hhmm === "05:00").length, 2); // στις 05:00 η ειδική γραμμή δεν ισχύει
+});

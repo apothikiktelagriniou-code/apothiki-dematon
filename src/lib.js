@@ -510,8 +510,9 @@ export function busesFor(times, lines, date) {
   for (const [hhmm, ts] of [...byT.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
     const present = new Set(ts.map(t => t.dest)); const groups = new Map();
     for (const t of ts) {
-      const cand = lines.filter(l => l.stops.includes(t.dest));
-      const best = cand.map(l => ({ l, n: l.stops.filter(s => present.has(s)).length })).sort((a, b) => b.n - a.n)[0];
+      // γραμμή με συγκεκριμένες ώρες (π.χ. «ΜΥΤΙΚΑΣ 15:00») ισχύει μόνο τότε και υπερισχύει των γενικών
+      const cand = lines.filter(l => l.stops.includes(t.dest) && (!(l.times || []).length || l.times.includes(hhmm)));
+      const best = cand.map(l => ({ l, n: l.stops.filter(s => present.has(s)).length + ((l.times || []).length ? 100 : 0) })).sort((a, b) => b.n - a.n)[0];
       const name = best ? best.l.name : t.dest; const g = groups.get(name) || { line: best ? best.l : null, ts: [] }; g.ts.push(t); groups.set(name, g);
     }
     for (const [name, g] of groups) {

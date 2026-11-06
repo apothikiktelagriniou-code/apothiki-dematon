@@ -204,23 +204,24 @@ function timeRow(t) {
 /** ✎ Λεωφορεία: ποιοι προορισμοί πάνε μαζί και με ποια σειρά στάσεων. */
 function renderLinesEditor() {
   const box = $("schedList"); box.textContent = "";
-  box.append(el("p", "hint", "Κάθε γραμμή = ένα λεωφορείο που περνά από αυτές τις στάσεις, με τη σειρά (το τελευταίο είναι το τέρμα). Δέματα για προορισμούς της ίδιας γραμμής που φεύγουν την ίδια ώρα μπαίνουν στο ίδιο λεωφορείο. Αν ένας προορισμός είναι σε δύο γραμμές, μπαίνει σε όποια έχει περισσότερες στάσεις εκείνη την ώρα (σε ισοπαλία: η πιο πάνω)."));
+  box.append(el("p", "hint", "Κάθε γραμμή = ένα λεωφορείο που περνά από αυτές τις στάσεις, με τη σειρά (το τελευταίο είναι το τέρμα). Δέματα για προορισμούς της ίδιας γραμμής που φεύγουν την ίδια ώρα μπαίνουν στο ίδιο λεωφορείο. Αν ένας προορισμός είναι σε δύο γραμμές, μπαίνει σε όποια έχει περισσότερες στάσεις εκείνη την ώρα (σε ισοπαλία: η πιο πάνω). Στο πεδίο «ώρες» γράψε π.χ. 15:00 αν το λεωφορείο ισχύει μόνο τότε — τότε υπερισχύει."));
   sched.lines.forEach((l, i) => {
     const row = el("div", "schedrow edit");
     const nI = el("input", "linename"); nI.value = l.name; nI.setAttribute("aria-label", "Όνομα γραμμής"); nI.size = 12;
     const sI = el("input", "linestops"); sI.value = l.stops.join(", "); sI.setAttribute("aria-label", "Στάσεις με τη σειρά, χωρισμένες με κόμμα");
+    const tI = el("input", "linetimes"); tI.value = (l.times || []).join(", "); tI.placeholder = "όλες οι ώρες"; tI.setAttribute("aria-label", "Μόνο αυτές τις ώρες (π.χ. 15:00), κενό = όλες"); tI.size = 10; tI.title = "Αν γράψεις ώρες (π.χ. 15:00), το λεωφορείο ισχύει μόνο τότε και υπερισχύει των άλλων";
     const up = btn("▲", "", () => move(i, -1)); up.setAttribute("aria-label", "Πιο πάνω"); up.disabled = i === 0;
     const del = btn("🗑", "danger", async () => { if (!del.dataset.sure) { del.dataset.sure = "1"; del.textContent = "Σίγουρα;"; return; }
       const { error } = await D.sb.from("route_lines").delete().eq("name", l.name); if (error) return schedSay("Δεν διαγράφηκε: " + error.message, "bad"); await schedChanged("✓ Διαγράφηκε η γραμμή " + l.name + "."); renderLinesEditor(); });
     const save = async () => {
       const stops = sI.value.split(/[,>→]+/).map(s => cityFromStation(s) || norm(s)).filter(Boolean); const name = norm(nI.value) || stops.at(-1);
       if (!stops.length) return schedSay("Βάλε τουλάχιστον μία στάση.", "warn");
-      const { error } = name === l.name ? await D.sb.from("route_lines").update({ stops }).eq("name", l.name)
-        : await D.sb.from("route_lines").update({ name, stops }).eq("name", l.name);
+      const tms = tI.value.split(/[,\s]+/).filter(Boolean).map(normTime); if (tms.some(x => !okTime(x))) return schedSay("Οι ώρες σαν 15:00, χωρισμένες με κόμμα.", "warn");
+      const { error } = await D.sb.from("route_lines").update({ ...(name !== l.name ? { name } : {}), stops, times: tms }).eq("name", l.name);
       if (error) return schedSay("Δεν αποθηκεύτηκε: " + error.message, "bad"); await schedChanged("✓ Γραμμή " + name + ": " + stops.join(" → ")); renderLinesEditor();
     };
-    nI.onchange = save; sI.onchange = save;
-    row.append(nI, sI, up, del); box.append(row);
+    nI.onchange = save; sI.onchange = save; tI.onchange = save;
+    row.append(nI, sI, tI, up, del); box.append(row);
   });
   const add = btn("＋ Νέα γραμμή", "primary", async () => {
     const name = "ΝΕΑ " + (sched.lines.length + 1);
