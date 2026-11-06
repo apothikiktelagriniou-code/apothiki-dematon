@@ -326,7 +326,7 @@ test("δρομολόγια: λεωφορεία ημέρας και επόμεν�
   assert.deepEqual(lef.members, ["ΑΜΦΙΛΟΧΙΑ", "ΒΟΝΙΤΣΑ", "ΠΡΕΒΕΖΑ", "ΛΕΥΚΑΔΑ"]); assert.equal(lef.end, "ΛΕΥΚΑΔΑ");
   const nth = b.find(x => x.hhmm === "09:30" && x.line === "ΘΕΣΣΑΛΟΝΙΚΗ"); assert.equal(nth.members.length, 4);
   const p14 = b.find(x => x.hhmm === "14:00" && x.members.includes("ΜΕΣΟΛΟΓΓΙ")); assert.equal(p14.end, "ΠΑΤΡΑ");
-  const v14 = b.find(x => x.hhmm === "14:00" && x.members.includes("ΝΑΥΠΑΚΤΟΣ")); assert.equal(v14.end, "ΒΟΛΟΣ");
+  const v14 = b.find(x => x.hhmm === "14:00" && x.members.includes("ΛΑΡΙΣΑ")); assert.equal(v14.end, "ΒΟΛΟΣ");
   const n = nextBusFor(SCHEDULE_TIMES, SCHEDULE_LINES, "ΒΟΝΙΤΣΑ", new Date(2026, 10, 6, 10, 0)); assert.equal(n.hhmm, "15:00"); // Παρ 15:00 υπάρχει
   const n2 = nextBusFor(SCHEDULE_TIMES, SCHEDULE_LINES, "ΑΣΤΑΚΟΣ", new Date(2026, 10, 6, 15, 0)); assert.equal(n2.at.getDate(), 7); assert.equal(n2.hhmm, "10:30"); // Σάββατο
 });
