@@ -471,16 +471,20 @@ function renderExpect(all) {
   const box = $("expectBox"); if (!box) return;
   const op = openExpects();
   const prog = op.map(m => ({ m, r: expectProgress(m, all) }));
-  const sig = JSON.stringify(prog.map(x => [x.m.id, x.r.found.length, x.r.missing.length, x.r.extra.length])) + pendingReviewCount() + expectDel;
+  const sig = JSON.stringify(prog.map(x => [x.m.id, x.r.found.length, x.r.piecesFound, x.r.missing.length, x.r.extra.length])) + pendingReviewCount() + expectDel;
   if (sig === expectSig) return; expectSig = sig;
   box.textContent = ""; box.hidden = !op.length;
   prog.forEach(({ m, r }) => {
-    const c = el("div", "expect"); const done = r.found.length, tot = r.total;
+    const c = el("div", "expect"); const done = r.piecesFound, tot = r.pieces;
     const head = el("div", "exhead");
     head.append(el("b", null, "📋 " + (m.origin_city || "Κατάσταση") + (m.departure_at ? " " + fmtGr(m.departure_at).slice(0, 5) + " " + fmtGr(m.departure_at).slice(11) : "")),
-      el("span", "exnum" + (done >= tot ? " ok" : ""), "ήρθαν " + done + " / " + tot));
+      el("span", "exnum" + (done >= tot ? " ok" : ""), "ήρθαν " + done + " / " + tot + " τεμ."));
     const bar = el("div", "exbar"); const fill = el("i"); fill.style.width = Math.round(100 * done / Math.max(1, tot)) + "%"; bar.append(fill);
     c.append(head, bar);
+    c.append(el("div", "hint", r.found.length + " / " + r.total + " αποστολές" + (r.pieces !== r.total ? " · " + r.pieces + " τεμάχια συνολικά" : "") +
+      (m.total_declared != null ? " · η κατάσταση γράφει σύνολο " + m.total_declared + (m.total_declared === r.pieces || m.total_declared === r.total ? " ✓" : " ⚠") : "") +
+      (r.before ? " · " + r.before + " είχαν καταχωρηθεί πριν την κατάσταση" : "")));
+    if (r.partial.length) c.append(el("div", "msg warn", "⚠ Λείπουν τεμάχια: " + r.partial.map(f => (f.parcel.recipient_name || f.item.recipient || "—") + " " + Math.max(1, f.parcel.pieces_in || 1) + "/" + Math.max(1, Number(f.item.pieces) || 1)).join(", ")));
     if (r.missing.length) {
       const dt = el("details"); dt.append(el("summary", null, "Λείπουν ακόμα (" + r.missing.length + ")"));
       r.missing.forEach(it => dt.append(el("div", "mline", (it.recipient || "—") + (it.receipt_no ? " · " + it.receipt_no : "") + (it.destination_city && it.destination_city !== HOME ? " · → " + it.destination_city : "") + (it.pieces > 1 ? " · " + it.pieces + " τεμ." : ""))));

@@ -594,12 +594,33 @@ export function expectHelp(d0, opens, taken = () => false) {
   if ((!norm(d.destination_city) || uns("destination_city")) && it.destination_city) { d.destination_city = it.destination_city === HOME ? "" : it.destination_city; drop("destination_city"); filled.push("destination_city"); }
   return { d, man: m, item: it, how, filled, note };
 }
-/** Πρόοδος ανοιχτής κατάστασης: πόσα ήρθαν, ποια λείπουν, ποια ήρθαν από το ίδιο δρομολόγιο χωρίς να είναι μέσα. */
+/** Τεμάχια γραμμής κατάστασης (null/0 → 1). */
+export const itemPieces = it => Math.max(1, Number(it && it.pieces) || 1);
+/** Τεμάχια που έχουν φτάσει για ένα δέμα (pieces_in, αλλιώς 1). */
+const piecesIn = p => Math.max(1, Number(p.pieces_in) || 1);
+/**
+ * Πρόοδος ανοιχτής κατάστασης: αποστολές ΚΑΙ τεμάχια.
+ * Με ίδιο αριθμό απόδειξης μετράει κάθε δέμα (ακόμα κι αν καταχωρήθηκε πριν). Με όνομα ή «σχεδόν ίδιο» αριθμό
+ * μετράνε ΜΟΝΟ δέματα που καταχωρήθηκαν ΜΕΤΑ το ανέβασμα της κατάστασης — αλλιώς ένα παλιό δέμα με ίδιο επώνυμο έβγαινε «ήρθε».
+ */
 export function expectProgress(man, parcels) {
   const dep = man.departure_at ? new Date(man.departure_at) : null;
   const trip = man.origin_city && dep ? { origin: man.origin_city, key: tripsOf({ origin_city: man.origin_city, departure_at: dep.toISOString() })[0] } : null;
-  const since = new Date(man.created_at || Date.now()).getTime() - 7 * 864e5;
-  const pool = parcels.filter(p => p.source !== "manifest" && new Date(p.created_at).getTime() >= since);
-  const r = reconcile(man.items || [], pool, trip, pool.filter(p => !trip || p.origin_city === trip.origin));
-  return { total: (man.items || []).length, found: r.found, missing: r.missing, extra: r.extra };
+  const t0 = new Date(man.created_at || Date.now()).getTime();
+  const real = parcels.filter(p => p.source !== "manifest");
+  const pool = real.filter(p => new Date(p.created_at).getTime() >= t0 - 7 * 864e5);
+  const after = real.filter(p => new Date(p.created_at).getTime() >= t0 - 5 * 60e3);
+  const items = man.items || [], used = new Set(), found = [], rest = [];
+  for (const it of items) {
+    const p = String(it.receipt_no || "").replace(/\D/g, "").length >= 8 && pool.find(x => !used.has(x.id) && sameReceipt(x.receipt_no, it.receipt_no));
+    if (p) { used.add(p.id); found.push({ item: it, parcel: p, how: "receipt", before: new Date(p.created_at).getTime() < t0 - 5 * 60e3 }); } else rest.push(it);
+  }
+  const r = reconcile(rest, after.filter(x => !used.has(x.id)), trip, after.filter(x => !used.has(x.id) && (!trip || x.origin_city === trip.origin)));
+  r.found.forEach(f => found.push(f));
+  const fUsed = new Set(found.map(f => f.parcel.id));
+  const extra = trip ? after.filter(x => !fUsed.has(x.id) && tripsOf(x)[0] === trip.key) : [];
+  const pieces = items.reduce((s, it) => s + itemPieces(it), 0);
+  const partial = found.filter(f => piecesIn(f.parcel) < itemPieces(f.item));
+  const piecesFound = found.reduce((s, f) => s + Math.min(piecesIn(f.parcel), itemPieces(f.item)), 0);
+  return { total: items.length, found, missing: r.missing, extra, pieces, piecesFound, partial, before: found.filter(f => f.before).length };
 }

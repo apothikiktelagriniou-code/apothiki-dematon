@@ -377,3 +377,19 @@ test("expectHelp: συμπληρώνει από την κατάσταση μόν
   const pr = expectProgress({ ...man, created_at: now }, [{ id: "a", receipt_no: "255-349-11663", recipient_name: "ΠΑΠΑΔΟΠΟΥΛΟΣ ΓΙΩΡΓΟΣ", origin_city: "ΠΑΤΡΑ", departure_at: man.departure_at, created_at: now }]);
   assert.equal(pr.found.length, 1); assert.equal(pr.missing.length, 2);
 });
+
+test("expectProgress: τεμάχια και όχι παλιά δέματα με ίδιο επώνυμο", async () => {
+  const { expectProgress } = await import("../src/lib.js");
+  const t0 = Date.now(); const dep = new Date(2026, 10, 6, 14, 0).toISOString();
+  const man = { origin_city: "ΠΑΤΡΑ", departure_at: dep, created_at: new Date(t0).toISOString(), total_declared: 5, items: [
+    { receipt_no: "2-255-349-11663", recipient: "ΠΑΠΑΣ ΝΙΚΟΣ", pieces: 3 }, { receipt_no: "2-255-349-11664", recipient: "ΚΟΥΦΟΥ ΜΑΡΙΑ", pieces: 1 }, { receipt_no: "2-255-349-11665", recipient: "ΔΗΜΟΥ ΕΛΕΝΗ", pieces: null }] };
+  const old = new Date(t0 - 2 * 864e5).toISOString(), now = new Date(t0 + 60e3).toISOString();
+  const parcels = [
+    { id: "o", receipt_no: "258-111-22222", recipient_name: "ΚΟΥΦΟΥ ΜΑΡΙΑ", origin_city: "ΠΑΤΡΑ", created_at: old }, // παλιό, ίδιο όνομα → ΔΕΝ μετράει
+    { id: "a", receipt_no: "255-349-11663", recipient_name: "ΠΑΠΑΣ ΝΙΚΟΣ", origin_city: "ΠΑΤΡΑ", departure_at: dep, pieces_total: 3, pieces_in: 2, created_at: now }];
+  let r = expectProgress(man, parcels);
+  assert.equal(r.pieces, 5); assert.equal(r.piecesFound, 2); assert.equal(r.found.length, 1); assert.equal(r.partial.length, 1);
+  // ίδιος αριθμός πριν το ανέβασμα → μετράει (σημειώνεται «πριν»)
+  parcels.push({ id: "b", receipt_no: "255-349-11665", recipient_name: "ΔΗΜΟΥ ΕΛΕΝΗ", origin_city: "ΠΑΤΡΑ", created_at: old });
+  r = expectProgress(man, parcels); assert.equal(r.found.length, 2); assert.equal(r.before, 1); assert.equal(r.piecesFound, 3);
+});

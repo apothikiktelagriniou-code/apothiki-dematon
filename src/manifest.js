@@ -1,5 +1,5 @@
 // Έλεγχος κατάστασης πρακτορείου: φωτογραφίες λίστας → AI → σύγκριση με τα καταχωρημένα δέματα.
-import { receiptFixes, fixedReceiptNote, norm, parseGrDate, fmtGr, tripsOf, reconcile, fmtPhone, cityFromStation, shelfFor, HOME, money } from "./lib.js";
+import { sameReceipt, receiptFixes, fixedReceiptNote, norm, parseGrDate, fmtGr, tripsOf, reconcile, fmtPhone, cityFromStation, shelfFor, HOME, money } from "./lib.js";
 
 const $ = id => document.getElementById(id);
 const el = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
@@ -20,7 +20,7 @@ export function openManifest(D, opts = {}) {
   if (opts.finish) {
     const f = opts.finish; const out = el("div", "mres");
     body.append(el("h2", null, "Τέλος ελέγχου κατάστασης"), out); $("dlg").showModal();
-    showIn(out, { origin_city: f.origin_city, departure: f.departure_at ? fmtGr(f.departure_at) : "", agency: f.agency, items: JSON.parse(JSON.stringify(f.items || [])), total_declared: f.total_declared }, f.id);
+    showIn(out, { origin_city: f.origin_city, departure: f.departure_at ? fmtGr(f.departure_at) : "", agency: f.agency, items: JSON.parse(JSON.stringify(f.items || [])), total_declared: f.total_declared }, f.id, new Date(f.created_at || Date.now()).getTime() - 5 * 60e3);
     return;
   }
   body.append(el("h2", null, opts.expect ? "📥 Κατάσταση πριν τον έλεγχο" : "Έλεγχος κατάστασης πρακτορείου"),
@@ -51,8 +51,9 @@ export function openManifest(D, opts = {}) {
       total_declared: m.total_declared, found: null, missing: null, extra: null, operator: D.operator() });
     if (error) { msg.hidden = false; msg.className = "msg bad"; msg.textContent = "Δεν αποθηκεύτηκε: " + error.message; return; }
     const home = items.filter(i => i.destination_city === HOME).length;
-    out.append(el("div", "msg ok", "✓ Κατάσταση " + (origin || "πόλη;") + (dep ? " · " + fmtGr(dep) : "") + ": αναμένονται " + items.length + " δέματα (" + home + " για Αγρίνιο" + (items.length - home ? ", " + (items.length - home) + " μεταφορτώσεις" : "") + ")."));
-    if (m.total_declared != null && m.total_declared !== items.length) out.append(el("div", "msg warn", "⚠ Η κατάσταση γράφει σύνολο " + m.total_declared + " αλλά διάβασα " + items.length + " γραμμές — μπορεί να λείπει σελίδα."));
+    const pcs = items.reduce((s, i) => s + Math.max(1, Number(i.pieces) || 1), 0);
+    out.append(el("div", "msg ok", "✓ Κατάσταση " + (origin || "πόλη;") + (dep ? " · " + fmtGr(dep) : "") + ": αναμένονται " + pcs + " τεμάχια σε " + items.length + " αποστολές (" + home + " για Αγρίνιο" + (items.length - home ? ", " + (items.length - home) + " μεταφορτώσεις" : "") + ")."));
+    if (m.total_declared != null && m.total_declared !== items.length && m.total_declared !== pcs) out.append(el("div", "msg warn", "⚠ Η κατάσταση γράφει σύνολο " + m.total_declared + " αλλά διάβασα " + items.length + " γραμμές / " + pcs + " τεμάχια — μπορεί να λείπει σελίδα ή να μη διαβάστηκε σωστά η ποσότητα."));
     if (!origin || !dep) out.append(el("div", "msg warn", "Δεν διαβάστηκε " + (!origin ? "η πόλη" : "η ώρα") + " αναχώρησης — το τσεκάρισμα γίνεται μόνο με αριθμό απόδειξης/όνομα."));
     out.append(el("div", "hint", "Τώρα φωτογράφισε τα δέματα όπως πάντα. Η πρόοδος φαίνεται πάνω από τις «Φωτογραφίες δεμάτων». Στο τέλος πάτα «✓ Τέλος ελέγχου»."));
     const ok = el("button", "btn primary", "Εντάξει — φωτογραφίζω τα δέματα"); ok.type = "button"; ok.onclick = () => $("dlg").close(); out.append(ok);
@@ -62,7 +63,7 @@ export function openManifest(D, opts = {}) {
   function show(m) { showIn(out, m, null); }
 }
 
-function showIn(out, m, updateId) {
+function showIn(out, m, updateId, afterTs = 0) {
     const D = curD;
     out.textContent = "";
     const dep = parseGrDate(m.departure);
@@ -75,14 +76,18 @@ function showIn(out, m, updateId) {
     const trip = dep && origin ? { origin, key: tripsOf({ origin_city: origin, departure_at: dep.toISOString() })[0] } : origin ? { origin } : null;
     // αριθμός απόδειξης: ψάχνει σε ΟΛΑ τα δέματα (κάθε πόλη/μέρα) — αλλιώς ένα δέμα με άλλη γραφή πόλης έβγαινε «λείπει» και καταχωρούνταν 2η φορά.
     // όνομα: μόνο στα πρόσφατα της ίδιας πόλης.
-    const r = reconcile(m.items || [], D.rows(), trip, cand.length ? cand : all);
+    // κατάσταση που ανέβηκε πριν τα δέματα: με όνομα μετράνε μόνο δέματα που καταχωρήθηκαν μετά (όχι παλιά με ίδιο επώνυμο)
+    const okP = p => !afterTs || new Date(p.created_at).getTime() >= afterTs || (m.items || []).some(it => sameReceipt(p.receipt_no, it.receipt_no));
+    const pc = (cand.length ? cand : all).filter(okP);
+    const r = reconcile(m.items || [], D.rows().filter(okP), trip, pc);
 
     if (D.pendingReview && D.pendingReview() > 0) out.append(el("div", "msg warn", "⚠ Υπάρχουν " + D.pendingReview() + " φωτογραφίες στο «Για έλεγχο» που δεν έχουν καταχωρηθεί. Μέχρι να τις αποθηκεύσεις, μπορεί να εμφανίζονται εδώ ως «λείπουν»."));
     const head = el("div", "msg info");
     head.textContent = "Κατάσταση: " + (origin || "πόλη;") + (dep ? " · " + fmtGr(dep) : "") + (m.agency ? " · " + m.agency : "") + " · " + (m.items || []).length + " γραμμές" +
       (m.total_declared != null ? " (γράφει σύνολο " + m.total_declared + ")" : "");
     out.append(head);
-    if (m.total_declared != null && m.total_declared !== (m.items || []).length) out.append(el("div", "msg warn", "⚠ Η κατάσταση γράφει σύνολο " + m.total_declared + " αλλά διάβασα " + (m.items || []).length + " γραμμές. Έλεγξε μήπως λείπει σελίδα ή κάποια γραμμή δεν διαβάστηκε."));
+    const pcsAll = (m.items || []).reduce((s, i) => s + Math.max(1, Number(i.pieces) || 1), 0);
+    if (m.total_declared != null && m.total_declared !== (m.items || []).length && m.total_declared !== pcsAll) out.append(el("div", "msg warn", "⚠ Η κατάσταση γράφει σύνολο " + m.total_declared + " αλλά διάβασα " + (m.items || []).length + " γραμμές / " + pcsAll + " τεμάχια. Έλεγξε μήπως λείπει σελίδα ή κάποια γραμμή δεν διαβάστηκε."));
     if (!origin) out.append(el("div", "msg warn", "Δεν διαβάστηκε η πόλη αναχώρησης — η σύγκριση έγινε με όλα τα δέματα των τελευταίων 7 ημερών."));
     const byDest = {}; (m.items || []).forEach(it => { byDest[it.destination_city] = (byDest[it.destination_city] || 0) + 1; });
     out.append(el("div", "hint", "Ανά προορισμό: " + Object.entries(byDest).map(([d, n]) => (d === HOME ? "Αγρίνιο" : d + " (μεταφόρτωση)") + " " + n).join(" · ") +
@@ -147,7 +152,8 @@ function showIn(out, m, updateId) {
     const weak = r.found.filter(f => f.how === "name");
     sec("✓ Βρέθηκαν (" + r.found.length + ")" + (weak.length ? " — " + weak.length + " μόνο με το όνομα, έλεγξέ τα" : ""), "ok", r.found.map(f =>
       line((f.how === "name" ? "⚠ " : "") + (f.parcel.recipient_name || "—"), [f.parcel.shelf && "Ράφι " + f.parcel.shelf, f.parcel.receipt_no && "Απόδ. " + f.parcel.receipt_no,
-        f.how === "name" ? "ταίριαξε μόνο με όνομα (κατάσταση: " + (f.item.recipient || "") + ")" : "", f.parcel.status === "done" ? "ήδη παραδόθηκε" : "", f.parcel.bypassed ? ((f.parcel.destination_city || HOME) === HOME ? "🚫 ήδη στη λίστα «Δεν ήρθαν»" : "⇄ ήδη στις «Απευθείας μεταφορτώσεις»") : ""].filter(Boolean).join(" · "))));
+        f.how === "name" ? "ταίριαξε μόνο με όνομα (κατάσταση: " + (f.item.recipient || "") + ")" : "",
+        Math.max(1, f.parcel.pieces_in || 1) < Math.max(1, Number(f.item.pieces) || 1) ? "⚠ ήρθαν " + Math.max(1, f.parcel.pieces_in || 1) + "/" + Math.max(1, Number(f.item.pieces) || 1) + " τεμ." : (Number(f.item.pieces) > 1 ? f.item.pieces + " τεμ. ✓" : ""), f.parcel.status === "done" ? "ήδη παραδόθηκε" : "", f.parcel.bypassed ? ((f.parcel.destination_city || HOME) === HOME ? "🚫 ήδη στη λίστα «Δεν ήρθαν»" : "⇄ ήδη στις «Απευθείας μεταφορτώσεις»") : ""].filter(Boolean).join(" · "))));
     if (trip && trip.key) sec("⚠ Καταχωρημένα σε αυτό το δρομολόγιο αλλά ΟΧΙ στην κατάσταση (" + r.extra.length + ")", "warn", r.extra.map(p =>
       line(p.recipient_name || "—", [p.receipt_no && "Απόδ. " + p.receipt_no, p.recipient_phone && fmtPhone(p.recipient_phone)].filter(Boolean).join(" · "))));
 
