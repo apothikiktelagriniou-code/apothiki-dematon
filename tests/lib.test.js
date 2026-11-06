@@ -308,3 +308,11 @@ test("κλείσιμο ταμείου: αντιπαραβολή", () => {
   assert.equal(r.count, 3); assert.equal(r.amount, 21); assert.equal(r.matched.length, 2); assert.equal(r.added.length, 1);
   assert.equal(r.fareDiff.length, 1); assert.deepEqual(r.notInCash.map(x => x.receipt_no), ["228-336-142399"]); assert.deepEqual(r.gaps, [142302, 142303]);
 });
+
+import { looksBusiness, senderStats } from "../src/lib.js";
+test("επιχειρήσεις & τακτικοί", () => {
+  assert.ok(looksBusiness("ΑΦΟΙ ΠΑΠΑΔΟΠΟΥΛΟΙ Ο.Ε.")); assert.ok(looksBusiness("Φαρμακείο Δήμου")); assert.ok(looksBusiness("ΚΩΣΤΑΣ ΙΚΕ"));
+  assert.ok(!looksBusiness("ΠΑΠΑΔΟΠΟΥΛΟΣ ΓΙΩΡΓΟΣ")); assert.ok(!looksBusiness("ΚΑΦΕΤΖΗΣ ΝΙΚΟΣ")); assert.ok(!looksBusiness("ΔΗΜΟΣ ΚΩΣΤΑΣ")); assert.ok(looksBusiness("ΚΑΦΕ ΑΡΩΜΑ")); assert.ok(looksBusiness("ΔΗΜΟΣ ΑΓΡΙΝΙΟΥ"));
+  const s = senderStats([{ recipient_name: "Α", destination_city: "ΠΑΤΡΑ", fare_eur: 5, created_at: new Date().toISOString() }, { recipient_name: "Α", destination_city: "ΠΑΤΡΑ", fare_eur: 7, created_at: new Date().toISOString() }, { recipient_name: "Β", destination_city: "ΑΘΗΝΑ", status: "cancelled", created_at: new Date().toISOString() }]);
+  assert.equal(s.count, 2); assert.equal(s.fares, 12); assert.equal(s.recipients[0].n, 2); assert.equal(s.dests[0].k, "ΠΑΤΡΑ");
+});

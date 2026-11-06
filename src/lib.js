@@ -386,7 +386,8 @@ export function extractedToOutgoing(d) {
     receipt_no: handwrittenReceipt(d) || null, parcel_code: String(d.parcel_code || "").trim() || null,
     fare_eur: isNaN(fare) ? null : fare,
     issued_at: parseGrDate(d.issued)?.toISOString() || null, departure_at: parseGrDate(d.departure)?.toISOString() || null,
-    sender_name: String(d.sender || "").trim() || null,
+    sender_name: String(d.sender || "").trim() || null, sender_phone: cleanPhone(d.sender_phone) || null,
+    sender_is_business: d.sender_is_business === true || looksBusiness(d.sender),
     recipient_name: surnameFirst(String(d.recipient || "").trim(), d.recipient_is_business) || null,
     recipient_phone: phone || null,
     origin_city: norm(d.origin_city) || HOME, destination_city: cityFromStation(d.destination_city) || norm(d.destination_city) || null,
@@ -477,4 +478,23 @@ export function cashReconcile(items, rows) {
   const gaps = []; for (let i = 1; i < tails.length; i++) for (let n = tails[i - 1] + 1; n < tails[i] && gaps.length < 50; n++) gaps.push(n);
   const amount = Math.round(list.reduce((s, i) => s + (Number(i.amount) || 0), 0) * 100) / 100;
   return { list, matched, added, fareDiff, notInCash, gaps, count: list.length, amount, first: tails[0], last: tails.at(-1) };
+}
+
+/** Το όνομα μοιάζει με επιχείρηση; (εταιρική μορφή ή λέξη καταστήματος) — εφεδρικό, όταν δεν απαντά το AI */
+export function looksBusiness(name) {
+  const s = " " + norm(name).replace(/\./g, "") + " ";
+  return /\s(ΟΕ|ΕΕ|ΕΠΕ|ΙΚΕ|ΑΕ|ΑΕΒΕ|ΜΙΚΕ|ΑΦΟΙ|ΥΙΟΙ|ΚΑΙ ΣΙΑ)\s/.test(s) ||
+    /(ΦΑΡΜΑΚΕΙ|ΙΑΤΡΕΙ|ΣΥΝΕΡΓΕΙ|ΚΑΤΑΣΤΗΜ|ΕΜΠΟΡΙ|ΑΝΤΑΛΛΑΚΤΙΚ|ΞΕΝΟΔΟΧΕΙ|\sΚΑΦΕ\s|CAFE|ΑΡΤΟΠΟΙ|\sΦΟΥΡΝΟΣ\s|ΖΑΧΑΡΟΠΛ|ΕΤΑΙΡ|ΒΙΟΤΕΧΝ|ΒΙΟΜΗΧΑΝ|ΓΡΑΦΕΙΟ|ΛΟΓΙΣΤΙΚ|^\sΔΗΜΟΣ\s[Α-Ω]+ΟΥ\s|ΣΧΟΛΕΙΟ|ΣΥΝΕΤΑΙΡ|ΠΡΑΤΗΡΙΟ|ΚΡΕΟΠΩΛ|ΟΠΤΙΚ|ΚΤΗΝΙΑΤΡ|ΓΕΩΠΟΝ|ΕΙΔΗ |SHOP|STORE|LTD|IKE)/.test(s);
+}
+/** Στατιστικά αποστολέα από τα εξερχόμενα: πλήθος, τελευταία, συχνοί παραλήπτες/προορισμοί */
+export function senderStats(rows) {
+  const live = rows.filter(r => r.status !== "cancelled");
+  const top = (key, n) => { const m = new Map(); for (const r of live) { const k = key(r); if (!k) continue; const x = m.get(k) || { k, n: 0, r }; x.n++; if (new Date(r.created_at) > new Date(x.r.created_at)) x.r = r; m.set(k, x); }
+    return [...m.values()].sort((a, b) => b.n - a.n).slice(0, n); };
+  const now = new Date(), m0 = new Date(now.getFullYear(), now.getMonth(), 1);
+  return { count: live.length, month: live.filter(r => new Date(r.created_at) >= m0).length,
+    fares: Math.round(live.reduce((s, r) => s + (Number(r.fare_eur) || 0), 0) * 100) / 100,
+    last: live.map(r => r.created_at).sort().at(-1) || null,
+    recipients: top(r => r.recipient_name ? r.recipient_name + "|" + (r.destination_city || "") : null, 8),
+    dests: top(r => r.destination_city, 5) };
 }

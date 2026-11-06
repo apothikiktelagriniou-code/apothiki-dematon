@@ -29,12 +29,14 @@ const SYSTEM = `Διαβάζεις φωτογραφίες από αποδείξ�
 - recipient (ιδιώτης): γράψ' το ΠΑΝΤΑ «ΕΠΩΝΥΜΟ ΟΝΟΜΑ». Αν η ετικέτα γράφει πρώτα το μικρό όνομα (π.χ. «ΓΙΩΡΓΟΣ ΠΑΠΑΔΟΠΟΥΛΟΣ», «Μαρία Κωστοπούλου», «Ν. ΔΗΜΟΥ»), αντέστρεψέ το → «ΠΑΠΑΔΟΠΟΥΛΟΣ ΓΙΩΡΓΟΣ», «ΚΩΣΤΟΠΟΥΛΟΥ ΜΑΡΙΑ», «ΔΗΜΟΥ Ν.». Αν δεν είσαι σίγουρος ποιο είναι το επώνυμο, άφησέ το όπως είναι. Επιχειρήσεις: όπως γράφονται.
 - GREEKLISH: αν ο παραλήπτης (ή αποστολέας) είναι ελληνικό όνομα γραμμένο με λατινικά (π.χ. «PAPADOPOULOS GIORGOS», «XATZIS», «KOSTOPOULOU MARIA»), γράψ' το με ΕΛΛΗΝΙΚΑ ΚΕΦΑΛΑΙΑ με τη σωστή ορθογραφία (ΠΑΠΑΔΟΠΟΥΛΟΣ ΓΙΩΡΓΟΣ, ΧΑΤΖΗΣ, ΚΩΣΤΟΠΟΥΛΟΥ ΜΑΡΙΑ) και βάλε το αρχικό στο "recipient_latin". Ξένα ονόματα (JOHN SMITH) και εταιρείες/μάρκες με λατινικά μένουν όπως είναι.
 - recipient_is_business: true αν ο ΠΑΡΑΛΗΠΤΗΣ μοιάζει με επιχείρηση και όχι με ιδιώτη (κατάστημα, εταιρεία, Ο.Ε./Ε.Ε./ΕΠΕ/ΙΚΕ/Α.Ε., ΑΦΟΙ, φαρμακείο, ιατρείο, συνεργείο, ξενοδοχείο, εμπορική ονομασία ή μάρκα, φορέας/δήμος/σχολείο). Ονοματεπώνυμο ανθρώπου → false. Κρίνε ΜΟΝΟ από το όνομα.
+- sender_is_business: το ίδιο για τον ΑΠΟΣΤΟΛΕΑ (επιχείρηση/κατάστημα/εταιρεία → true, ιδιώτης → false). Κρίνε ΜΟΝΟ από το όνομα.
+- sender_phone: τηλέφωνο του ΑΠΟΣΤΟΛΕΑ αν τυπώνεται/γράφεται δίπλα στον αποστολέα (ΟΧΙ του παραλήπτη, ΟΧΙ του σταθμού/ΚΤΕΛ). Αλλιώς "".
 - notes: ΜΟΝΟ αν υπάρχει πρόβλημα που πρέπει να δει ο υπάλληλος, σε ΜΙΑ σύντομη φράση έως 10 λέξεις (π.χ. «Αμφιβολία κωδικού: 0 ή Ο», «Χειρόγραφο τηλέφωνο, δυσανάγνωστο»). ΟΧΙ περιγραφή της απόδειξης ή του εντύπου. Αν δεν υπάρχει πρόβλημα → "".
 - Αν υπάρχει φωτογραφία ΟΛΟΚΛΗΡΟΥ του δέματος: package_desc = σύντομη περιγραφή έως 8 λέξεις: τι είναι, χρώμα, μέγεθος, φίρμα/λογότυπο αν φαίνεται μεγάλο (π.χ. «Καφέ κουτί JUMBO, μεσαίο», «Λευκός φάκελος A4», «Μαύρη σακούλα, μαλακή»). Αν πάνω στο δέμα φαίνεται ετικέτα με ΑΛΛΟΝ αριθμό απόδειξης ή άλλο παραλήπτη από την ετικέτα → pair_mismatch=true. Χειρόγραφο τηλέφωνο πάνω στο δέμα μετράει κανονικά για το phone. Χωρίς φωτογραφία δέματος → package_desc "", pair_mismatch false.
 - pieces = πόσα τεμάχια/δέματα έχει η αποστολή, αν γράφεται (π.χ. «Αριθμός δεμάτων: 3», «Τεμάχια 3», «Ποσ 3», «1/3», «2 ΤΕΜ»). Αν δεν γράφεται → 1. Αν γράφει «2/3» = τεμάχιο 2 από 3 → pieces=3.
 
 Απάντησε ΜΟΝΟ με ένα JSON αντικείμενο, χωρίς άλλο κείμενο, με ακριβώς αυτά τα κλειδιά:
-{"receipt_no":"","parcel_code":"","kind":"Συνοδευτικό|Ασυνόδευτο|","item":"","fare_eur":null,"issued":"","departure":"","sender":"","recipient":"","phone":"","phone_is_handwritten":false,"pieces":1,"origin_city":"","destination_city":"","is_handwritten_receipt":false,"damage_visible":false,"unsure":[],"notes":"","package_desc":"","pair_mismatch":false,"recipient_is_business":false,"recipient_latin":""}`;
+{"receipt_no":"","parcel_code":"","kind":"Συνοδευτικό|Ασυνόδευτο|","item":"","fare_eur":null,"issued":"","departure":"","sender":"","recipient":"","phone":"","phone_is_handwritten":false,"pieces":1,"origin_city":"","destination_city":"","is_handwritten_receipt":false,"damage_visible":false,"unsure":[],"notes":"","package_desc":"","pair_mismatch":false,"recipient_is_business":false,"recipient_latin":"","sender_is_business":false,"sender_phone":""}`;
 
 const SYSTEM_DESCRIBE = `Βλέπεις φωτογραφία ενός δέματος σε αποθήκη ΚΤΕΛ. Δώσε σύντομη περιγραφή έως 8 λέξεις: τι είναι (κουτί, φάκελος, σακούλα, βαλίτσα κ.λπ.), χρώμα, μέγεθος (μικρό/μεσαίο/μεγάλο), φίρμα ή λογότυπο ΜΟΝΟ αν φαίνεται καθαρά. Π.χ. «Καφέ κουτί JUMBO, μεσαίο», «Λευκός φάκελος A4», «Μαύρη σακούλα, μαλακή». Αν φαίνεται χειρόγραφο κινητό τηλέφωνο πάνω στο δέμα, γράψ' το στο phone, αλλιώς "".
 Απάντησε ΜΟΝΟ με JSON: {"package_desc":"","phone":"","damage_visible":false}`;
@@ -113,6 +115,9 @@ function clean(d: Record<string, unknown>) {
   o.package_desc = String(d.package_desc ?? "").replace(/\s+/g, " ").trim().slice(0, 80);
   o.pair_mismatch = d.pair_mismatch === true || d.pair_mismatch === "true";
   o.recipient_is_business = d.recipient_is_business === true || d.recipient_is_business === "true";
+  o.sender_is_business = d.sender_is_business === true || d.sender_is_business === "true";
+  const sp = String(d.sender_phone ?? "").replace(/\D/g, "").replace(/^0030(?=\d{10}$)/, "").replace(/^30(?=\d{10}$)/, "");
+  o.sender_phone = /^(69\d{8}|2\d{9})$/.test(sp) && sp !== ph && sp !== "2641024446" ? sp : "";
   const pc = Number(String(d.pieces ?? "1").replace(/\D/g, "")) || 1; o.pieces = Math.min(Math.max(pc, 1), 99);
   return o;
 }
@@ -121,7 +126,7 @@ Deno.serve(async req => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   const url = new URL(req.url);
   const key = Deno.env.get("ANTHROPIC_API_KEY");
-  if (url.searchParams.get("health") === "1") return json({ ok: true, hasKey: !!key, model: MODEL, version: "2026-11-05-rows" });
+  if (url.searchParams.get("health") === "1") return json({ ok: true, hasKey: !!key, model: MODEL, version: "2026-11-06-senders" });
   if (url.searchParams.get("health") === "2") {
     // διαγνωστικό: μια μικρή κλήση στο AI για να φανεί αν δουλεύουν κλειδί/μοντέλο/πίστωση (δεν επιστρέφει το κλειδί)
     if (!key) return json({ ok: false, error: "missing_key" });
