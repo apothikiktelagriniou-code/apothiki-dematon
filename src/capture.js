@@ -94,6 +94,7 @@ async function send() {
   pump();
 }
 
+const FILL_TXT = { receipt_no: "αριθμός", recipient: "παραλήπτης", origin_city: "πόλη", departure: "ώρα", fare_eur: "κόμιστρο", pieces: "τεμάχια", destination_city: "προορισμός" };
 // ---------- επεξεργασία ουράς ----------
 let running = false, stats = { auto: 0, review: 0, fail: 0, total: 0 };
 async function refreshOutboxInfo() {
@@ -116,7 +117,7 @@ export async function pump() {
   await refreshOutboxInfo();
   if (stats.total) {
     const done = stats.auto + stats.review + stats.fail;
-    show($("capMsg"), "Καταχωρήθηκαν αυτόματα: " + stats.auto + (stats.pieces ? " (από αυτά " + stats.pieces + " επιπλέον τεμάχια υπαρχουσών αποστολών)" : "") + " · Για έλεγχο: " + stats.review + (stats.fail ? " · Απέτυχαν: " + stats.fail : "") + (done < stats.total ? " · Σε αναμονή: " + (stats.total - done) : ""), stats.review || stats.fail ? "warn" : "ok");
+    show($("capMsg"), "Καταχωρήθηκαν αυτόματα: " + stats.auto + (stats.pieces ? " (από αυτά " + stats.pieces + " επιπλέον τεμάχια υπαρχουσών αποστολών)" : "") + " · Για έλεγχο: " + stats.review + (stats.fail ? " · Απέτυχαν: " + stats.fail : "") + (done < stats.total ? " · Σε αναμονή: " + (stats.total - done) : "") + (stats.inList ? " · 📋 Στην κατάσταση: " + stats.inList : "") + (stats.notIn ? " · ⚠ Εκτός κατάστασης: " + stats.notIn : ""), stats.review || stats.notIn || stats.fail ? "warn" : "ok");
     if (done >= stats.total) { D.sb.from("batches").insert({ photo_count: stats.total, auto_saved: stats.auto, queued: stats.review, failed: stats.fail, device: matchMedia("(pointer:fine)").matches ? "pc" : "phone", operator: D.operator() }).then(() => {}); stats.total = 0; }
   }
 }
@@ -132,6 +133,13 @@ async function processOne(it) {
     await toQueue(it, { notes: "Σφάλμα ανάγνωσης: " + (body.detail || body.error || ("HTTP " + st)) }, ["ai_unavailable"]); stats.review++; await obDel(it.id); return "review";
   }
   const d = data.data; if (it.old) d.old_stock = true;
+  // κατάσταση που ανέβηκε πριν: τσεκάρισμα + συμπλήρωση ό,τι δεν διαβάστηκε καλά
+  const h = D.expectHelp && D.expectHelp(d);
+  if (h) {
+    Object.assign(d, h.d);
+    if (h.item) { stats.inList = (stats.inList || 0) + 1; d._mnote = [h.note, h.filled.length ? "📋 Από την κατάσταση: " + h.filled.map(f => FILL_TXT[f] || f).join(", ") : ""].filter(Boolean).join(" · "); }
+    else if (h.miss) { stats.notIn = (stats.notIn || 0) + 1; d._mnote = "⚠ Δεν είναι στην κατάσταση " + (h.miss.origin_city || "") + " " + fmtGr(h.miss.departure_at); }
+  }
   if (!d.recipient_is_business && isGreeklishName(d.recipient)) { d.recipient_latin = d.recipient; d.recipient = greekName(d.recipient); } // greeklish → ελληνικά
   d.recipient = surnameFirst(d.recipient, d.recipient_is_business); // πρώτα το επώνυμο
   // τηλέφωνο από αρχείο πελατών
@@ -154,6 +162,7 @@ async function processOne(it) {
     if (!ph && custs.length > 1) p.notes = [p.notes, "Βρέθηκαν " + custs.length + " πελάτες με αυτό το όνομα — διάλεξε τηλέφωνο."].filter(Boolean).join(" · ");
     const un = unsureNote(dec.flags); if (un) p.notes = [un, p.notes].filter(Boolean).join(" · ");
     if (d.recipient_latin) p.notes = [p.notes, "Ετικέτα σε greeklish: " + d.recipient_latin].filter(Boolean).join(" · ");
+    if (d._mnote) p.notes = [d._mnote, p.notes].filter(Boolean).join(" · ");
     if ((dec.flags || []).includes("phone") && p.phone_source !== "customer_db") p.phone_confirmed = false;
     applyOld(p, d); p.source = "photo_auto"; p.batch_id = it.batch; p.operator = it.operator; p.extraction_confidence = { ...(p.extraction_confidence || {}), unsure: d.unsure || [], biz: !!d.recipient_is_business };
     p.customer_id = custs.length === 1 ? custs[0].id : await D.linkCustomer(p.recipient_name, p.recipient_phone);
@@ -211,6 +220,7 @@ function reviewCard(q, idx) {
   const right = el("div", "rfields");
   const probs = el("div", "rprobs"); q.problems.forEach(p => probs.append(el("span", "codb", problemText(p)))); right.append(probs);
   if (d.notes) right.append(el("div", "hint", d.notes));
+  if (d._mnote) right.append(el("div", "hint", d._mnote));
   const bad = new Set(q.problems.map(fieldOfProblem));
   const inputs = {};
   const g = el("div", "rgrid");
@@ -247,6 +257,7 @@ function reviewCard(q, idx) {
     const p = extractedToParcel(ed);
     if (p.phone_source === "handwritten") p.phone_confirmed = true; // το είδε άνθρωπος στον έλεγχο
     if (!p.recipient_phone && p.recipient_name) { const cs = (await D.findCustomers(p.recipient_name)).filter(c => (c.phones || []).length); if (cs.length === 1) { p.recipient_phone = cs[0].phones[0]; p.phone_source = "customer_db"; p.phone_confirmed = true; } }
+    if (ed._mnote) p.notes = [ed._mnote, p.notes].filter(Boolean).join(" · ");
     applyOld(p, ed); p.source = "photo_reviewed"; p.operator = D.operator(); p.extraction_confidence = { ...(p.extraction_confidence || {}), biz: !!ed.recipient_is_business };
     p.customer_id = await D.linkCustomer(p.recipient_name, p.recipient_phone);
     const ins = await D.saveParcel(p);

@@ -535,3 +535,71 @@ export function nextBusFor(times, lines, dest, from = new Date()) {
   }
   return null;
 }
+
+// ================================================================ ΚΑΤΑΣΤΑΣΗ ΠΡΙΝ ΤΟΝ ΕΛΕΓΧΟ (εισερχόμενα)
+/** Η κατάσταση γράφει «2-255-349-11663», η ετικέτα «255-349-11663» → ίδια μορφή με την ετικέτα. */
+export const labelReceipt = r => { const s = String(r || "").trim(); return /^\d-\d{3}-\d{3}-\d+$/.test(s) ? s.slice(2) : s; };
+const validReceipt = r => /^\d{3}-\d{3}-\d{4,7}$/.test(r || "") || /^\d{8,12}$/.test(r || "");
+/**
+ * Βοήθεια ανάγνωσης ετικέτας από ανοιχτές καταστάσεις (ανέβηκαν πριν τα δέματα).
+ * Βρίσκει τη γραμμή της κατάστασης και συμπληρώνει ΜΟΝΟ ό,τι λείπει ή διαβάστηκε αβέβαια — ποτέ δεν αλλάζει καθαρή ανάγνωση.
+ * opens: [{id, origin_city, departure_at, items}] · taken(item) → true αν η γραμμή έχει ήδη δέμα (για να μην κολλήσουν 2 δέματα στην ίδια γραμμή).
+ * Επιστρέφει {d, man, item, how, filled:[πεδία], note} ή {d, miss: man} (δέμα του ίδιου δρομολογίου που δεν είναι στην κατάσταση) ή null.
+ */
+export function expectHelp(d0, opens, taken = () => false) {
+  if (!opens || !opens.length) return null;
+  const d = { ...d0, unsure: [...(d0.unsure || [])] };
+  const uns = f => d.unsure.includes(f);
+  const recOk = validReceipt(d.receipt_no) && !uns("receipt_no");
+  const nameOk = String(d.recipient || "").trim() && !uns("recipient");
+  const all = []; opens.forEach(m => (m.items || []).forEach(it => all.push({ m, it })));
+  const surname = s => norm(s).split(" ")[0] || "";
+  let hit = null, how = "";
+  // 1) ίδιος αριθμός (σίγουρο — και για επόμενο τεμάχιο)
+  const ex = all.filter(x => sameReceipt(x.it.receipt_no, d.receipt_no));
+  if (ex.length === 1) { hit = ex[0]; how = "receipt"; }
+  // 2) διαφέρει 1 ψηφίο: μόνο με ίδιο επώνυμο, ή αν το όνομα δεν διαβάστηκε
+  if (!hit) {
+    const near = all.filter(x => nearReceipt(x.it.receipt_no, d.receipt_no));
+    const sn = surname(d.recipient);
+    const ok = near.filter(x => (sn.length >= 3 && surname(x.it.recipient) === sn) || !nameOk);
+    if (near.length === 1 && ok.length === 1 && !taken(ok[0].it)) { hit = ok[0]; how = "near"; }
+  }
+  // 3) όνομα: μόνο αν ο αριθμός λείπει/αβέβαιος, και μία μόνο γραμμή ταιριάζει
+  if (!hit && !recOk && String(d.recipient || "").trim()) {
+    const k = soundKey(d.recipient);
+    // μοναδικότητα σε ΟΛΕΣ τις γραμμές (κι όσες έχουν ήδη δέμα) — αλλιώς ένα 2ο ίδιο επώνυμο θα κολλούσε σε λάθος γραμμή
+    let c = all.filter(x => soundKey(x.it.recipient) === k);
+    if (!c.length) { const sn = surname(d.recipient); if (sn.length >= 4) c = all.filter(x => surname(x.it.recipient) === sn); }
+    if (c.length === 1 && !taken(c[0].it)) { hit = c[0]; how = "name"; }
+  }
+  if (!hit) {
+    // ίδιο δρομολόγιο με ανοιχτή κατάσταση αλλά όχι μέσα της
+    const dep = parseGrDate(d.departure);
+    const man = dep && opens.find(m => m.origin_city && norm(d.origin_city) === m.origin_city && m.departure_at && Math.abs(new Date(m.departure_at) - dep) < 20 * 60e3);
+    return man ? { d, miss: man } : null;
+  }
+  const { m, it } = hit, filled = [];
+  const drop = f => { d.unsure = d.unsure.filter(u => u !== f); };
+  let note = "";
+  if (how !== "receipt" && it.receipt_no && !it.unsure) {
+    if (!recOk) { if (d.receipt_no) note = "✎ Αρ. απόδειξης από την κατάσταση (διαβάστηκε " + d.receipt_no + ")"; d.receipt_no = labelReceipt(it.receipt_no); drop("receipt_no"); filled.push("receipt_no"); }
+    else note = "⚠ Ο αριθμός διαφέρει από την κατάσταση (" + labelReceipt(it.receipt_no) + ")";
+  }
+  if (!nameOk && String(it.recipient || "").trim() && !it.unsure) { d.recipient = it.recipient.trim(); drop("recipient"); filled.push("recipient"); }
+  if ((!norm(d.origin_city) || uns("origin_city")) && m.origin_city) { d.origin_city = m.origin_city; drop("origin_city"); filled.push("origin_city"); }
+  if ((!parseGrDate(d.departure) || uns("departure")) && m.departure_at) { d.departure = fmtGr(m.departure_at); drop("departure"); filled.push("departure"); }
+  if ((d.fare_eur == null || d.fare_eur === "" || uns("fare_eur")) && it.fare_eur != null) { d.fare_eur = Number(it.fare_eur); drop("fare_eur"); filled.push("fare_eur"); }
+  if (!(Number(d.pieces) > 0) && Number(it.pieces) > 1) { d.pieces = Number(it.pieces); filled.push("pieces"); }
+  if ((!norm(d.destination_city) || uns("destination_city")) && it.destination_city) { d.destination_city = it.destination_city === HOME ? "" : it.destination_city; drop("destination_city"); filled.push("destination_city"); }
+  return { d, man: m, item: it, how, filled, note };
+}
+/** Πρόοδος ανοιχτής κατάστασης: πόσα ήρθαν, ποια λείπουν, ποια ήρθαν από το ίδιο δρομολόγιο χωρίς να είναι μέσα. */
+export function expectProgress(man, parcels) {
+  const dep = man.departure_at ? new Date(man.departure_at) : null;
+  const trip = man.origin_city && dep ? { origin: man.origin_city, key: tripsOf({ origin_city: man.origin_city, departure_at: dep.toISOString() })[0] } : null;
+  const since = new Date(man.created_at || Date.now()).getTime() - 7 * 864e5;
+  const pool = parcels.filter(p => p.source !== "manifest" && new Date(p.created_at).getTime() >= since);
+  const r = reconcile(man.items || [], pool, trip, pool.filter(p => !trip || p.origin_city === trip.origin));
+  return { total: (man.items || []).length, found: r.found, missing: r.missing, extra: r.extra };
+}

@@ -341,3 +341,39 @@ test("δρομολόγια: γραμμή μόνο για συγκεκριμέν�
   assert.deepEqual(b.find(x => x.hhmm === "15:00" && x.members.includes("ΑΜΦΙΛΟΧΙΑ")).members, ["ΑΜΦΙΛΟΧΙΑ"]);
   assert.equal(b.filter(x => x.hhmm === "05:00").length, 2); // στις 05:00 η ειδική γραμμή δεν ισχύει
 });
+
+test("expectHelp: συμπληρώνει από την κατάσταση μόνο ό,τι λείπει/αβέβαιο", async () => {
+  const { expectHelp, expectProgress } = await import("../src/lib.js");
+  const man = { id: "m1", origin_city: "ΠΑΤΡΑ", departure_at: new Date(2026, 10, 6, 14, 0).toISOString(), items: [
+    { receipt_no: "2-255-349-11663", recipient: "ΠΑΠΑΔΟΠΟΥΛΟΣ ΓΙΩΡΓΟΣ", fare_eur: 6, pieces: 1, destination_city: "ΑΓΡΙΝΙΟ" },
+    { receipt_no: "2-255-349-11670", recipient: "ΚΑΡΑΓΙΑΝΝΗ ΜΑΡΙΑ", fare_eur: 8, pieces: 2, destination_city: "ΑΓΡΙΝΙΟ" },
+    { receipt_no: "2-255-349-11671", recipient: "ΚΑΡΑΓΙΑΝΝΗ ΕΛΕΝΗ", fare_eur: 8, pieces: 1, destination_city: "ΠΡΕΒΕΖΑ" }] };
+  // ίδιος αριθμός: γεμίζει κόμιστρο/ώρα/πόλη που έλειπαν, δεν πειράζει το όνομα
+  let r = expectHelp({ receipt_no: "255-349-11663", recipient: "ΠΑΠΑΔΟΠΟΥΛΟΣ Γ.", unsure: ["fare_eur"] }, [man]);
+  assert.equal(r.how, "receipt"); assert.equal(r.d.fare_eur, 6); assert.equal(r.d.origin_city, "ΠΑΤΡΑ"); assert.equal(r.d.departure, "06/11/2026 14:00");
+  assert.equal(r.d.recipient, "ΠΑΠΑΔΟΠΟΥΛΟΣ Γ."); assert.deepEqual(r.d.unsure, []);
+  // αβέβαιος αριθμός με 1 ψηφίο διαφορά + ίδιο επώνυμο → παίρνει τον αριθμό της κατάστασης
+  r = expectHelp({ receipt_no: "255-349-11668", recipient: "ΠΑΠΑΔΟΠΟΥΛΟΣ ΓΙΩΡΓΟΣ", unsure: ["receipt_no"] }, [man]);
+  assert.equal(r.how, "near"); assert.equal(r.d.receipt_no, "255-349-11663"); assert.match(r.note, /διαβάστηκε 255-349-11668/);
+  // καθαρός αριθμός που διαφέρει 1 ψηφίο → ΔΕΝ αλλάζει, μόνο σημείωση
+  r = expectHelp({ receipt_no: "255-349-11668", recipient: "ΠΑΠΑΔΟΠΟΥΛΟΣ ΓΙΩΡΓΟΣ" }, [man]);
+  assert.equal(r.d.receipt_no, "255-349-11668"); assert.match(r.note, /διαφέρει/);
+  // αριθμός δεν διαβάστηκε, όνομα μοναδικό → βρίσκει γραμμή· 2 ίδια επώνυμα → τίποτα
+  r = expectHelp({ receipt_no: "", recipient: "ΚΑΡΑΓΙΑΝΝΗ ΜΑΡΙΑ" }, [man]);
+  assert.equal(r.d.receipt_no, "255-349-11670"); assert.equal(r.d.pieces, 2);
+  r = expectHelp({ receipt_no: "", recipient: "ΚΑΡΑΓΙΑΝΝΗ" }, [man]);
+  assert.equal(r, null);
+  // μεταφόρτωση: ο προορισμός έρχεται από την κατάσταση αν η ετικέτα ήταν αβέβαιη
+  r = expectHelp({ receipt_no: "255-349-11671", recipient: "ΚΑΡΑΓΙΑΝΝΗ ΕΛΕΝΗ", unsure: ["destination_city"] }, [man]);
+  assert.equal(r.d.destination_city, "ΠΡΕΒΕΖΑ");
+  // ίδιο δρομολόγιο, όχι στην κατάσταση
+  r = expectHelp({ receipt_no: "255-349-99999", recipient: "ΑΛΛΟΣ ΚΑΠΟΙΟΣ", origin_city: "ΠΑΤΡΑ", departure: "06/11/2026 14:00" }, [man]);
+  assert.equal(r.miss.id, "m1");
+  // γραμμή που έχει ήδη δέμα δεν ξαναχρησιμοποιείται με όνομα
+  r = expectHelp({ receipt_no: "", recipient: "ΚΑΡΑΓΙΑΝΝΗ ΜΑΡΙΑ" }, [man], it => it.receipt_no.endsWith("11670"));
+  assert.equal(r, null);
+  // πρόοδος
+  const now = new Date().toISOString();
+  const pr = expectProgress({ ...man, created_at: now }, [{ id: "a", receipt_no: "255-349-11663", recipient_name: "ΠΑΠΑΔΟΠΟΥΛΟΣ ΓΙΩΡΓΟΣ", origin_city: "ΠΑΤΡΑ", departure_at: man.departure_at, created_at: now }]);
+  assert.equal(pr.found.length, 1); assert.equal(pr.missing.length, 2);
+});

@@ -11,10 +11,20 @@ async function toB64(file, max = 2000, q = 0.82) {
   c.getContext("2d").drawImage(img, 0, 0, c.width, c.height); return c.toDataURL("image/jpeg", q).split(",")[1];
 }
 
-export function openManifest(D) {
+// opts.expect: η κατάσταση ανεβαίνει ΠΡΙΝ τα δέματα → αποθηκεύεται «ανοιχτή» (found = null) και τσεκάρεται καθώς φωτογραφίζονται.
+// opts.finish: {id, origin_city, departure_at, agency, items, total_declared} → «Τέλος ελέγχου» μιας ανοιχτής κατάστασης (χωρίς νέα φωτογραφία).
+let curD = null;
+export function openManifest(D, opts = {}) {
+  curD = D;
   const body = $("dlgBody"); body.textContent = "";
-  body.append(el("h2", null, "Έλεγχος κατάστασης πρακτορείου"),
-    el("div", "hint", "Φωτογράφισε την κατάσταση (έως 4 σελίδες). Θα σου δείξω ποια δέματα της λίστας έχουν καταχωρηθεί, ποια λείπουν, και ποια καταχωρήθηκαν χωρίς να είναι στη λίστα."));
+  if (opts.finish) {
+    const f = opts.finish; const out = el("div", "mres");
+    body.append(el("h2", null, "Τέλος ελέγχου κατάστασης"), out); $("dlg").showModal();
+    showIn(out, { origin_city: f.origin_city, departure: f.departure_at ? fmtGr(f.departure_at) : "", agency: f.agency, items: JSON.parse(JSON.stringify(f.items || [])), total_declared: f.total_declared }, f.id);
+    return;
+  }
+  body.append(el("h2", null, opts.expect ? "📥 Κατάσταση πριν τον έλεγχο" : "Έλεγχος κατάστασης πρακτορείου"),
+    el("div", "hint", opts.expect ? "Φωτογράφισε την κατάσταση που ήρθε με το λεωφορείο (έως 4 σελίδες), ΠΡΙΝ φωτογραφίσεις τα δέματα. Μετά, κάθε ετικέτα που φωτογραφίζεις τσεκάρεται στην κατάσταση και ό,τι δεν διαβάστηκε καλά συμπληρώνεται από αυτήν." : "Φωτογράφισε την κατάσταση (έως 4 σελίδες). Θα σου δείξω ποια δέματα της λίστας έχουν καταχωρηθεί, ποια λείπουν, και ποια καταχωρήθηκαν χωρίς να είναι στη λίστα."));
   const lbl = el("label", "btn primary big", "📄 Φωτογραφίες κατάστασης"); const inp = el("input"); inp.type = "file"; inp.accept = "image/*"; inp.multiple = true; inp.hidden = true; lbl.append(inp);
   const info = el("div", "hint"); const go = el("button", "btn primary", "Έλεγχος"); go.type = "button"; go.hidden = true;
   const msg = el("div", "msg info"); msg.hidden = true; const out = el("div", "mres");
@@ -26,14 +36,34 @@ export function openManifest(D) {
       const images = await Promise.all(files.map(f => toB64(f).then(d => ({ data: d, media_type: "image/jpeg" }))));
       const { data, error } = await D.sb.functions.invoke("extract-receipt", { body: { mode: "manifest", images } });
       if (error) { let b = {}; try { b = await error.context.json(); } catch {} throw new Error(b.detail || b.error || error.message); }
-      msg.hidden = true; show(data.data);
+      msg.hidden = true; if (opts.expect) await saveExpected(data.data); else show(data.data);
     } catch (e) { msg.className = "msg bad"; msg.textContent = "Δεν διαβάστηκε η κατάσταση: " + (e.message || e); }
     finally { go.disabled = false; }
   };
   body.append(lbl, info, go, msg, out);
   $("dlg").showModal();
 
-  function show(m) {
+  async function saveExpected(m) {
+    const dep = parseGrDate(m.departure); const origin = cityFromStation(m.origin_city);
+    const items = (m.items || []).map(it => ({ ...it, destination_city: cityFromStation(it.destination_city) || HOME }));
+    if (!items.length) { msg.hidden = false; msg.className = "msg bad"; msg.textContent = "Δεν διάβασα γραμμές στην κατάσταση. Ξαναφωτογράφισέ την πιο καθαρά."; return; }
+    const { error } = await D.sb.from("manifests").insert({ origin_city: origin || null, departure_at: dep ? dep.toISOString() : null, agency: m.agency || null, items,
+      total_declared: m.total_declared, found: null, missing: null, extra: null, operator: D.operator() });
+    if (error) { msg.hidden = false; msg.className = "msg bad"; msg.textContent = "Δεν αποθηκεύτηκε: " + error.message; return; }
+    const home = items.filter(i => i.destination_city === HOME).length;
+    out.append(el("div", "msg ok", "✓ Κατάσταση " + (origin || "πόλη;") + (dep ? " · " + fmtGr(dep) : "") + ": αναμένονται " + items.length + " δέματα (" + home + " για Αγρίνιο" + (items.length - home ? ", " + (items.length - home) + " μεταφορτώσεις" : "") + ")."));
+    if (m.total_declared != null && m.total_declared !== items.length) out.append(el("div", "msg warn", "⚠ Η κατάσταση γράφει σύνολο " + m.total_declared + " αλλά διάβασα " + items.length + " γραμμές — μπορεί να λείπει σελίδα."));
+    if (!origin || !dep) out.append(el("div", "msg warn", "Δεν διαβάστηκε " + (!origin ? "η πόλη" : "η ώρα") + " αναχώρησης — το τσεκάρισμα γίνεται μόνο με αριθμό απόδειξης/όνομα."));
+    out.append(el("div", "hint", "Τώρα φωτογράφισε τα δέματα όπως πάντα. Η πρόοδος φαίνεται πάνω από τις «Φωτογραφίες δεμάτων». Στο τέλος πάτα «✓ Τέλος ελέγχου»."));
+    const ok = el("button", "btn primary", "Εντάξει — φωτογραφίζω τα δέματα"); ok.type = "button"; ok.onclick = () => $("dlg").close(); out.append(ok);
+    lbl.hidden = true; info.hidden = true; go.hidden = true;
+    D.onChecked && D.onChecked();
+  }
+  function show(m) { showIn(out, m, null); }
+}
+
+function showIn(out, m, updateId) {
+    const D = curD;
     out.textContent = "";
     const dep = parseGrDate(m.departure);
     let origin = cityFromStation(m.origin_city);
@@ -121,7 +151,7 @@ export function openManifest(D) {
     if (trip && trip.key) sec("⚠ Καταχωρημένα σε αυτό το δρομολόγιο αλλά ΟΧΙ στην κατάσταση (" + r.extra.length + ")", "warn", r.extra.map(p =>
       line(p.recipient_name || "—", [p.receipt_no && "Απόδ. " + p.receipt_no, p.recipient_phone && fmtPhone(p.recipient_phone)].filter(Boolean).join(" · "))));
 
-    D.sb.from("manifests").insert({ origin_city: origin || null, departure_at: dep ? dep.toISOString() : null, agency: m.agency || null, items: m.items || [],
-      total_declared: m.total_declared, found: r.found.length, missing: r.missing.length, extra: r.extra.length, operator: D.operator() }).then(() => { if (D.onChecked) D.onChecked(); });
-  }
+    const rowM = { origin_city: origin || null, departure_at: dep ? dep.toISOString() : null, agency: m.agency || null, items: m.items || [],
+      total_declared: m.total_declared, found: r.found.length, missing: r.missing.length, extra: r.extra.length, operator: D.operator() };
+    (updateId ? D.sb.from("manifests").update(rowM).eq("id", updateId) : D.sb.from("manifests").insert(rowM)).then(() => { if (D.onChecked) D.onChecked(); });
 }

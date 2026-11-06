@@ -2,7 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { SUPABASE_URL, SUPABASE_KEY } from "./config.js";
 import {
   HOME, norm, shelfFor, cleanPhone, fmtPhone, parseGrDate, fmtGr, toLocalInput, money, hoursSince, daysSince,
-  tripsOf, tripLabel, sortTrips, isClosed, isTransit, parseLabel, fillTemplate, toCSV, cleanIdDoc, sameReceipt, likelySameParcel, sameNameTrip, smsFor, soundKey, greeklishToGreek, greekName, isGreeklishName, surnameFirst } from "./lib.js";
+  tripsOf, tripLabel, sortTrips, isClosed, isTransit, parseLabel, fillTemplate, toCSV, cleanIdDoc, sameReceipt, likelySameParcel, sameNameTrip, smsFor, soundKey, greeklishToGreek, greekName, isGreeklishName, surnameFirst, expectHelp, expectProgress } from "./lib.js";
 import { initCapture, pendingReviewCount, toJpegB64 } from "./capture.js";
 import { openManifest } from "./manifest.js";
 import { initOutgoing, showOutgoing } from "./outgoing.js";
@@ -73,6 +73,7 @@ async function boot() {
     saveParcel,
     findByReceipt: rn => [...rows.values()].find(p => !(p.bypassed && p.status === "not_arrived") && sameReceipt(p.receipt_no, rn)),
     updatePiece: async (p, patch) => { try { return await updateParcel(p.id, patch); } catch { return null; } },
+    expectHelp: d => { const op = openExpects(); if (!op.length) return null; const live = liveRows(); return expectHelp(d, op, it => live.some(p => p.source !== "manifest" && sameReceipt(p.receipt_no, it.receipt_no))); },
     onSaved: p => { rows.set(p.id, p); scheduleRender(); bizSoon(); } });
 }
 $("loginForm").onsubmit = async e => {
@@ -460,8 +461,40 @@ const NO_LIST = "— ΧΩΡΙΣ ΚΑΤΑΣΤΑΣΗ —";
 const rkey = r => { const d = String(r || "").replace(/\D/g, ""); return d.length >= 10 ? d.slice(-10) : ""; };
 async function loadManifests() {
   const since = new Date(Date.now() - 45 * 864e5).toISOString();
-  const { data } = await sb.from("manifests").select("id,origin_city,departure_at,agency,items,created_at").gte("created_at", since).limit(2000);
+  const { data } = await sb.from("manifests").select("id,origin_city,departure_at,agency,items,created_at,found,total_declared").gte("created_at", since).limit(2000);
   manifests = data || []; scheduleRender();
+}
+// ---------------------------------------------------------------- κατάσταση ΠΡΙΝ τα δέματα («ανοιχτή»: found = null, έως 3 μέρες)
+const openExpects = () => manifests.filter(m => m.found == null && m.agency !== NO_LIST && (m.items || []).length && Date.now() - new Date(m.created_at).getTime() < 3 * 864e5);
+let expectSig = "", expectDel = null;
+function renderExpect(all) {
+  const box = $("expectBox"); if (!box) return;
+  const op = openExpects();
+  const prog = op.map(m => ({ m, r: expectProgress(m, all) }));
+  const sig = JSON.stringify(prog.map(x => [x.m.id, x.r.found.length, x.r.missing.length, x.r.extra.length])) + pendingReviewCount() + expectDel;
+  if (sig === expectSig) return; expectSig = sig;
+  box.textContent = ""; box.hidden = !op.length;
+  prog.forEach(({ m, r }) => {
+    const c = el("div", "expect"); const done = r.found.length, tot = r.total;
+    const head = el("div", "exhead");
+    head.append(el("b", null, "📋 " + (m.origin_city || "Κατάσταση") + (m.departure_at ? " " + fmtGr(m.departure_at).slice(0, 5) + " " + fmtGr(m.departure_at).slice(11) : "")),
+      el("span", "exnum" + (done >= tot ? " ok" : ""), "ήρθαν " + done + " / " + tot));
+    const bar = el("div", "exbar"); const fill = el("i"); fill.style.width = Math.round(100 * done / Math.max(1, tot)) + "%"; bar.append(fill);
+    c.append(head, bar);
+    if (r.missing.length) {
+      const dt = el("details"); dt.append(el("summary", null, "Λείπουν ακόμα (" + r.missing.length + ")"));
+      r.missing.forEach(it => dt.append(el("div", "mline", (it.recipient || "—") + (it.receipt_no ? " · " + it.receipt_no : "") + (it.destination_city && it.destination_city !== HOME ? " · → " + it.destination_city : "") + (it.pieces > 1 ? " · " + it.pieces + " τεμ." : ""))));
+      c.append(dt);
+    }
+    if (r.extra.length) c.append(el("div", "msg warn", "⚠ Από το ίδιο δρομολόγιο αλλά ΟΧΙ στην κατάσταση: " + r.extra.map(p => p.recipient_name || p.receipt_no).join(", ")));
+    if (pendingReviewCount()) c.append(el("div", "hint", "⏳ " + pendingReviewCount() + " στο «Για έλεγχο» — μετράνε μόλις αποθηκευτούν."));
+    const bt = el("div", "quick");
+    const fin = el("button", "btn small primary", "✓ Τέλος ελέγχου"); fin.type = "button";
+    fin.onclick = () => openManifest(manD(), { finish: m });
+    const del = el("button", "btn small", expectDel === m.id ? "Σίγουρα; πάτα ξανά" : "✕"); del.type = "button"; del.title = "Διαγραφή της κατάστασης (λάθος φωτογραφία)";
+    del.onclick = async () => { if (expectDel !== m.id) { expectDel = m.id; renderExpect(liveRows()); return; } expectDel = null; await sb.from("manifests").delete().eq("id", m.id); loadManifests(); };
+    bt.append(fin, del); c.append(bt); box.append(c);
+  });
 }
 function computeChecks(all) {
   chkReceipts = new Set(); chkTrips = new Set(); noneTrips = new Set();
@@ -532,6 +565,7 @@ function matches(p) {
 function render() {
   const all = liveRows().sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
   computeChecks(all);
+  renderExpect(all);
   const td = new Date().toDateString();
   const open = all.filter(p => !isClosed(p) && !away(p));
   $("stToday").textContent = all.filter(p => sameDay(p.created_at, td)).length;
@@ -1108,7 +1142,9 @@ $("noteForm").onsubmit = async e => { e.preventDefault(); const t = $("noteInput
   await sb.from("shift_notes").insert({ text: t, operator: operator() || null }); $("noteInput").value = ""; loadNotes(); };
 
 // ---------------------------------------------------------------- πελάτες (προβολή)
-$("manifestBtn").onclick = () => { $("manifestBtn").closest("details").open = false; openManifest({ sb, operator, needOperator, onChecked: () => loadManifests(), linkCustomer, pendingReview: pendingReviewCount, rows: () => [...rows.values()], onSaved: p => { rows.set(p.id, p); scheduleRender(); } }); };
+const manD = () => ({ sb, operator, needOperator, onChecked: () => loadManifests(), linkCustomer, pendingReview: pendingReviewCount, rows: () => [...rows.values()], onSaved: p => { rows.set(p.id, p); scheduleRender(); } });
+$("manifestBtn").onclick = () => { $("manifestBtn").closest("details").open = false; openManifest(manD()); };
+$("expectBtn").onclick = () => { if (needOperator()) return; openManifest(manD(), { expect: true }); };
 $("customersBtn").onclick = async () => {
   $("customersBtn").closest("details").open = false;
   const body = $("dlgBody"); body.textContent = ""; body.append(el("h2", null, "Πελάτες"));
