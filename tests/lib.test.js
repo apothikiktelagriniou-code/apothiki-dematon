@@ -380,7 +380,7 @@ test("expectHelp: συμπληρώνει από την κατάσταση μόν
 
 test("expectProgress: τεμάχια και όχι παλιά δέματα με ίδιο επώνυμο", async () => {
   const { expectProgress } = await import("../src/lib.js");
-  const t0 = Date.now(); const dep = new Date(2026, 10, 6, 14, 0).toISOString();
+  const t0 = new Date(2026, 10, 6, 19, 0).getTime(); const dep = new Date(2026, 10, 6, 14, 0).toISOString();
   const man = { origin_city: "ΠΑΤΡΑ", departure_at: dep, created_at: new Date(t0).toISOString(), total_declared: 5, items: [
     { receipt_no: "2-255-349-11663", recipient: "ΠΑΠΑΣ ΝΙΚΟΣ", pieces: 3 }, { receipt_no: "2-255-349-11664", recipient: "ΚΟΥΦΟΥ ΜΑΡΙΑ", pieces: 1 }, { receipt_no: "2-255-349-11665", recipient: "ΔΗΜΟΥ ΕΛΕΝΗ", pieces: null }] };
   const old = new Date(t0 - 2 * 864e5).toISOString(), now = new Date(t0 + 60e3).toISOString();
@@ -390,6 +390,16 @@ test("expectProgress: τεμάχια και όχι παλιά δέματα με 
   let r = expectProgress(man, parcels);
   assert.equal(r.pieces, 5); assert.equal(r.piecesFound, 2); assert.equal(r.found.length, 1); assert.equal(r.partial.length, 1);
   // ίδιος αριθμός πριν το ανέβασμα → μετράει (σημειώνεται «πριν»)
-  parcels.push({ id: "b", receipt_no: "255-349-11665", recipient_name: "ΔΗΜΟΥ ΕΛΕΝΗ", origin_city: "ΠΑΤΡΑ", created_at: old });
+  parcels.push({ id: "b", receipt_no: "255-349-11665", recipient_name: "ΔΗΜΟΥ ΕΛΕΝΗ", origin_city: "ΠΑΤΡΑ", created_at: new Date(t0 - 3600e3).toISOString() });
   r = expectProgress(man, parcels); assert.equal(r.found.length, 2); assert.equal(r.before, 1); assert.equal(r.piecesFound, 3);
+});
+
+test("expectProgress: δέμα καταχωρημένο πριν φύγει το λεωφορείο δεν μετράει", async () => {
+  const { expectProgress } = await import("../src/lib.js");
+  const dep = new Date(2026, 10, 6, 16, 0); const up = new Date(2026, 10, 6, 21, 30);
+  const man = { origin_city: "ΘΕΣΣΑΛΟΝΙΚΗ", departure_at: dep.toISOString(), created_at: up.toISOString(), items: [{ receipt_no: "2-255-349-11663", recipient: "ΠΑΠΑΣ", pieces: 2 }] };
+  const before = { id: "x", receipt_no: "255-349-11663", recipient_name: "ΠΑΠΑΣ", created_at: new Date(2026, 10, 6, 10, 0).toISOString() };
+  assert.equal(expectProgress(man, [before]).found.length, 0);
+  const sameBus = { id: "y", receipt_no: "255-349-11663", recipient_name: "ΠΑΠΑΣ", departure_at: dep.toISOString(), created_at: new Date(2026, 10, 6, 21, 0).toISOString() };
+  assert.equal(expectProgress(man, [sameBus]).found.length, 1);
 });

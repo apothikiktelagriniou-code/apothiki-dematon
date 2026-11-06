@@ -603,12 +603,26 @@ const piecesIn = p => Math.max(1, Number(p.pieces_in) || 1);
  * Με ίδιο αριθμό απόδειξης μετράει κάθε δέμα (ακόμα κι αν καταχωρήθηκε πριν). Με όνομα ή «σχεδόν ίδιο» αριθμό
  * μετράνε ΜΟΝΟ δέματα που καταχωρήθηκαν ΜΕΤΑ το ανέβασμα της κατάστασης — αλλιώς ένα παλιό δέμα με ίδιο επώνυμο έβγαινε «ήρθε».
  */
+/** Μπορεί αυτό το (ήδη καταχωρημένο) δέμα να είναι από αυτό το λεωφορείο; Όχι αν καταχωρήθηκε ΠΡΙΝ φύγει το λεωφορείο,
+ *  ή αν η δική του ώρα αναχώρησης απέχει > 12 ώρες (άλλη αποστολή / λάθος ανάγνωση). Δέματα μετά το ανέβασμα: πάντα ναι. */
+export function expectEligible(man) {
+  const t0 = new Date(man.created_at || Date.now()).getTime() - 5 * 60e3;
+  const dep = man.departure_at ? new Date(man.departure_at).getTime() : null;
+  return p => {
+    const c = new Date(p.created_at).getTime();
+    if (c >= t0) return true;
+    if (!dep) return true;
+    if (c < dep - 10 * 60e3) return false;
+    return !p.departure_at || Math.abs(new Date(p.departure_at).getTime() - dep) < 12 * 3600e3;
+  };
+}
 export function expectProgress(man, parcels) {
   const dep = man.departure_at ? new Date(man.departure_at) : null;
   const trip = man.origin_city && dep ? { origin: man.origin_city, key: tripsOf({ origin_city: man.origin_city, departure_at: dep.toISOString() })[0] } : null;
   const t0 = new Date(man.created_at || Date.now()).getTime();
   const real = parcels.filter(p => p.source !== "manifest");
-  const pool = real.filter(p => new Date(p.created_at).getTime() >= t0 - 7 * 864e5);
+  const elig = expectEligible(man);
+  const pool = real.filter(p => new Date(p.created_at).getTime() >= t0 - 7 * 864e5 && elig(p));
   const after = real.filter(p => new Date(p.created_at).getTime() >= t0 - 5 * 60e3);
   const items = man.items || [], used = new Set(), found = [], rest = [];
   for (const it of items) {
