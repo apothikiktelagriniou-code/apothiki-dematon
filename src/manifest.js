@@ -1,5 +1,5 @@
 // Έλεγχος κατάστασης πρακτορείου: φωτογραφίες λίστας → AI → σύγκριση με τα καταχωρημένα δέματα.
-import { sameReceipt, expectEligible, receiptFixes, fixedReceiptNote, norm, parseGrDate, fmtGr, tripsOf, reconcile, fmtPhone, cityFromStation, shelfFor, HOME, money } from "./lib.js";
+import { sameReceipt, receiptFixes, fixedReceiptNote, norm, parseGrDate, fmtGr, tripsOf, reconcile, fmtPhone, cityFromStation, shelfFor, HOME, money } from "./lib.js";
 
 const $ = id => document.getElementById(id);
 const el = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
@@ -77,8 +77,7 @@ function showIn(out, m, updateId, afterTs = 0) {
     // αριθμός απόδειξης: ψάχνει σε ΟΛΑ τα δέματα (κάθε πόλη/μέρα) — αλλιώς ένα δέμα με άλλη γραφή πόλης έβγαινε «λείπει» και καταχωρούνταν 2η φορά.
     // όνομα: μόνο στα πρόσφατα της ίδιας πόλης.
     // κατάσταση που ανέβηκε πριν τα δέματα: με όνομα μετράνε μόνο δέματα που καταχωρήθηκαν μετά (όχι παλιά με ίδιο επώνυμο)
-    const elig = afterTs ? expectEligible({ created_at: new Date(afterTs + 5 * 60e3).toISOString(), departure_at: dep ? dep.toISOString() : null }) : null;
-    const okP = p => !afterTs || new Date(p.created_at).getTime() >= afterTs || (elig(p) && (m.items || []).some(it => sameReceipt(p.receipt_no, it.receipt_no)));
+    const okP = p => !afterTs || new Date(p.created_at).getTime() >= afterTs || (m.items || []).some(it => sameReceipt(p.receipt_no, it.receipt_no));
     const pc = (cand.length ? cand : all).filter(okP);
     const r = reconcile(m.items || [], D.rows().filter(okP), trip, pc);
 

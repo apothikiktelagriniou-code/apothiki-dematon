@@ -621,13 +621,14 @@ export function expectProgress(man, parcels) {
   const trip = man.origin_city && dep ? { origin: man.origin_city, key: tripsOf({ origin_city: man.origin_city, departure_at: dep.toISOString() })[0] } : null;
   const t0 = new Date(man.created_at || Date.now()).getTime();
   const real = parcels.filter(p => p.source !== "manifest");
-  const elig = expectEligible(man);
-  const pool = real.filter(p => new Date(p.created_at).getTime() >= t0 - 7 * 864e5 && elig(p));
+  // ίδιος αριθμός = ίδιο δέμα: μετράει ΠΑΝΤΑ (μπορεί να ήρθε με προηγούμενο δρομολόγιο) — απλώς σημειώνεται
+  const pool = real.filter(p => new Date(p.created_at).getTime() >= t0 - 30 * 864e5);
+  const depT = man.departure_at ? new Date(man.departure_at).getTime() : null;
   const after = real.filter(p => new Date(p.created_at).getTime() >= t0 - 5 * 60e3);
   const items = man.items || [], used = new Set(), found = [], rest = [];
   for (const it of items) {
     const p = String(it.receipt_no || "").replace(/\D/g, "").length >= 8 && pool.find(x => !used.has(x.id) && sameReceipt(x.receipt_no, it.receipt_no));
-    if (p) { used.add(p.id); found.push({ item: it, parcel: p, how: "receipt", before: new Date(p.created_at).getTime() < t0 - 5 * 60e3 }); } else rest.push(it);
+    if (p) { used.add(p.id); const c = new Date(p.created_at).getTime(); found.push({ item: it, parcel: p, how: "receipt", before: c < t0 - 5 * 60e3, early: depT != null && c < depT - 10 * 60e3 }); } else rest.push(it);
   }
   const r = reconcile(rest, after.filter(x => !used.has(x.id)), trip, after.filter(x => !used.has(x.id) && (!trip || x.origin_city === trip.origin)));
   r.found.forEach(f => found.push(f));
@@ -636,5 +637,5 @@ export function expectProgress(man, parcels) {
   const pieces = items.reduce((s, it) => s + itemPieces(it), 0);
   const partial = found.filter(f => piecesIn(f.parcel) < itemPieces(f.item));
   const piecesFound = found.reduce((s, f) => s + Math.min(piecesIn(f.parcel), itemPieces(f.item)), 0);
-  return { total: items.length, found, missing: r.missing, extra, pieces, piecesFound, partial, before: found.filter(f => f.before).length };
+  return { total: items.length, found, missing: r.missing, extra, pieces, piecesFound, partial, before: found.filter(f => f.before).length, early: found.filter(f => f.early) };
 }

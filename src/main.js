@@ -483,7 +483,8 @@ function renderExpect(all) {
     c.append(head, bar);
     c.append(el("div", "hint", r.found.length + " / " + r.total + " αποστολές" + (r.pieces !== r.total ? " · " + r.pieces + " τεμάχια συνολικά" : "") +
       (m.total_declared != null ? " · η κατάσταση γράφει σύνολο " + m.total_declared + (m.total_declared === r.pieces || m.total_declared === r.total ? " ✓" : " ⚠") : "") +
-      (r.before ? " · " + r.before + " είχαν καταχωρηθεί πριν την κατάσταση (" + r.found.filter(f => f.before).map(f => (f.parcel.recipient_name || "—") + " " + (f.parcel.receipt_no || "")).join(", ") + ")" : "")));
+      (r.before ? " · " + r.before + " είχαν καταχωρηθεί πριν την κατάσταση" : "")));
+    if (r.early.length) c.append(el("div", "hint", "⏪ Ήρθαν νωρίτερα, με προηγούμενο δρομολόγιο: " + r.early.map(f => (f.parcel.recipient_name || "—") + " (" + fmtGr(f.parcel.created_at).slice(0, 5) + " " + fmtGr(f.parcel.created_at).slice(11) + ")").join(", ")));
     if (r.partial.length) c.append(el("div", "msg warn", "⚠ Λείπουν τεμάχια: " + r.partial.map(f => (f.parcel.recipient_name || f.item.recipient || "—") + " " + Math.max(1, f.parcel.pieces_in || 1) + "/" + Math.max(1, Number(f.item.pieces) || 1)).join(", ")));
     if (r.missing.length) {
       const dt = el("details"); dt.append(el("summary", null, "Λείπουν ακόμα (" + r.missing.length + ")"));
