@@ -1,6 +1,6 @@
 // Φωτογραφίες → ανάγνωση με AI → αυτόματη καταχώρηση ή λίστα ελέγχου.
 // Οι φωτογραφίες περιμένουν σε IndexedDB αν δεν υπάρχει σύνδεση, και στέλνονται μόλις επανέλθει.
-import { isGreeklishName, greekName, unsureNote, surnameFirst, norm, cleanPhone, fmtGr, parseGrDate, autoSaveDecision, extractedToParcel, problemText, shelfFor, HOME } from "./lib.js";
+import { isGreeklishName, greekName, unsureNote, surnameFirst, norm, cleanPhone, fmtGr, parseGrDate, autoSaveDecision, extractedToParcel, problemText, shelfFor, HOME, fmtPhone } from "./lib.js";
 
 let D; // εξαρτήσεις από main.js
 const $ = id => document.getElementById(id);
@@ -117,7 +117,7 @@ export async function pump() {
   await refreshOutboxInfo();
   if (stats.total) {
     const done = stats.auto + stats.review + stats.fail;
-    show($("capMsg"), "Καταχωρήθηκαν αυτόματα: " + stats.auto + (stats.pieces ? " (από αυτά " + stats.pieces + " επιπλέον τεμάχια υπαρχουσών αποστολών)" : "") + " · Για έλεγχο: " + stats.review + (stats.fail ? " · Απέτυχαν: " + stats.fail : "") + (done < stats.total ? " · Σε αναμονή: " + (stats.total - done) : "") + (stats.inList ? " · 📋 Στην κατάσταση: " + stats.inList : "") + (stats.notIn ? " · ⚠ Εκτός κατάστασης: " + stats.notIn : ""), stats.review || stats.notIn || stats.fail ? "warn" : "ok");
+    show($("capMsg"), "Καταχωρήθηκαν αυτόματα: " + stats.auto + (stats.pieces ? " (από αυτά " + stats.pieces + " επιπλέον τεμάχια υπαρχουσών αποστολών)" : "") + " · Για έλεγχο: " + stats.review + (stats.fail ? " · Απέτυχαν: " + stats.fail : "") + (done < stats.total ? " · Σε αναμονή: " + (stats.total - done) : "") + (stats.inList ? " · 📋 Στην κατάσταση: " + stats.inList : "") + (stats.notIn ? " · ⚠ Εκτός κατάστασης: " + stats.notIn : "") + (stats.ask ? " · 👤 Ρωτάω ποιος πελάτης: " + stats.ask : ""), stats.review || stats.notIn || stats.fail ? "warn" : "ok");
     if (done >= stats.total) { D.sb.from("batches").insert({ photo_count: stats.total, auto_saved: stats.auto, queued: stats.review, failed: stats.fail, device: matchMedia("(pointer:fine)").matches ? "pc" : "phone", operator: D.operator() }).then(() => {}); stats.total = 0; }
   }
 }
@@ -154,6 +154,11 @@ async function processOne(it) {
   const ex = d.receipt_no && D.findByReceipt(d.receipt_no);
   if (ex && Math.max(ex.pieces_total || 1, Number(d.pieces) || 1) > 1 && await addPiece()) return "ok";
   const dec = autoSaveDecision(d, rn => D.receiptExists(rn), D.settings().max_reasonable_fare_eur || 40);
+  // όνομα που υπάρχει ήδη (π.χ. ΣΑΚΚΟΣ) και η ετικέτα δεν έχει τηλέφωνο → ρώτα «ποιος είναι;» πριν την καταχώρηση
+  if (!ph && d.recipient && D.similarCustomers) {
+    const cands = await D.similarCustomers(d.recipient);
+    if (cands.length && !(custs.length === 1 && cands.length === 1 && cands[0].id === custs[0].id)) { d._cands = cands; dec.auto = false; dec.problems = [...dec.problems, "confirm_customer"]; stats.ask = (stats.ask || 0) + 1; }
+  }
   if (d.pair_mismatch) { dec.auto = false; dec.problems = [...dec.problems, "pair_mismatch"]; }
   if (dec.auto) {
     const p = extractedToParcel(d);
@@ -221,6 +226,17 @@ function reviewCard(q, idx) {
   const probs = el("div", "rprobs"); q.problems.forEach(p => probs.append(el("span", "codb", problemText(p)))); right.append(probs);
   if (d.notes) right.append(el("div", "hint", d.notes));
   if (d._mnote) right.append(el("div", "hint", d._mnote));
+  let chosen = null;
+  const candBox = el("div", "rcands");
+  if ((d._cands || []).length) {
+    candBox.append(el("div", "hint", "👤 Είναι κάποιος από αυτούς; Πάτα και αποθηκεύεται με το τηλέφωνό του."));
+    d._cands.forEach(c => { const b = el("button", "btn cand", "");
+      b.append(el("b", null, c.name), el("span", null, " · " + fmtPhone(c.phones[0]) + " · " + c.n + " δέμα" + (c.n === 1 ? "" : "τα") + (c.last ? " · τελ. " + fmtGr(c.last).slice(0, 5) : "") + (c.starred ? " ⭐" : "")));
+      b.type = "button"; b.onclick = () => { chosen = c; inputs.recipient.value = c.name; inputs.phone.value = c.phones[0]; card.requestSubmit(); }; candBox.append(b); });
+    const none = el("button", "btn small", "Κανένας — άλλος παραλήπτης"); none.type = "button";
+    none.onclick = () => { chosen = null; candBox.remove(); inputs.phone.focus(); }; candBox.append(none);
+    right.append(candBox);
+  }
   const bad = new Set(q.problems.map(fieldOfProblem));
   const inputs = {};
   const g = el("div", "rgrid");
@@ -256,10 +272,11 @@ function reviewCard(q, idx) {
     save.disabled = true;
     const p = extractedToParcel(ed);
     if (p.phone_source === "handwritten") p.phone_confirmed = true; // το είδε άνθρωπος στον έλεγχο
+    if (chosen && cleanPhone(v.phone) === chosen.phones[0]) { p.phone_source = "customer_db"; p.phone_confirmed = true; }
     if (!p.recipient_phone && p.recipient_name) { const cs = (await D.findCustomers(p.recipient_name)).filter(c => (c.phones || []).length); if (cs.length === 1) { p.recipient_phone = cs[0].phones[0]; p.phone_source = "customer_db"; p.phone_confirmed = true; } }
     if (ed._mnote) p.notes = [ed._mnote, p.notes].filter(Boolean).join(" · ");
     applyOld(p, ed); p.source = "photo_reviewed"; p.operator = D.operator(); p.extraction_confidence = { ...(p.extraction_confidence || {}), biz: !!ed.recipient_is_business };
-    p.customer_id = await D.linkCustomer(p.recipient_name, p.recipient_phone);
+    p.customer_id = chosen && cleanPhone(v.phone) === chosen.phones[0] ? chosen.id : await D.linkCustomer(p.recipient_name, p.recipient_phone);
     const ins = await D.saveParcel(p);
     if (ins.error) { save.disabled = false; return say(ins.error.code === "23505" ? "Αυτή η απόδειξη υπάρχει ήδη." : "Δεν αποθηκεύτηκε. Δοκίμασε ξανά."); }
     D.onSaved(ins.data);
