@@ -495,3 +495,9 @@ dialog.scanner.pulse-ok{animation:pulseok .6s}dialog.scanner.pulse-bad{animation
 .reghead{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:1.05em}
 .regrcp{display:flex;flex-direction:column;gap:6px;margin-top:4px}.regrcp .btn{text-align:left;white-space:normal}
 .regh{font-size:1em;margin:14px 0 4px}.regsugg{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0;border-top:1px solid rgba(127,127,127,.2)}
+
+.starbtn{border:0;background:none;font-size:20px;line-height:1;padding:2px 4px;cursor:pointer;color:#b8860b;min-width:32px;min-height:32px}
+.starbtn.on{filter:drop-shadow(0 0 2px rgba(245,158,11,.6))}
+article.row.is-star{box-shadow:inset 4px 0 0 #f59e0b}
+.regwait{font-size:.92em;display:flex;flex-direction:column;gap:2px;margin:4px 0 6px}
+.starcheck{font-weight:700}

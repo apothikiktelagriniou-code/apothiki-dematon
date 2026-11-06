@@ -54,6 +54,7 @@
           <button class="btn small" type="button" id="tg-viber">Viber</button>
           <button class="btn small" type="button" id="tg-sms">📩 SMS</button>
           <button class="btn small" type="button" id="customersBtn">Πελάτες</button>
+          <button class="btn small star" type="button" id="regInBtn">⭐ Τακτικοί πελάτες</button>
           <button class="btn small" type="button" id="gemiBtn">🏢 Βάση επιχειρήσεων</button>
           <button class="btn small" type="button" id="backupBtn">💾 Λήψη αντιγράφου ασφαλείας</button>
           <button class="btn small" type="button" id="logoutBtn">Αποσύνδεση</button>
@@ -107,6 +108,7 @@
       <button type="button" class="btn small" id="outCashBtn">💶 Ταμείο εξερχομένων</button>
       <button type="button" class="btn small star" id="outRegBtn">⭐ Τακτικοί</button>
       <button type="button" class="btn small" id="outScanAll">🔎 Σάρωση φόρτωσης</button>
+      <label class="btn small" for="outPeople">📇 Αποστολείς/παραλήπτες ΚΤΕΛ</label><input id="outPeople" type="file" accept="image/*" multiple hidden>
       <label class="btn small" for="outCashClose">🧾 Κλείσιμο ταμείου ΚΤΕΛ</label><input id="outCashClose" type="file" accept="image/*" multiple hidden>
     </div>
     <div class="hint">Σειρά: 1) ανέβασε την κατάσταση του δρομολογίου από το σύστημα ΚΤΕΛ · 2) στη φόρτωση φωτογράφισε τις αποδείξεις · 3) κοίτα τα ⚠ (στην κατάσταση χωρίς φωτογραφία / εκτός κατάστασης). Το τηλέφωνο του παραλήπτη δεν τυπώνεται — γράψ' το με στυλό πάνω στην απόδειξη πριν τη φωτογραφία, ή στην επεξεργασία.</div>
@@ -154,6 +156,7 @@
         <button class="chip" type="button" data-f="nophone" aria-pressed="false">Χωρίς τηλέφωνο</button>
         <button class="chip" type="button" data-f="transit" aria-pressed="false">Μεταφορτώσεις</button>
         <button class="chip" type="button" data-f="cod" aria-pressed="false">Είσπραξη</button>
+        <button class="chip" type="button" data-f="star" aria-pressed="false">⭐ Τακτικοί</button>
         <button class="chip" type="button" data-f="tags" aria-pressed="false">Με παρατηρήσεις</button>
         <button class="chip" type="button" data-f="bypassed" aria-pressed="false">🚫 Δεν ήρθαν στην αποθήκη</button>
         <button class="chip" type="button" data-f="nocheck" aria-pressed="false">📄 Χωρίς έλεγχο κατάστασης</button>

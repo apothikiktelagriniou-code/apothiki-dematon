@@ -516,6 +516,7 @@ function matches(p) {
     case "nophone": if (isClosed(p) || isTransit(p) || phoneOk(p)) return false; break;
     case "transit": if (!(p.status === "transit" || (p.status === "forwarded" && !away(p)))) return false; break;
     case "cod": if (!(p.cod_amount_eur > 0 && !p.cod_collected)) return false; break;
+    case "star": if (!isStarP(p) || isClosed(p)) return false; break;
     // «Σήμερα» = όσα καταχωρήθηκαν σήμερα (και το «Παλιό απόθεμα» που περάστηκε σήμερα)
     case "today": { const td = new Date().toDateString(); if (!sameDay(p.created_at, td) && !sameDay(p.extraction_confidence && p.extraction_confidence.registered_at, td)) return false; break; }
     case "done": if (!isClosed(p)) return false; break;
@@ -638,7 +639,10 @@ function card(p) {
   const top = el("div", "top");
   if (p.origin_city) { const c = el("span", "city", p.origin_city); c.style.setProperty("--cc", cityColor(p.origin_city)); top.append(c); }
   { const nb = el("button", "name namebtn", p.recipient_name || p.receipt_no || "Χωρίς όνομα"); nb.type = "button"; nb.title = "Καρτέλα πελάτη";
-    if (isBizCustomer(p)) nb.prepend("🏢 "); nb.onclick = () => openCustomerFor(p); top.append(nb); }
+    if (isBizCustomer(p)) nb.prepend("🏢 "); nb.onclick = () => openCustomerFor(p);
+    const st = isStarP(p), sb2 = el("button", "starbtn" + (st ? " on" : ""), st ? "⭐" : "☆"); sb2.type = "button";
+    sb2.title = st ? "Τακτικός πελάτης — πάτα για αφαίρεση" : "Σημείωσε ως τακτικό πελάτη"; sb2.setAttribute("aria-label", sb2.title); sb2.setAttribute("aria-pressed", st ? "true" : "false");
+    sb2.onclick = () => toggleStarP(p); top.append(sb2, nb); if (st) row.classList.add("is-star"); }
   const old = !isClosed(p) && daysSince(p.created_at) >= (settings.old_parcel_days || 5);
   const late = lateTransit(p); const rem = needsRemind(p);
   top.append(el("span", "pill " + (old || late ? "s-old" : "s-" + p.status),
@@ -1318,7 +1322,8 @@ $("notifBtn").onclick = async () => {
 // ---------------------------------------------------------------- πελάτες: μνήμη, καρτέλα, προτάσεις τηλεφώνου
 let custCache = [], custT = null;
 async function loadCustomers() {
-  let { data, error } = await sb.from("customers").select("id,full_name,name_key,surname_key,phones,parcels_count,last_parcel_at,is_business,aliases").limit(10000);
+  let { data, error } = await sb.from("customers").select("id,full_name,name_key,surname_key,phones,parcels_count,last_parcel_at,is_business,aliases,starred,email,area,notes").limit(10000);
+  if (error) ({ data, error } = await sb.from("customers").select("id,full_name,name_key,surname_key,phones,parcels_count,last_parcel_at,is_business,aliases").limit(10000));
   if (error) ({ data } = await sb.from("customers").select("id,full_name,name_key,surname_key,phones,parcels_count,last_parcel_at,is_business").limit(10000));
   if (data) { custCache = data; scheduleRender(); }
 }
@@ -1340,6 +1345,7 @@ function bizLike(name) {
   const t = toks(name); if (!t.length) return false; const s = t.join(" ");
   return t.some(x => BIZ_TOK.has(x) || BIZ_STEM.some(st => x.startsWith(st))) || / ΚΑΙ ΣΙΑ/.test(s);
 }
+const isStarP = p => { const c = custOf(p); return !!(c && c.starred); };
 const isBizCustomer = p => { const c = custOf(p); return c ? !!c.is_business : false; };
 const wantsBizLookup = p => isBizCustomer(p) || bizLike(p.recipient_name) || !!(p.extraction_confidence && p.extraction_confidence.biz);
 // προσεκτική πρόταση: ίδιο επώνυμο + μικρό όνομα που ταιριάζει (Γ. ↔ ΓΙΩΡΓΟΣ), και ΜΟΝΟ αν υπάρχει ένας τέτοιος πελάτης με τηλέφωνο
@@ -1508,6 +1514,7 @@ async function openCustomer(id, draft, fromParcel) {
   $("custTitle").textContent = (c.is_business ? "🏢 " : "👤 ") + (c.full_name || "Νέος πελάτης");
   const fs = el("fieldset"); fs.append(el("legend", null, "Στοιχεία"));
   const name = field(fs, c.is_business ? "Επωνυμία" : "Ονοματεπώνυμο", inp(c.full_name, { autocapitalize: "characters" }), true);
+  const star = el("label", "check wide starcheck"); const sk = el("input"); sk.type = "checkbox"; sk.checked = !!c.starred; star.append(sk, document.createTextNode(" ⭐ Τακτικός πελάτης")); fs.append(star);
   const biz = el("label", "check wide"); const bz = el("input"); bz.type = "checkbox"; bz.checked = !!c.is_business; biz.append(bz, document.createTextNode(" Επιχείρηση (κατάστημα, εταιρεία, ιατρείο…)")); fs.append(biz);
   const phones = field(fs, "Τηλέφωνα (χώρισέ τα με κόμμα)", inp((c.phones || []).map(fmtPhone).join(", "), { inputMode: "tel", className: "mono" }), true);
   const email = field(fs, "Email", inp(c.email || "", { type: "email", autocapitalize: "none", placeholder: "π.χ. info@epixeirisi.gr" }), true);
@@ -1558,7 +1565,8 @@ async function openCustomer(id, draft, fromParcel) {
     if (cs.checked && !em) return say("Για ενημερωτικά email χρειάζεται email.", "warn");
     const row = { full_name: name.value.trim().toUpperCase(), phones: [...new Set(ph.filter(Boolean))], is_business: bz.checked, address: addr.value.trim() || null, area: area.value.trim() || null,
       notes: notes.value.trim() || null, channel: ch.value || null, business_source: c.business_source || null,
-      email: em || null, marketing_consent: cs.checked, ...(cs.checked && !c.marketing_consent ? { marketing_consent_at: new Date().toISOString() } : {}) };
+      email: em || null, marketing_consent: cs.checked, ...(cs.checked && !c.marketing_consent ? { marketing_consent_at: new Date().toISOString() } : {}),
+      ...(sk.checked !== !!c.starred ? { starred: sk.checked, starred_at: sk.checked ? new Date().toISOString() : null } : {}) };
     save.disabled = true;
     try {
       let cid = c.id;
@@ -1626,3 +1634,79 @@ $("cashBtn").onclick = () => { $("cashBtn").closest("details").open = false; ope
 { const b = document.getElementById("toTop");
   if (b) { const upd = () => { b.hidden = window.scrollY < 400; }; window.addEventListener("scroll", upd, { passive: true }); upd();
     b.onclick = () => window.scrollTo({ top: 0, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" }); } }
+
+// ================================================================ ⭐ ΤΑΚΤΙΚΟΙ ΠΑΡΑΛΗΠΤΕΣ (εισερχόμενα)
+async function setStarCustomer(cid, on) {
+  const { error } = await sb.from("customers").update({ starred: on, starred_at: on ? new Date().toISOString() : null }).eq("id", cid);
+  if (error) { show($("formMsg"), "Δεν σημειώθηκε: " + (/starred/.test(error.message) ? "λείπει το 0016 στη βάση — τρέξε το 0016_regulars.sql" : error.message), "bad"); return false; }
+  const c = custCache.find(x => x.id === cid); if (c) c.starred = on; else loadCustomersSoon();
+  scheduleRender(); if ($("dlg").open && $("dlgBody").dataset.view === "regulars") renderRegularsIn(); return true;
+}
+async function toggleStarP(p) {
+  if (needOperator()) return;
+  let cid = p.customer_id || (custOf(p) || {}).id;
+  if (!cid) { if (!p.recipient_name) { show($("formMsg"), "Το δέμα δεν έχει όνομα παραλήπτη.", "warn"); return; }
+    cid = await linkCustomer(p.recipient_name, p.recipient_phone); if (!cid) return; await updateParcel(p.id, { customer_id: cid }).catch(() => {}); await loadCustomers(); }
+  const c = custCache.find(x => x.id === cid);
+  const on = !(c && c.starred);
+  if (on && c && !c.is_business && (bizLike(c.full_name) || (p.extraction_confidence && p.extraction_confidence.biz))) { await sb.from("customers").update({ is_business: true }).eq("id", cid); c.is_business = true; }
+  await setStarCustomer(cid, on);
+}
+const waitingOf = c => [...rows.values()].filter(p => !isClosed(p) && !away(p) && (p.customer_id === c.id || (!p.customer_id && custOf(p) === c)));
+async function notifyRegular(c, list, hint) {
+  if (needOperator()) return { ok: 0, fail: 0 };
+  if (!smsReady) { hint.textContent = "Τα SMS δεν είναι έτοιμα (κινητό SMS Gateway)."; return { ok: 0, fail: 0 }; }
+  let ok = 0, fail = 0; const ph0 = (c.phones || []).find(x => /^69/.test(x));
+  for (let p of list.filter(p => p.status === "arrived")) {
+    if (!/^69/.test(p.recipient_phone || "") && ph0) { await updateParcel(p.id, { recipient_phone: ph0, phone_source: "customer_db", phone_confirmed: true }).catch(() => {}); p = rows.get(p.id) || { ...p, recipient_phone: ph0 }; }
+    if (!/^69/.test(p.recipient_phone || "")) { fail++; continue; }
+    hint.textContent = "📩 " + (ok + fail + 1) + "/" + list.length + "…";
+    const r = await sendSms(p, smsFor(/delivery|σπίτι/i.test(settings.sms_template || "") ? "" : settings.sms_template, p));
+    if (r.ok) { ok++; await updateParcel(p.id, { status: "notified", status_at: new Date().toISOString(), notified_at: new Date().toISOString(), notify_count: (p.notify_count || 0) + 1, notify_channel: "sms" }).catch(() => {}); } else fail++;
+  }
+  return { ok, fail };
+}
+function regularsBody() {
+  const body = $("dlgBody"); body.textContent = ""; body.dataset.view = "regulars";
+  body.append(el("h2", null, "⭐ Τακτικοί πελάτες"));
+  const q = inp("", { type: "search", placeholder: "Όνομα ή τηλέφωνο", className: "search" }); q.id = "regInQ"; q.setAttribute("aria-label", "Αναζήτηση τακτικού");
+  const all = el("button", "btn small primary", "📩 Ειδοποίησε όλους τους τακτικούς"); all.type = "button"; all.id = "regInAll";
+  const hint = el("div", "hint"); hint.id = "regInHint";
+  const list = el("div", "reglist"); list.id = "regInList";
+  body.append(q, el("div", "quick"), all, hint, list);
+  q.oninput = () => { clearTimeout(q._t); q._t = setTimeout(renderRegularsIn, 200); };
+  all.onclick = async () => { all.disabled = true; let ok = 0, fail = 0;
+    for (const c of custCache.filter(c => c.starred)) { const w = waitingOf(c).filter(p => p.status === "arrived"); if (w.length) { const r = await notifyRegular(c, w, hint); ok += r.ok; fail += r.fail; } }
+    hint.textContent = ok || fail ? "📩 Στάλθηκαν " + ok + " SMS" + (fail ? " · χωρίς κινητό/απέτυχαν " + fail : "") + "." : "Κανένα δέμα τακτικού για ειδοποίηση."; all.disabled = false; renderRegularsIn(); };
+}
+function renderRegularsIn() {
+  const list = $("regInList"); if (!list) return; list.textContent = "";
+  const q = norm($("regInQ").value), qd = $("regInQ").value.replace(/\D/g, "");
+  const hit = c => !q || norm(c.full_name).includes(q) || (qd.length >= 3 && (c.phones || []).some(p => p.includes(qd)));
+  const stars = custCache.filter(c => c.starred && hit(c)).map(c => ({ c, w: waitingOf(c) })).sort((a, b) => b.w.length - a.w.length || a.c.full_name.localeCompare(b.c.full_name, "el"));
+  const nAr = stars.reduce((s, x) => s + x.w.filter(p => p.status === "arrived").length, 0);
+  $("regInAll").textContent = "📩 Ειδοποίησε όλους τους τακτικούς (" + nAr + ")"; $("regInAll").disabled = !nAr;
+  if (!stars.length) list.append(el("p", "hint", custCache.some(c => c.starred) ? "Κανένας τακτικός με αυτό." : "Δεν έχεις ακόμα τακτικούς. Πάτα ☆ δίπλα στο όνομα ενός δέματος, ή διάλεξε από τις προτάσεις παρακάτω."));
+  for (const { c, w } of stars) {
+    const card = el("article", "regcard");
+    const h = el("div", "reghead"); h.append(el("b", null, "⭐ " + c.full_name)); if (c.is_business) h.append(el("span", "badge", "🏢 επιχείρηση")); card.append(h);
+    card.append(el("div", "hint", [(c.phones || []).map(fmtPhone).join(" · ") || "⚠ χωρίς τηλέφωνο", c.email || "", c.area || "", (c.parcels_count || 0) + " δέματα συνολικά", c.notes || ""].filter(Boolean).join(" · ")));
+    if (w.length) { const ul = el("div", "regwait"); for (const p of w) ul.append(el("div", null, "📦 " + (p.receipt_no || "—") + (p.origin_city ? " · από " + p.origin_city : "") + (p.shelf ? " · Ράφι " + p.shelf : "") + " · " + (STATUS[p.status] || p.status))); card.append(el("div", "lbl", "Περιμένουν τώρα: " + w.length), ul); }
+    const acts = el("div", "acts"); const h2 = el("div", "hint");
+    const ar = w.filter(p => p.status === "arrived");
+    if (ar.length) { const b = el("button", "btn small primary", "📩 Ειδοποίηση (" + ar.length + ")"); b.type = "button"; b.onclick = async () => { b.disabled = true; const r = await notifyRegular(c, ar, h2); h2.textContent = "📩 Στάλθηκαν " + r.ok + (r.fail ? " · απέτυχαν " + r.fail : ""); renderRegularsIn(); }; acts.append(b); }
+    const ed = el("button", "btn small", "✎ Στοιχεία"); ed.type = "button"; ed.onclick = () => { $("dlg").close(); openCustomer(c.id); };
+    const rm = el("button", "btn small", "☆ Αφαίρεση"); rm.type = "button"; rm.onclick = () => setStarCustomer(c.id, false);
+    acts.append(ed, rm); card.append(acts, h2); list.append(card);
+  }
+  // 🤖 προτάσεις: επιχειρήσεις (AI/όνομα) και συχνοί παραλήπτες που δεν είναι ακόμα ⭐
+  const bizP = new Set([...rows.values()].filter(p => p.extraction_confidence && p.extraction_confidence.biz).map(p => (custOf(p) || {}).id).filter(Boolean));
+  const sugg = custCache.filter(c => !c.starred && hit(c)).map(c => { const biz = c.is_business || bizLike(c.full_name) || bizP.has(c.id); return { c, biz, score: (c.parcels_count || 0) + (biz ? 3 : 0) }; })
+    .filter(x => (x.biz && (x.c.parcels_count || 0) >= 2) || (x.c.parcels_count || 0) >= 4).sort((a, b) => b.score - a.score).slice(0, 20);
+  if (sugg.length) {
+    list.append(el("h3", "regh", "🤖 Προτάσεις — επιχειρήσεις και συχνοί παραλήπτες"));
+    for (const { c, biz } of sugg) { const r = el("div", "regsugg"); r.append(el("span", null, (biz ? "🏢 " : "👤 ") + c.full_name + " — " + (c.parcels_count || 0) + " δέματα" + ((c.phones || []).length ? "" : " · χωρίς τηλέφωνο")));
+      const b = el("button", "btn small star", "☆ Τακτικός"); b.type = "button"; b.onclick = async () => { if (biz && !c.is_business) { await sb.from("customers").update({ is_business: true }).eq("id", c.id); c.is_business = true; } setStarCustomer(c.id, true); }; r.append(b); list.append(r); }
+  }
+}
+$("regInBtn").onclick = () => { $("regInBtn").closest("details") && ($("regInBtn").closest("details").open = false); regularsBody(); renderRegularsIn(); $("dlg").showModal(); };

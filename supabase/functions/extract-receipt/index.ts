@@ -80,6 +80,16 @@ const SYSTEM_MANIFEST = `Διαβάζεις φωτογραφίες από ΚΑΤ
 {"origin_city":"","departure":"","agency":"","items":[{"receipt_no":"","recipient":"","destination_city":"","pieces":null,"fare_eur":null,"checked":false,"unsure":false}],"total_declared":null,"notes":""}
 όπου total_declared = το σύνολο δεμάτων αν γράφεται στην κατάσταση.`;
 
+const SYSTEM_PEOPLE = `Διαβάζεις φωτογραφίες ΟΘΟΝΗΣ ή εκτύπωσης από το πρόγραμμα του ΚΤΕΛ με τις αποστολές δεμάτων της ημέρας: για κάθε απόδειξη φαίνονται ΑΠΟΣΤΟΛΕΑΣ και ΠΑΡΑΛΗΠΤΗΣ (όνομα, τηλέφωνο) και συνήθως προορισμός.
+ΚΑΝΟΝΕΣ:
+- Μία εγγραφή ανά αριθμό απόδειξης (π.χ. 2-000-228-336-142166 ή 228-336-142166) — γράψε τον όπως φαίνεται. Διάβαζε κάθε γραμμή ΟΡΙΖΟΝΤΙΑ: τα ονόματα/τηλέφωνα πρέπει να είναι στο ΙΔΙΟ ύψος με τον αριθμό τους.
+- Αν μια γραμμή είναι κομμένη ή δεν διαβάζεται ο αριθμός → παράλειψέ τη. Αν η ίδια γραμμή φαίνεται σε δύο φωτογραφίες → μία φορά.
+- Ονόματα όπως γράφονται, ΚΕΦΑΛΑΙΑ. Ιδιώτης: «ΕΠΩΝΥΜΟ ΟΝΟΜΑ». Greeklish → ελληνικά.
+- sender_is_business / recipient_is_business: true αν το όνομα είναι επιχείρηση (Ο.Ε./Ε.Ε./ΕΠΕ/ΙΚΕ/Α.Ε., ΑΦΟΙ, κατάστημα, φαρμακείο, συνεργείο, εμπορική ονομασία). Κρίνε ΜΟΝΟ από το όνομα.
+- Τηλέφωνα: μόνο ψηφία, 10 ψηφία (69xxxxxxxx ή 2xxxxxxxxx). Αν δεν φαίνεται → "".
+- Αν έχεις αμφιβολία για κάποιο πεδίο μιας γραμμής → "unsure": true.
+Απάντησε ΜΟΝΟ με JSON: {"items":[{"receipt_no":"","sender":"","sender_phone":"","sender_is_business":false,"recipient":"","recipient_phone":"","recipient_is_business":false,"destination":"","unsure":false}]}`;
+
 const SYSTEM_CASH = `Διαβάζεις φωτογραφίες από ΚΛΕΙΣΙΜΟ ΤΑΜΕΙΟΥ του ΚΤΕΛ ΑΙΤΩΛΟΑΚΑΡΝΑΝΙΑΣ (τυπωμένη λίστα, πολλές σελίδες· οι φωτογραφίες είναι σελίδες της ΙΔΙΑΣ αναφοράς).
 Επάνω (μόνο στην 1η σελίδα): «Αρ.Ταμείου: 1078 Ημερομηνία:04/11/2026 ... Αριθμός Χρήστη:228», «Δέματα:150 ... με μετρητά(ποσό):1.041,00 €», «Ποσό πληρωμής:1.041,00 €».
 Στήλες: Αριθμός | Ημερ/νια Έκδοσης | Από | Έως | Ημερ/νια Δρομολογίου | Είδος Επιβάτη | Είδος Εισιτηρίου | Δέμα | Ποσό
@@ -126,7 +136,7 @@ Deno.serve(async req => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   const url = new URL(req.url);
   const key = Deno.env.get("ANTHROPIC_API_KEY");
-  if (url.searchParams.get("health") === "1") return json({ ok: true, hasKey: !!key, model: MODEL, version: "2026-11-06-senders" });
+  if (url.searchParams.get("health") === "1") return json({ ok: true, hasKey: !!key, model: MODEL, version: "2026-11-06-people" });
   if (url.searchParams.get("health") === "2") {
     // διαγνωστικό: μια μικρή κλήση στο AI για να φανεί αν δουλεύουν κλειδί/μοντέλο/πίστωση (δεν επιστρέφει το κλειδί)
     if (!key) return json({ ok: false, error: "missing_key" });
@@ -159,15 +169,16 @@ Deno.serve(async req => {
   let body: { mode?: string; images?: { data: string; media_type?: string }[] };
   try { body = await req.json(); } catch { return json({ error: "bad_request" }, 400); }
   const cash = body.mode === "cashclose";
+  const people = body.mode === "people";
   const manifest = body.mode === "manifest", classify = body.mode === "classify", describe = body.mode === "describe";
   const pkgIdx = typeof (body as { package_index?: number }).package_index === "number" ? (body as { package_index: number }).package_index : -1;
-  const imgs = (body.images || []).slice(0, manifest || cash ? 4 : classify ? 30 : 3).filter(i => i && typeof i.data === "string" && i.data.length < 6_000_000);
+  const imgs = (body.images || []).slice(0, manifest || cash || people ? 4 : classify ? 30 : 3).filter(i => i && typeof i.data === "string" && i.data.length < 6_000_000);
   if (body.mode === "bizphone") return await bizPhone(body as unknown as Record<string, unknown>, key!, sb);
   if (!imgs.length) return json({ error: "no_image" }, 400);
 
   const content = [
     ...imgs.map(i => ({ type: "image", source: { type: "base64", media_type: i.media_type || "image/jpeg", data: i.data } })),
-    { type: "text", text: cash ? imgs.length + " σελίδες από το κλείσιμο ταμείου. Επέστρεψε το JSON." : manifest ? (imgs.length > 1 ? imgs.length + " σελίδες της ίδιας κατάστασης. " : "") + "Επέστρεψε το JSON."
+    { type: "text", text: people ? imgs.length + " φωτογραφίες από το πρόγραμμα του ΚΤΕΛ (αποστολέας/παραλήπτης). Επέστρεψε το JSON." : cash ? imgs.length + " σελίδες από το κλείσιμο ταμείου. Επέστρεψε το JSON." : manifest ? (imgs.length > 1 ? imgs.length + " σελίδες της ίδιας κατάστασης. " : "") + "Επέστρεψε το JSON."
       : classify ? imgs.length + " φωτογραφίες. Επέστρεψε το JSON."
       : describe ? "Περιέγραψε το δέμα. Επέστρεψε το JSON."
       : pkgIdx >= 0 && pkgIdx < imgs.length ? "Φωτογραφίες του ΙΔΙΟΥ δέματος. Η φωτογραφία νούμερο " + (pkgIdx + 1) + " δείχνει ΟΛΟΚΛΗΡΟ το δέμα (για package_desc και έλεγχο pair_mismatch)" + (pkgIdx === 0 ? " — δεν υπάρχει ξεχωριστή ετικέτα από κοντά, διάβασε ό,τι φαίνεται." : "; οι υπόλοιπες είναι η ετικέτα.") + " Επέστρεψε το JSON."
@@ -178,7 +189,7 @@ Deno.serve(async req => {
     const r = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: { "x-api-key": key!, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-      body: JSON.stringify({ model: MODEL, max_tokens: manifest || cash ? 16000 : MAX_TOKENS, system: cash ? SYSTEM_CASH : manifest ? SYSTEM_MANIFEST : classify ? SYSTEM_CLASSIFY : describe ? SYSTEM_DESCRIBE : SYSTEM, messages: [{ role: "user", content }] }),
+      body: JSON.stringify({ model: MODEL, max_tokens: manifest || cash || people ? 16000 : MAX_TOKENS, system: people ? SYSTEM_PEOPLE : cash ? SYSTEM_CASH : manifest ? SYSTEM_MANIFEST : classify ? SYSTEM_CLASSIFY : describe ? SYSTEM_DESCRIBE : SYSTEM, messages: [{ role: "user", content }] }),
     });
     const j = await r.json();
     if (!r.ok) throw new Error("anthropic " + r.status + ": " + (j?.error?.message || ""));
@@ -207,6 +218,16 @@ Deno.serve(async req => {
   if (classify) {
     const t = Array.isArray((parsed as { types?: unknown[] }).types) ? (parsed as { types: unknown[] }).types : [];
     return json({ data: { types: imgs.map((_, i) => (t[i] === "parcel" ? "parcel" : "label")) }, usage, cost_usd: cost });
+  }
+  if (people) {
+    const p = parsed as { items?: Record<string, unknown>[] };
+    const tel = (v: unknown) => { const s = String(v ?? "").replace(/\D/g, "").replace(/^0030(?=\d{10}$)/, "").replace(/^30(?=\d{10}$)/, ""); return /^(69\d{8}|2\d{9})$/.test(s) ? s : ""; };
+    const yes = (v: unknown) => v === true || v === "true";
+    const items = (Array.isArray(p.items) ? p.items : []).map(it => ({
+      receipt_no: String(it.receipt_no ?? "").replace(/\s/g, ""), sender: String(it.sender ?? "").trim().toUpperCase(), sender_phone: tel(it.sender_phone), sender_is_business: yes(it.sender_is_business),
+      recipient: String(it.recipient ?? "").trim().toUpperCase(), recipient_phone: tel(it.recipient_phone), recipient_is_business: yes(it.recipient_is_business),
+      destination: up(it.destination), unsure: yes(it.unsure) })).filter(it => it.receipt_no);
+    return json({ data: { items }, usage, cost_usd: cost });
   }
   if (cash) {
     const p = parsed as { items?: Record<string, unknown>[] } & Record<string, unknown>;

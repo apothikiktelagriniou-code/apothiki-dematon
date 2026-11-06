@@ -32,6 +32,7 @@ export function initOutgoing(deps) {
   $("outCashBtn").onclick = toggleCash;
   $("outRegBtn").onclick = openRegulars; $("regClose").onclick = () => $("regDlg").close();
   { let t = null; $("regQ").oninput = () => { clearTimeout(t); t = setTimeout(renderRegulars, 200); }; }
+  $("outPeople").onchange = e => { const f = [...e.target.files].slice(0, 12); e.target.value = ""; if (f.length) runPeople(f); };
   $("outCashClose").onchange = e => { const f = [...e.target.files].slice(0, 12); e.target.value = ""; if (f.length) runCashClose(f); };
   $("outScanAll").onclick = () => openScanner(tripSel || "");
   $("outForm").onsubmit = e => { e.preventDefault(); saveEdit(); };
@@ -108,12 +109,6 @@ async function loadStarred() {
   const { data, error } = await D.sb.from("customers").select("id,full_name,phones,is_business,starred,starred_at,notes").eq("starred", true).limit(500);
   if (error) { starred = new Map(); return; }
   starred = new Map((data || []).map(c => [c.id, c])); if (active) render();
-}
-async function toggleStar(r) {
-  let cid = r.customer_id;
-  if (!cid && r.sender_name) { cid = await D.linkCustomer(r.sender_name, r.sender_phone); if (cid) await save(r.id, { customer_id: cid }); }
-  if (!cid) { show($("outMsg"), "Γράψε πρώτα τον αποστολέα (✎ Επεξεργασία) για να γίνει τακτικός.", "warn"); return; }
-  await setStar(cid, !starred.has(cid));
 }
 async function setStar(cid, on) {
   const { data, error } = await D.sb.from("customers").update({ starred: on, starred_at: on ? new Date().toISOString() : null }).eq("id", cid).select("id,full_name,phones,is_business,starred,starred_at,notes").single();
@@ -556,7 +551,6 @@ function card(r) {
   if (r.status === "waiting") { a.append(btn("✓ Φορτώθηκε", "primary", () => save(r.id, loadedPatch()).then(render))); if (!r._parcel) a.append(btn("✗ Δεν φορτώθηκε", "", () => save(r.id, { status: "not_loaded", status_at: new Date().toISOString() }).then(render))); }
   else if (r.status !== "cancelled") a.append(btn("↺ Περιμένει", "", () => save(r.id, { status: "waiting", loaded_at: null, status_at: new Date().toISOString() }).then(render)));
   if (canSms(r)) a.append(btn("📩 SMS παραλήπτη", "", async () => { await sendSms(r, false); render(); }));
-  if (!r._parcel && (r.sender_name || r.customer_id)) { const sb = btn(isStar ? "⭐ Τακτικός" : "☆ Τακτικός", isStar ? "star on" : "star", () => toggleStar(r)); sb.setAttribute("aria-pressed", isStar ? "true" : "false"); sb.title = isStar ? "Αφαίρεση από τους τακτικούς" : "Σημείωσε τον αποστολέα ως τακτικό"; a.append(sb); }
   if (!r._parcel) a.append(btn("✎ Επεξεργασία", "", () => openEdit(r)));
   c.append(a);
   return c;
@@ -706,6 +700,64 @@ async function runCashClose(files) {
     if (fails.length || errs.length) L.push("⚠ Σφάλματα: " + [...fails, ...errs].slice(0, 5).join(" · "));
     show(msg, L.join("\n"), cntOk && sumOk && !rec.gaps.length && !notIn.length && !errs.length ? "ok" : "warn");
   } catch (e) { show(msg, "Το κλείσιμο ταμείου δεν διαβάστηκε: " + String(e.message || e).slice(0, 220), "bad"); }
+  finally { busy = false; }
+}
+
+// ---------------------------------------------------------------- 📇 ΑΠΟΣΤΟΛΕΑΣ/ΠΑΡΑΛΗΠΤΗΣ από το πρόγραμμα του ΚΤΕΛ (τέλος ημέρας)
+// Φωτογραφίες της οθόνης/εκτύπωσης του ΚΤΕΛ → συμπληρώνει αποστολέα, παραλήπτη και τηλέφωνα στα ήδη καταχωρημένα (από σάρωση/κατάσταση) με τον αριθμό απόδειξης.
+async function runPeople(files) {
+  if (busy) { show($("outMsg"), "Περίμενε να τελειώσει η προηγούμενη αποστολή.", "warn"); return; }
+  if (D.needOperator()) return; busy = true; const msg = $("outMsg");
+  try {
+    const items = [], fails = [];
+    for (let i = 0; i < files.length; i += 3) {
+      show(msg, "Διαβάζω αποστολείς/παραλήπτες… φωτογραφίες " + (i + 1) + "–" + Math.min(files.length, i + 3) + " από " + files.length, "info");
+      const images = []; for (const f of files.slice(i, i + 3)) images.push({ data: await toJpegB64(f, 2200, 0.85), media_type: "image/jpeg" });
+      const { data, error } = await D.sb.functions.invoke("extract-receipt", { body: { mode: "people", images } });
+      if (error) { fails.push(await errText(error)); continue; }
+      items.push(...((data.data || {}).items || []));
+    }
+    const seen = new Map(); for (const it of items) { const n = ktelNo(it.receipt_no); if (isAgrinioReceipt(n) && !seen.has(n)) seen.set(n, { ...it, receipt_no: n }); }
+    const list = [...seen.values()];
+    if (!list.length) throw new Error(fails.length ? fails.join(" · ") : "δεν βρήκα αποδείξεις 228 — μήπως η εφαρμογή στον server είναι παλιά; (ξανά-deploy το extract-receipt)");
+    const [s0] = dayRange(); const s = new Date(s0); s.setDate(s.getDate() - 3); const e = new Date(s0); e.setDate(e.getDate() + 3); const S = s.toISOString(), E = e.toISOString();
+    const { data: near, error: nerr } = await D.sb.from("outgoing").select("*")
+      .or(`and(created_at.gte.${S},created_at.lt.${E}),and(departure_at.gte.${S},departure_at.lt.${E}),and(issued_at.gte.${S},issued_at.lt.${E})`).limit(3000);
+    if (nerr) throw nerr;
+    const byNo = new Map((near || []).map(r => [ktelNo(r.receipt_no), r]));
+    let upd = 0, ins = 0, starredHits = 0; const errs = [], diffs = [];
+    for (const it of list) {
+      show(msg, "Ενημερώνω " + (upd + ins + 1) + "/" + list.length + "…", "info");
+      const r = byNo.get(it.receipt_no) || (near || []).find(x => sameOutgoing(x, { receipt_no: it.receipt_no }));
+      const sName = it.sender ? surnameFirst(it.sender, it.sender_is_business) : null, rName = it.recipient ? surnameFirst(it.recipient, it.recipient_is_business) : null;
+      const dest = cityFromStation(it.destination) || norm(it.destination) || null;
+      try {
+        let row;
+        if (r) {
+          const p = {};
+          if (sName && r.sender_name !== sName) p.sender_name = sName; if (it.sender_phone && r.sender_phone !== it.sender_phone) p.sender_phone = it.sender_phone;
+          if (rName && !r.recipient_name) p.recipient_name = rName; else if (rName && norm(r.recipient_name) !== norm(rName) && !it.unsure) { diffs.push(r.recipient_name + " → " + rName); p.recipient_name = rName; }
+          if (it.recipient_phone && !r.recipient_phone) p.recipient_phone = it.recipient_phone;
+          if (dest && !r.destination_city) p.destination_city = dest;
+          row = Object.keys(p).length ? await save(r.id, p) : r; upd++;
+        } else {
+          row = await save(null, { receipt_no: it.receipt_no, sender_name: sName, sender_phone: it.sender_phone || null, recipient_name: rName, recipient_phone: it.recipient_phone || null,
+            destination_city: dest, status: "waiting", operator: D.operator() || null, notes: "Μόνο από το πρόγραμμα ΚΤΕΛ — δεν σαρώθηκε/δεν ήταν σε κατάσταση" + (it.unsure ? " · ⚠ αβέβαιη ανάγνωση" : "") }); ins++;
+        }
+        if (row.sender_name && (!row.customer_id || (r && sName && r.sender_name !== sName))) {
+          const cid = await D.linkCustomer(row.sender_name, row.sender_phone);
+          if (cid) { if (cid !== row.customer_id) row = await save(row.id, { customer_id: cid }); if (it.sender_is_business) await D.sb.from("customers").update({ is_business: true }).eq("id", cid).eq("is_business", false); }
+        }
+        if (row.customer_id && starred.has(row.customer_id)) starredHits++;
+      } catch (x) { errs.push(it.receipt_no + ": " + x.message); }
+    }
+    regCache.at = 0; await load();
+    const L = ["📇 Από το πρόγραμμα ΚΤΕΛ: διάβασα " + list.length + " αποδείξεις.", "✓ Συμπληρώθηκαν " + upd + " που υπήρχαν ήδη" + (ins ? " · ＋ " + ins + " νέα που δεν είχαν σαρωθεί" : "") + "."];
+    if (starredHits) L.push("⭐ " + starredHits + " από τακτικούς πελάτες.");
+    if (diffs.length) L.push("✎ Διορθώθηκε παραλήπτης σε " + diffs.length + ": " + diffs.slice(0, 6).join(" · "));
+    if (fails.length || errs.length) L.push("⚠ Σφάλματα: " + [...fails, ...errs].slice(0, 5).join(" · "));
+    show(msg, L.join("\n"), errs.length || fails.length ? "warn" : "ok");
+  } catch (e) { show(msg, "Δεν διαβάστηκαν: " + String(e.message || e).slice(0, 220), "bad"); }
   finally { busy = false; }
 }
 
