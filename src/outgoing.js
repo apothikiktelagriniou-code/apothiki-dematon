@@ -336,6 +336,7 @@ async function load() {
   if (error) { show($("outMsg"), "Δεν φορτώθηκαν τα εξερχόμενα: " + error.message + (/outgoing/.test(error.message) ? " — λείπει το 0014 στη βάση;" : ""), "bad"); return; }
   rows = new Map((data || []).map(r => [r.id, r]));
   for (const t of await loadTransit(S, E)) rows.set(t.id, t);
+  await loadDayReports(S, E).catch(() => {});
   for (const x of qGet()) { const r = rows.get(x.id); if (r) rows.set(x.id, { ...r, ...x.patch }); } // φορτώσεις που περιμένουν σήμα
   await loadReports([...rows.values()]); render();
   if ($("outCashBox").hidden === false) renderCash();
@@ -360,7 +361,10 @@ function assignTransit() {
   const reps = repsFor($("outDay").value).filter(x => x.departure_at && inDay(x)).sort((a, b) => new Date(a.departure_at) - new Date(b.departure_at));
   const now = Date.now() - 15 * 60e3;
   for (const r of rows.values()) {
-    if (!r._parcel || r._parcel.status !== "transit") continue;
+    if (!r._parcel) continue;
+    if (r._parcel.status !== "transit") { if ([...reports.values()].some(x => (x.transitNos || []).some(n => sameOutgoing({ receipt_no: n }, r)))) r.in_report = true; continue; }
+    const inRep = [...reports.values()].find(x => x.departure_at && inDay(x) && (x.transitNos || []).some(n => sameOutgoing({ receipt_no: n }, r)));
+    if (inRep) { r.report_id = inRep.id; r.departure_at = inRep.departure_at; r.in_report = true; continue; }
     const ok = reps.filter(x => x.route.end === r.destination_city || x.route.stops.includes(r.destination_city));
     const rep = ok.find(x => new Date(x.departure_at).getTime() >= now) || ok.at(-1);
     r.report_id = rep ? rep.id : null; r.departure_at = rep ? rep.departure_at : null;
@@ -378,7 +382,17 @@ async function loadReports(list) {
   const ids = [...new Set(list.map(r => r.report_id).filter(id => id && !reports.has(id)))];
   if (!ids.length) return;
   const { data } = await D.sb.from("outgoing_reports").select("id,departure_at,items").in("id", ids);
-  for (const rep of data || []) { const items = (rep.items || []).filter(i => isAgrinioReceipt(i.receipt_no)); reports.set(rep.id, { ...rep, route: routeOf(items.map(i => i.destination_city)) }); }
+  for (const rep of data || []) setReport(rep);
+}
+function setReport(rep) {
+  const items = (rep.items || []).filter(i => isAgrinioReceipt(i.receipt_no));
+  const transitNos = (rep.items || []).filter(i => i.receipt_no && !isAgrinioReceipt(i.receipt_no)).map(i => i.receipt_no);
+  reports.set(rep.id, { ...rep, transitNos, route: routeOf(items.map(i => i.destination_city)) });
+}
+/** Οι καταστάσεις της ημέρας (ακόμα κι αν έχουν μόνο διερχόμενα). */
+async function loadDayReports(S, E) {
+  const { data } = await D.sb.from("outgoing_reports").select("id,departure_at,items").gte("departure_at", S).lt("departure_at", E).limit(200);
+  for (const rep of data || []) if (!reports.has(rep.id)) setReport(rep);
 }
 async function search() {
   const s = $("outQ").value.trim(); if (s.length < 2) { found = null; render(); return; }
@@ -463,9 +477,28 @@ async function runReport(files) {
       }
       for (const [no, b] of second) if (!firstNos.has(no)) { items.push({ ...b, unsure: true, only_second: true }); extra++; } // γραμμή που η 1η ανάγνωση έχασε
     }
-    if (!items.length) { show(msg, skipped ? "Καμία γραμμή της κατάστασης δεν ξεκινά με 228 (αποθήκη Αγρινίου) — δεν καταχωρήθηκε τίποτα." : "Δεν βρήκα γραμμές στην κατάσταση. Τράβα πιο καθαρά ή σε περισσότερες σελίδες.", "warn"); return; }
-    const rep = await D.sb.from("outgoing_reports").insert({ departure_at: dep, total_declared: m.total_declared ?? null, items, operator: D.operator() || null }).select("id").single();
-    if (rep.data) reports.set(rep.data.id, { id: rep.data.id, departure_at: dep, items, route: routeOf(items.map(i => i.destination_city)) });
+    if (!items.length && !all.length) { show(msg, skipped ? "Καμία γραμμή της κατάστασης δεν ξεκινά με 228 (αποθήκη Αγρινίου) — δεν καταχωρήθηκε τίποτα." : "Δεν βρήκα γραμμές στην κατάσταση. Τράβα πιο καθαρά ή σε περισσότερες σελίδες.", "warn"); return; }
+    // ⇄ γραμμές άλλων πρακτορείων (όχι 228) = διερχόμενα → ψάχνονται στα Εισερχόμενα (μεταφορτώσεις)
+    const others = all.filter(i => !isAgrinioReceipt(i.receipt_no));
+    const rep = await D.sb.from("outgoing_reports").insert({ departure_at: dep, total_declared: m.total_declared ?? null, items: [...items, ...others.map(i => ({ ...i, transit: true }))], operator: D.operator() || null }).select("id").single();
+    if (rep.data) setReport({ id: rep.data.id, departure_at: dep, items: [...items, ...others.map(i => ({ ...i, transit: true }))] });
+    const tr = { found: 0, loaded: 0, direct: 0, missing: [] };
+    if (others.length) {
+      const since = new Date(Date.now() - 21 * 864e5).toISOString();
+      const { data: cand } = await D.sb.from("parcels").select("id,receipt_no,status,bypassed,destination_city,fwd_destination,recipient_name").in("status", ["transit", "forwarded"]).gte("created_at", since).limit(2000);
+      const busLabel = rep.data ? keyLabel(hhmm(dep || new Date().toISOString()) + "|" + (reports.get(rep.data.id)?.route.end || "—")) : null;
+      for (const it of others) {
+        const p = (cand || []).find(x => sameOutgoing({ receipt_no: x.receipt_no }, { receipt_no: it.receipt_no }));
+        if (!p) { tr.missing.push((it.recipient || "?") + " " + it.receipt_no + " → " + (cityFromStation(it.destination_city) || it.destination_city || "?")); continue; }
+        if (p.bypassed) { tr.direct++; continue; } // απευθείας μεταφόρτωση — δεν περνά από την αποθήκη
+        tr.found++;
+        if (it.checked === true && p.status === "transit") { // ✓ στην κατάσταση = φορτώθηκε → στα Εισερχόμενα «Προωθήθηκε»
+          const now = new Date().toISOString();
+          const { error } = await D.sb.from("parcels").update({ status: "forwarded", status_at: now, fwd_at: now, fwd_destination: cityFromStation(it.destination_city) || p.fwd_destination || p.destination_city, fwd_departure_at: dep || now, fwd_bus: busLabel }).eq("id", p.id);
+          if (!error) tr.loaded++;
+        }
+      }
+    }
     let added = 0, matched = 0, ticked = 0;
     for (const it of items) {
       const tk = it.checked === true; if (tk) ticked++; // ✓ με στυλό = καταχωρήθηκε & φορτώθηκε
@@ -481,8 +514,8 @@ async function runReport(files) {
       if (ex) { await save(ex.id, { ...fillBlanks(ex, o), ...(wasOut ? { notes: (ex.notes || "").replace(/Εκτός κατάστασης[^·]*(· )?|Σάρωση: εκτός κατάστασης(· )?/g, "").replace(/^[\s·]+|[\s·]+$/g, "") || null } : {}), ...(pcFix && pcFix !== ex.pieces ? { pieces: pcFix } : {}), ...(warn && !ex.photographed ? { notes: (ex.notes ? ex.notes + " · " : "") + warn } : {}), ...(conf && !ex.photographed ? { extraction_confidence: { ...(ex.extraction_confidence || {}), ...conf } } : {}), in_report: true, report_id: rep.data?.id || null, ...(tk && ex.status === "waiting" ? loadedPatch() : {}) }); matched++; }
       else { await save(null, { ...o, in_report: true, report_id: rep.data?.id || null, status: "waiting", ...(tk ? loadedPatch() : {}), operator: D.operator() || null, notes: warn, extraction_confidence: conf }); added++; }
     }
-    if (dep && dayKey(dep) !== $("outDay").value) { $("outDay").value = dayKey(dep); await load(); } else render();
-    show(msg, "✓ Κατάσταση " + (dep ? fmtGr(dep) : "") + ": " + items.length + " δέματα (" + added + " νέα, " + matched + " υπήρχαν)" + (skipped ? " · παραλείφθηκαν " + skipped + " που δεν ξεκινούν με 228" : "") + (B ? (doubts.length ? "\n⚠ Διπλή ανάγνωση — ΕΛΕΓΞΕ " + doubts.length + ": " + doubts.slice(0, 8).join(" · ") : "\n✓ Διπλή ανάγνωση: οι δύο αναγνώσεις συμφωνούν σε προορισμούς και τεμάχια") + (extra ? " · ＋" + extra + " γραμμές που βρήκε μόνο η 2η ανάγνωση (⚠)" : "") : " · ⚠ έγινε μόνο μία ανάγνωση") + (ticked ? " · ✓ " + ticked + " τσεκαρισμένα → «Φορτώθηκε»" + (ticked < items.length ? ", " + (items.length - ticked) + " χωρίς τσεκ → «Περιμένει»" : "") : "") + (m.total_declared && m.total_declared !== all.length ? " · ⚠ η κατάσταση γράφει σύνολο " + m.total_declared : "") + ". Τώρα φωτογράφισε τις αποδείξεις στη φόρτωση." + missAfterReport(dep), "ok");
+    if (dep && dayKey(dep) !== $("outDay").value) { $("outDay").value = dayKey(dep); await load(); } else if (others.length) await load(); else render();
+    show(msg, "✓ Κατάσταση " + (dep ? fmtGr(dep) : "") + ": " + items.length + " δέματα (" + added + " νέα, " + matched + " υπήρχαν)" + (others.length ? "\n⇄ Διερχόμενα στην κατάσταση: " + others.length + " · βρέθηκαν στα Εισερχόμενα " + tr.found + (tr.loaded ? " (" + tr.loaded + " τσεκαρισμένα → «Προωθήθηκε»)" : "") + (tr.direct ? " · " + tr.direct + " απευθείας μεταφορτώσεις" : "") + (tr.missing.length ? "\n⚠ Διερχόμενα που ΔΕΝ έχουν περαστεί στα Εισερχόμενα (" + tr.missing.length + "): " + tr.missing.slice(0, 8).join(" · ") : "") : "") + (B ? (doubts.length ? "\n⚠ Διπλή ανάγνωση — ΕΛΕΓΞΕ " + doubts.length + ": " + doubts.slice(0, 8).join(" · ") : "\n✓ Διπλή ανάγνωση: οι δύο αναγνώσεις συμφωνούν σε προορισμούς και τεμάχια") + (extra ? " · ＋" + extra + " γραμμές που βρήκε μόνο η 2η ανάγνωση (⚠)" : "") : " · ⚠ έγινε μόνο μία ανάγνωση") + (ticked ? " · ✓ " + ticked + " τσεκαρισμένα → «Φορτώθηκε»" + (ticked < items.length ? ", " + (items.length - ticked) + " χωρίς τσεκ → «Περιμένει»" : "") : "") + (m.total_declared && m.total_declared !== all.length ? " · ⚠ η κατάσταση γράφει σύνολο " + m.total_declared : "") + ". Τώρα φωτογράφισε τις αποδείξεις στη φόρτωση." + missAfterReport(dep), "ok");
   } catch (e) { show(msg, "Η κατάσταση δεν διαβάστηκε: " + String(e.message || e).slice(0, 200), "bad"); }
   finally { busy = false; }
 }
