@@ -112,6 +112,10 @@ function makeLang(lang) {
     "{{homePrice}}": () => DATA.HOME.zones[0].price, "{{homeHours}}": () => DATA.HOME.hours, "{{homeVehicles}}": () => esc(L(DATA.HOME.vehicles)),
     "{{homeZones}}": () => DATA.HOME.zones.map(z => `<option value="${z.id}">${esc(L(z.name))}</option>`).join(""),
     "{{athensNote}}": () => esc(L(DATA.HOME.athensNote)), "{{luggage}}": () => DATA.LUGGAGE.perPiecePerDay, "{{cutoff}}": () => B.cutoffMin,
+    "{{packingTable}}": () => { const P = DATA.PACKING, m = n => (lang === "en" ? `€${Number.isInteger(n) ? n : n.toFixed(2)}` : `${Number.isInteger(n) ? n : n.toFixed(2).replace(".", ",")} €`);
+      return `<div class="table-wrap"><table class="data"><thead><tr><th scope="col">${t("Είδος", "Item")}</th><th scope="col">${t("Μόνο υλικό", "Material only")}</th><th scope="col">${t("Το πακετάρουμε εμείς", "We pack it")}</th></tr></thead><tbody>${
+        P.items.map(i => `<tr><th scope="row" style="font-weight:600">${esc(L(i.name))}</th><td>${m(i.material)}</td><td>${m(i.service)}</td></tr>`).join("")
+      }<tr><th scope="row" style="font-weight:600">${t("Εύθραυστο (γέμισμα, σήμανση)", "Fragile (padding, labels)")}</th><td>—</td><td>+${m(P.fragile)}</td></tr></tbody></table></div><p class="caption">${t("Με ΦΠΑ. Ταινία και stretch film δωρεάν με την αγορά κούτας. Η συσκευασία χρεώνεται χωριστά από τον ναύλο του ΚΤΕΛ.", "VAT included. Tape and stretch film free with any box. Packing is charged separately from the KTEL fare.")}</p>`; },
     "{{owFrom}}": () => ow.fromKg, "{{owShare}}": () => Math.round(ow.share * 100),
     "{{owExamples}}": () => ["nomos", "patra", "athina", "thess", "kriti"].map(k => { const tf = DATA.TARIFFS[k]; return `${esc(L(tf.label))}: ${money2(kgRate(ow, tf))}/kg`; }).join(" · "),
     "{{address}}": () => esc(`${L(B.address.place)}, ${L(B.address.street)}, ${B.address.postal} ${L(B.address.city)}`),

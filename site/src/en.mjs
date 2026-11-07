@@ -40,7 +40,7 @@ export const EN = {
   "Σταθμός Μακεδονία (Θεσσαλονίκη)": "Macedonia Bus Station (Thessaloniki)", "Κόρινθος (Ισθμός)": "Corinth (Isthmus)",
   "Χανιά ή Ηράκλειο": "Chania or Heraklion",
   "Ανά κομμάτι, ανά ημέρα, στις ώρες λειτουργίας της αποθήκης.": "Per item, per day, during opening hours.",
-  "Πόλη Αγρινίου": "Agrinio town", "Μηχανή και αυτοκίνητο": "Motorbike and car",
+  "Πόλη Αγρινίου": "Agrinio town", "Φάκελος με φυσαλίδα": "Padded envelope", "Μηχανή και αυτοκίνητο": "Motorbike and car",
   "Στην Αθήνα, μέσω συνεργάτη (η τιμή ανακοινώνεται σύντομα).": "In Athens, through a partner (price to be announced).",
 
   // Περιοχές

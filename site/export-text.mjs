@@ -63,5 +63,6 @@ line("7. ΑΛΛΕΣ ΧΡΕΩΣΕΙΣ ΚΑΙ ΠΛΗΡΩΜΕΣ");
 line(`- Φύλαξη δέματος: δωρεάν ${D.STORAGE.freeDays} ημέρες από την άφιξη, μετά ${D.STORAGE.perDay} €/ημέρα, έως ${D.STORAGE.cap} € συνολικά.`);
 line(`- Φύλαξη αποσκευών: ${D.LUGGAGE.perPiecePerDay} € ${D.LUGGAGE.note.toLowerCase()}`);
 line(`- Παράδοση/παραλαβή στο σπίτι (ΔΕΝ έχει ξεκινήσει): ${D.HOME.zones.map(z => `${z.name} ${z.price} €`).join(", ")}, ${D.HOME.hours}, ${D.HOME.vehicles.toLowerCase()}. ${D.HOME.athensNote}`);
+line(`- Συσκευασία (${D.PACKING.active ? "ενεργή" : "ΣΥΝΤΟΜΑ"}): ${D.PACKING.items.map(i => `${i.name} ${String(i.material).replace(".", ",")} € υλικό / ${String(i.service).replace(".", ",")} € το πακετάρουμε εμείς`).join(" · ")} · εύθραυστο +${D.PACKING.fragile} €.`);
 line(`- Πληρωμή: ${D.BUSINESS.payments.join(", ")}.`);
 console.log(L.join("\n"));

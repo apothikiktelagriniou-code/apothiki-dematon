@@ -136,6 +136,18 @@ export const OVERWEIGHT = { enabled: true, fromKg: 10, share: 0.05, refCat: "tso
 // false = η κατηγορία βγαίνει μόνο από τις διαστάσεις και το βάρος χρεώνεται μόνο με την επιβάρυνση (χωρίς διπλή χρέωση).
 export const SIZE_RULE = { weightBumpsCategory: true };
 
+// Συσκευασία από εμάς + πώληση υλικών. active:false → «Σύντομα» (μέχρι να μπει ο ΚΑΔ). Τιμές: πρόταση, με ΦΠΑ.
+export const PACKING = {
+  active: false,
+  items: [
+    { id: "fakelos", name: "Φάκελος με φυσαλίδα", material: 1, service: 1.5 },
+    { id: "mikro", name: "Μικρό κουτί", material: 1.5, service: 3 },
+    { id: "mesaio", name: "Μεσαίο κουτί", material: 2.5, service: 4 },
+    { id: "megalo", name: "Μεγάλο κουτί", material: 3.5, service: 6 },
+  ],
+  fragile: 2, // επιπλέον για εύθραυστα (γέμισμα, σήμανση), μόνο όταν το συσκευάζουμε εμείς
+};
+
 export const STORAGE = { freeDays: 10, perDay: 3, cap: 20 };
 export const LUGGAGE = { perPiecePerDay: 2, note: "Ανά κομμάτι, ανά ημέρα, στις ώρες λειτουργίας της αποθήκης." };
 
