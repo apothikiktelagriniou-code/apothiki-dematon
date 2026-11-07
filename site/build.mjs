@@ -48,7 +48,7 @@ const I = {
 const C = DATA.CATEGORIES;
 // Αντιστοίχιση σελίδων ελληνικά ↔ αγγλικά (αγγλικά στο /en/)
 const SLUG = { index: "index", apostoli: "send", paralavi: "receive", anazitisi: "track", proorismoi: "destinations", epixeiriseis: "business",
-  spiti: "home-delivery", "syxnes-erotiseis": "faq", epikoinonia: "contact", oroi: "terms", aporrito: "privacy" };
+  spiti: "home-delivery", klirosi: "giveaway", "syxnes-erotiseis": "faq", epikoinonia: "contact", oroi: "terms", aporrito: "privacy" };
 const GR_OF = Object.fromEntries(Object.entries(SLUG).map(([g, e]) => [e, g]));
 const counts = { direct: DATA.DESTINATIONS.filter(d => d.type === "direct").length, local: DATA.DESTINATIONS.filter(d => d.type === "local").length, transfer: DATA.DESTINATIONS.filter(d => d.type === "transfer").length,
   athensDaily: SCHEDULE_TIMES.filter(r => r.dest === "ΑΘΗΝΑ" && r.days[2] === "1").length, patraDaily: SCHEDULE_TIMES.filter(r => r.dest === "ΠΑΤΡΑ" && r.days[2] === "1").length };
@@ -60,6 +60,7 @@ function makeLang(lang) {
   const sortL = (a, b) => L(a.name).localeCompare(L(b.name), lang);
   const kgFmt = n => (lang === "en" ? String(n) : String(n).replace(".", ","));
   const eur = n => n == null ? "—" : (lang === "en" ? `€${n}` : `${n} €`);
+  const dateTxt = ymd => new Intl.DateTimeFormat(lang === "en" ? "en-GB" : "el-GR", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(ymd + "T00:00:00Z"));
   const money2 = n => (lang === "en" ? `€${n.toFixed(2)}` : `${n.toFixed(2).replace(".", ",")} €`);
   const ow = DATA.OVERWEIGHT;
 
@@ -133,6 +134,8 @@ function makeLang(lang) {
       return `<div class="table-wrap"><table class="data"><thead><tr><th scope="col">${t("Είδος", "Item")}</th><th scope="col">${t("Μόνο υλικό", "Material only")}</th><th scope="col">${t("Το πακετάρουμε εμείς", "We pack it")}</th></tr></thead><tbody>${
         P.items.map(i => `<tr><th scope="row" style="font-weight:600">${esc(L(i.name))}</th><td>${m(i.material)}</td><td>${m(i.service)}</td></tr>`).join("")
       }<tr><th scope="row" style="font-weight:600">${t("Εύθραυστο (γέμισμα, σήμανση)", "Fragile (padding, labels)")}</th><td>—</td><td>+${m(P.fragile)}</td></tr></tbody></table></div><p class="caption">${t("Με ΦΠΑ. Ταινία και stretch film δωρεάν με την αγορά κούτας. Η συσκευασία χρεώνεται χωριστά από τον ναύλο του ΚΤΕΛ.", "VAT included. Tape and stretch film free with any box. Packing is charged separately from the KTEL fare.")}</p>`; },
+    "{{cEnd}}": () => dateTxt(DATA.CONTEST.end), "{{cDraw}}": () => dateTxt(DATA.CONTEST.draw), "{{cWinners}}": () => DATA.CONTEST.winners,
+    "{{cDeliveries}}": () => DATA.CONTEST.prizeDeliveries, "{{cFallback}}": () => DATA.CONTEST.fallbackShipments, "{{cFallbackUntil}}": () => dateTxt(DATA.CONTEST.fallbackUntil),
     "{{owFrom}}": () => ow.fromKg, "{{owShare}}": () => Math.round(ow.share * 100),
     "{{owExamples}}": () => ["nomos", "patra", "athina", "thess", "kriti"].map(k => { const tf = DATA.TARIFFS[k]; return `${esc(L(tf.label))}: ${money2(kgRate(ow, tf))}/kg`; }).join(" · "),
     "{{address}}": () => esc(`${L(B.address.place)}, ${L(B.address.street)}, ${B.address.postal} ${L(B.address.city)}`),

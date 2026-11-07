@@ -25,6 +25,7 @@
     <div class="grid" style="gap:14px">
       <form class="form panel" data-msgform="Home delivery interest" novalidate>
         <h3>Register your interest</h3>
+        <div class="notice ok"><b>Prize draw: {{cWinners}} × {{cDeliveries}} free deliveries</b>Everyone who registers by {{cEnd}} enters the draw. Winners get up to {{cDeliveries}} free deliveries in the service's first month. If the service hasn't started by then, they get {{cFallback}} free parcel shipments instead. <a href="giveaway.html">Draw terms</a></div>
         <p class="muted" style="margin-top:-6px;font-size:15px">This is not a booking. Once the service starts, we'll call you to confirm address, time and price.</p>
         <div class="field"><label for="d-kind">What you need</label><select id="d-kind" data-label="Service"><option>Delivery of a parcel to my home</option><option>Pickup of a parcel from my home or shop</option></select></div>
         <div class="grid g2">
@@ -34,6 +35,7 @@
         <div class="field"><label for="d-addr">Address in Agrinio</label><input id="d-addr" data-label="Address" required autocomplete="street-address"></div>
         <div class="field"><label for="d-rc">Receipt number (if any)</label><input id="d-rc" class="mono" data-label="Receipt" inputmode="numeric"></div>
         <div class="field"><label for="d-note">Notes</label><textarea id="d-note" data-label="Notes" placeholder="e.g. floor, doorbell, best time"></textarea></div>
+        <label class="check"><input type="checkbox" id="d-contest" data-label="Enters the prize draw (accepts terms)" checked><span>I want to enter the prize draw and accept the <a href="giveaway.html">terms</a>.</span></label>
         <button class="btn btn-primary" type="submit">Continue</button>
         <p style="font-size:13px;color:var(--muted)">You send the message yourself by WhatsApp or email. This website keeps none of your data.</p>
       </form>
