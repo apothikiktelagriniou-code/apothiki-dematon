@@ -536,6 +536,12 @@ article.row.is-star{box-shadow:inset 4px 0 0 #f59e0b}
 /* κάμερα εισερχομένων */
 .camlight{position:absolute;left:8px;right:8px;top:8px;z-index:1;padding:8px 10px;border-radius:10px;background:rgba(234,179,8,.95);color:#111;font-weight:800;text-align:center}
 .camlight[hidden]{display:none}
-.camshot{margin-top:8px;font-size:22px;padding:16px}
+.camshot{margin-top:8px;font-size:22px;padding:16px;width:100%}
 .capflash{position:fixed;inset:auto 12px 90px 12px;min-height:150px;border-radius:16px;z-index:60;box-shadow:0 10px 30px rgba(0,0,0,.35)}
 .capflash .sf-big{font-size:clamp(30px,10vw,54px)}
+.campend{position:absolute;left:8px;bottom:8px;z-index:1;padding:4px 10px;border-radius:999px;background:rgba(37,99,235,.92);color:#fff;font-weight:800}
+.campend[hidden]{display:none}
+.camlog{display:grid;gap:3px;margin-top:6px;max-height:30vh;overflow:auto;font-size:15px}
+.camlog-ok{color:#15803d}.camlog-bad{color:#dc2626;font-weight:800}
+#camVideo.snap{animation:camsnap .25s}
+@keyframes camsnap{0%{filter:brightness(2.2)}100%{filter:none}}

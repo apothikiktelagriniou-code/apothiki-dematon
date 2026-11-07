@@ -249,13 +249,15 @@
     <div id="scanLog" class="scanlog"></div>
   </dialog>
   <dialog id="camDlg" class="scanner" aria-labelledby="camTitle">
-    <div class="scanhead"><h2 id="camTitle">📸 Ετικέτες δεμάτων</h2><button class="btn" type="button" id="camClose">Τέλος</button></div>
+    <div class="scanhead"><h2 id="camTitle">📸 Ετικέτες</h2><button class="btn small" type="button" id="camFast">⚡ Συνεχόμενη</button><button class="btn" type="button" id="camClose">Τέλος</button></div>
     <div class="scanview"><video id="camVideo" playsinline muted></video>
       <div id="camLight" class="camlight" hidden role="status"></div>
       <div id="camFlash" class="scanflash" hidden role="alert"><div id="camBig" class="sf-big"></div><div id="camName" class="sf-name"></div><div id="camSub" class="sf-sub"></div><div id="camCnt" class="sf-cnt"></div></div>
+      <div id="camPend" class="campend" hidden></div>
       <button class="btn small torch" type="button" id="camTorch" hidden aria-label="Φακός">🔦</button></div>
     <button class="btn primary big wide camshot" type="button" id="camShot">📸 Λήψη</button>
     <div id="camStatus" class="msg info" role="status"></div>
+    <div id="camLog" class="camlog" aria-live="polite"></div>
   </dialog>
   <div id="capFlash" class="scanflash capflash" hidden role="alert"><div id="capBig" class="sf-big"></div><div id="capName" class="sf-name"></div><div id="capSub" class="sf-sub"></div></div>
   <dialog id="outDlg" class="sheet" aria-labelledby="outDlgTitle">

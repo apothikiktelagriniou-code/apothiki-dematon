@@ -43,8 +43,45 @@ function flash(kind, big, name, sub, ms) {
   if (ms) flashT = setTimeout(() => { f.hidden = true; }, ms);
 }
 
+const fast = () => { try { return localStorage.getItem("camFast") === "1"; } catch { return false; } };
+function logLine(n, r) {
+  const li = document.createElement("div"); li.className = "camlog-" + (r.ok ? "ok" : "bad");
+  li.textContent = "#" + n + " " + (r.ok ? "✓ " : "✗ ") + (r.name || "—") + (r.sub ? " · " + r.sub : "");
+  const L = $("camLog"); L.prepend(li); while (L.childNodes.length > 30) L.lastChild.remove();
+}
+function pendTxt() { if (!cam) return; $("camPend").textContent = cam.pend ? "⏳ " + cam.pend + " διαβάζονται" : ""; $("camPend").hidden = !cam.pend; }
+/** ⚡ Συνεχόμενη λήψη: δεν περιμένει το αποτέλεσμα — τα πράσινα/κόκκινα έρχονται με αριθμό λήψης και όνομα. */
+async function shootFast(v) {
+  const now = Date.now(); if (now - (cam.lastShot || 0) < 700) return; cam.lastShot = now;
+  sound.unlock(); const n = ++cam.seq;
+  const file = await grab(v); if (!file) return;
+  sound.dup(); $("camVideo").classList.remove("snap"); void $("camVideo").offsetWidth; $("camVideo").classList.add("snap");
+  cam.pend++; pendTxt();
+  const res = await Promise.race([enqueueShot(file.f), new Promise(r => setTimeout(() => r({ late: true }), 60000))]);
+  if (!cam) return; cam.pend--; pendTxt();
+  if (!res) return;
+  if (res.late) { logLine(n, { ok: false, name: "αργεί", sub: "θα διαβαστεί μόλις υπάρξει σύνδεση" }); return; }
+  const r = { ...res, sub: [res.sub, !res.ok && file.dark ? "σκοτεινή φωτογραφία" : ""].filter(Boolean).join(" · ") };
+  logLine(n, r);
+  const cnt = () => { $("camCnt").textContent = "✓ " + cam.ok + (cam.bad ? " · ✗ " + cam.bad : ""); };
+  if (r.ok) { cam.ok++; cnt(); }
+  if (r.ok) { sound.ok(); if ($("camFlash").hidden || !$("camFlash").classList.contains("bad")) flash("ok", "✓ #" + n, r.name, r.sub, 900); }
+  else { cam.bad++; cam.redN = ($("camFlash").hidden || !$("camFlash").classList.contains("bad")) ? 1 : (cam.redN || 1) + 1; sound.bad();
+    flash("bad", "✗ #" + n + " ΔΕΝ ΠΕΡΑΣΕ", r.name, r.sub + (cam.redN > 1 ? " · (+" + (cam.redN - 1) + " ακόμα κόκκινα — δες τη λίστα)" : "") + " · Πάτα για συνέχεια"); }
+}
+async function grab(v) {
+  let blob = null;
+  if (window.ImageCapture && cam.track.readyState === "live") { try { blob = await new ImageCapture(cam.track).takePhoto(); } catch { blob = null; } }
+  const c = document.createElement("canvas"); c.width = v.videoWidth; c.height = v.videoHeight; c.getContext("2d").drawImage(v, 0, 0);
+  const dark = lumaOf(c) < DARK - 12;
+  if (!blob) blob = await new Promise(r => c.toBlob(r, "image/jpeg", 0.92));
+  if (!blob) return null;
+  return { f: new File([blob], "etiketa-" + Date.now() + ".jpg", { type: "image/jpeg", lastModified: Date.now() }), dark };
+}
 async function shoot() {
-  if (!cam || cam.busy) return;
+  if (!cam) return;
+  if (fast()) { const v = $("camVideo"); if (v.videoWidth) shootFast(v); return; }
+  if (cam.busy) return;
   const v = $("camVideo"); if (!v.videoWidth) return;
   sound.unlock(); cam.busy = true; $("camShot").disabled = true;
   try {
@@ -71,7 +108,8 @@ async function openCam() {
     const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" }, width: { ideal: 3840 }, height: { ideal: 2160 } }, audio: false });
     const track = stream.getVideoTracks()[0]; const caps = (track.getCapabilities && track.getCapabilities()) || {};
     try { if ((caps.focusMode || []).includes("continuous")) await track.applyConstraints({ advanced: [{ focusMode: "continuous" }] }); } catch { /* */ }
-    cam = { stream, track, caps, ok: 0, bad: 0, busy: false, torch: false, userTorch: false };
+    cam = { stream, track, caps, ok: 0, bad: 0, busy: false, torch: false, userTorch: false, seq: 0, pend: 0 };
+    $("camLog").textContent = ""; pendTxt();
     const v = $("camVideo"); v.srcObject = stream; await v.play().catch(() => {});
     $("camTorch").hidden = !caps.torch;
     const st = track.getSettings ? track.getSettings() : {}; cam.res = st.width ? st.width + "×" + st.height : "";
@@ -95,5 +133,7 @@ export function initCamera() {
   $("camShot").onclick = shoot;
   $("camVideo").onclick = shoot;
   $("camFlash").onclick = () => { if (cam && cam.busy) return; clearTimeout(flashT); $("camFlash").hidden = true; };
+  const ft = $("camFast"); const syncF = () => { ft.classList.toggle("primary", fast()); ft.textContent = fast() ? "⚡ Συνεχόμενη: ΝΑΙ" : "⚡ Συνεχόμενη: ΟΧΙ"; };
+  ft.onclick = () => { try { localStorage.setItem("camFast", fast() ? "0" : "1"); } catch { /* */ } syncF(); }; syncF();
   $("camTorch").onclick = () => { if (!cam) return; cam.userTorch = true; setTorch(!cam.torch); };
 }
