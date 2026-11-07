@@ -103,8 +103,8 @@
 
       card.append(h("span", { class: "eyebrow" }, q.status === "transfer" ? "Ενδεικτικό κόστος ΚΤΕΛ Αιτωλοακαρνανίας" : "Ενδεικτική τιμή"),
         h("div", { class: "price", style: "margin-top:6px" }, h("span", { class: "big" }, eur(q.total)), h("span", { class: "per" }, q.pieces > 1 ? `${q.pieces} × ${eur(q.perPiece)}` : "ανά τεμάχιο, με ΦΠΑ")));
-      if (q.status === "transfer") card.append(h("div", { class: "notice info" }, h("b", {}, `Υπολογίστε περίπου άλλα ${eur(q.otherEstimate)}`),
-        `για το ΚΤΕΛ που θα συνεχίσει τη μεταφορά από ${q.hub.label}. Σύνολο περίπου ${eur(q.grandEstimate)}.`));
+      if (q.status === "transfer") card.append(h("div", { class: "notice info" }, h("b", {}, `Και περίπου ${eur(q.otherEstimate)} σε φάκελο πάνω στο δέμα`),
+        `Τα πληρώνει ο αποστολέας και τα παραλαμβάνει το πρακτορείο που συνεχίζει τη μεταφορά από ${q.hub.label}. Σύνολο περίπου ${eur(q.grandEstimate)}.`));
       const dl = h("dl", { class: "kv", style: "margin-top:12px" },
         h("dt", {}, "Κατηγορία"), h("dd", {}, cat.name, classed && classed.by === "kg" ? h("span", { class: "muted", style: "font-weight:400" }, " (λόγω βάρους)") : null),
         h("dt", {}, "Προορισμός"), h("dd", {}, q.dest.name),
@@ -113,9 +113,11 @@
       card.append(dl);
       const keys = q.hub ? q.hub.sched : q.dest.sched;
       if (keys) {
-        const deps = nextDepartures(SITE.SCHEDULE, keys, athensNow(), 3);
+        const cut = B.cutoffMin || 0, now = athensNow();
+        const deps = nextDepartures(SITE.SCHEDULE, keys, { ...now, minutes: now.minutes + cut }, 3);
+        const before = t => { const m = Number(t.slice(0, 2)) * 60 + Number(t.slice(3)) - cut; return String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0"); };
         if (deps.length) card.append(h("div", { style: "margin-top:14px" }, h("span", { class: "eyebrow" }, "Επόμενες αναχωρήσεις από Αγρίνιο"),
-          h("div", { class: "deps", style: "margin-top:6px" }, deps.map(d => h("div", {}, h("span", { class: "num" }, d.time), h("span", {}, d.day), d.express ? h("span", { class: "tag info" }, "Express") : null)))));
+          h("div", { class: "deps", style: "margin-top:6px" }, deps.map(d => h("div", {}, h("span", { class: "num" }, d.time), h("span", {}, d.day), h("span", { class: "muted", style: "font-size:13px" }, `φέρτε το έως ${before(d.time)}`), d.express ? h("span", { class: "tag info" }, "Express") : null)))));
       }
       if (q.dest.note) card.append(h("p", { class: "muted", style: "margin-top:10px;font-size:14px" }, q.dest.note));
       card.append(h("p", { class: "muted", style: "margin-top:12px;font-size:13px" }, "Η τελική τιμή ορίζεται στο ταμείο, μετά από ζύγισμα και μέτρηση. Τιμές ΚΤΕΛ Αιτωλοακαρνανίας με ΦΠΑ."));

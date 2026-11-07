@@ -38,7 +38,7 @@ export function quote(site, { dest, catId, pieces = 1 }) {
   const t = site.TARIFFS[hub ? hub.tariff : d.tariff];
   const p = t && t.p[catId];
   if (p == null) return { status: "noprice", dest: d };
-  const out = { status: hub ? "transfer" : "ok", dest: d, hub, perPiece: p, pieces: n, total: p * n, eta: hub ? hub.eta : d.eta };
+  const out = { status: hub ? "transfer" : "ok", dest: d, hub, perPiece: p, pieces: n, total: p * n, eta: (hub && !d.eta) ? hub.eta : d.eta };
   if (hub) { out.otherEstimate = p * n; out.grandEstimate = p * n * 2; }
   return out;
 }

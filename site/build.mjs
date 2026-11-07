@@ -45,7 +45,7 @@ const I = {
 // ---------- κομμάτια που χτίζονται από τα δεδομένα ----------
 const C = DATA.CATEGORIES;
 const tariffTable = () => {
-  const order = ["athina", "patra", "thess", "ioannina", "larisa", "lamia", "volos", "ipeiros", "kriti", "nomos"];
+  const order = ["athina", "patra", "thess", "ioannina", "larisa", "lamia", "volos", "ipeiros", "kriti", "nomos"]; // Κέρκυρα: μόλις μπουν τιμές
   return `<div class="table-wrap"><table class="data"><thead><tr><th scope="col">Είδος δέματος</th>${order.map(k => `<th scope="col">${esc(DATA.TARIFFS[k].label)}</th>`).join("")}</tr></thead><tbody>${
     C.map(c => `<tr><th scope="row" style="font-weight:600">${esc(c.name)}</th>${order.map(k => { const v = DATA.TARIFFS[k].p[c.id]; return `<td class="${v == null ? "na" : ""}">${v == null ? "ρωτήστε" : eur(v)}</td>`; }).join("")}</tr>`).join("")
   }</tbody></table></div><p class="caption">Επίσημος τιμοκατάλογος ΚΤΕΛ Αιτωλοακαρνανίας, ανά τεμάχιο, με ΦΠΑ. Οι τιμές μπορεί να αλλάξουν· ισχύει η τιμή του ταμείου.</p>`;
@@ -62,7 +62,7 @@ const destGroups = () => {
   };
   const hubs = Object.entries(DATA.HUBS).map(([k, h]) => {
     const list = DATA.DESTINATIONS.filter(d => d.hub === k).sort((a, b) => a.name.localeCompare(b.name, "el"));
-    return `<div class="panel"><h3>Μέσω ${esc(h.label)}</h3><p class="muted" style="margin-top:6px">${esc(h.eta)} Πληρώνετε εδώ την τιμή ${esc(DATA.TARIFFS[h.tariff].label)} και υπολογίζετε περίπου άλλο τόσο για το ΚΤΕΛ που συνεχίζει.</p><ul class="dest-list">${list.map(chip).join("")}</ul></div>`;
+    return `<div class="panel"><h3>Μέσω ${esc(h.label)}</h3><p class="muted" style="margin-top:6px">${esc(h.eta)} Πληρώνετε εδώ την τιμή ${esc(DATA.TARIFFS[h.tariff].label)} και βάζετε περίπου άλλο τόσο σε φάκελο πάνω στο δέμα, για το πρακτορείο που συνεχίζει.</p><ul class="dest-list">${list.map(chip).join("")}</ul></div>`;
   }).join("");
   return `<div class="dest-groups">
   <div><h2>Απευθείας δρομολόγια</h2><p class="muted" style="margin-top:6px">Το δέμα φεύγει με το επόμενο λεωφορείο και φτάνει αυθημερόν. Δίπλα σε κάθε πόλη, οι μέρες που υπάρχει δρομολόγιο, αν δεν είναι καθημερινό.</p><ul class="dest-list">${by("direct").map(chip).join("")}</ul></div>
@@ -94,7 +94,8 @@ const TOKENS = {
   "{{free}}": () => DATA.STORAGE.freeDays, "{{perDay}}": () => DATA.STORAGE.perDay, "{{cap}}": () => DATA.STORAGE.cap,
   "{{homePrice}}": () => DATA.HOME.zones[0].price, "{{homeHours}}": () => DATA.HOME.hours, "{{homeVehicles}}": () => DATA.HOME.vehicles,
   "{{homeZones}}": () => DATA.HOME.zones.map(z => `<option value="${z.id}">${esc(z.name)}</option>`).join(""),
-  "{{athensNote}}": () => esc(DATA.HOME.athensNote),
+  "{{athensNote}}": () => esc(DATA.HOME.athensNote), "{{luggage}}": () => DATA.LUGGAGE.perPiecePerDay, "{{cutoff}}": () => B.cutoffMin,
+  "{{address}}": () => esc(`${B.address.place}, ${B.address.street}, ${B.address.postal} ${B.address.city}`),
   ...Object.fromEntries(Object.entries(I).map(([k, v]) => [`{{i:${k}}}`, () => v])),
 };
 const fill = s => s.replace(/\{\{[^}]+\}\}/g, m => TOKENS[m] ? String(TOKENS[m]()) : (console.warn("Άγνωστο:", m), m));

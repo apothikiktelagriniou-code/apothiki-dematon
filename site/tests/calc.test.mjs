@@ -26,9 +26,13 @@ test("τιμές απευθείας, εντός νομού, ανταπόκρισ
   assert.equal(quote(DATA, { dest: "Λευκαδα", catId: "fakelos" }).total, 5, "χωρίς τόνους");
   const t = quote(DATA, { dest: "Τρίπολη", catId: "mikro" });
   assert.equal(t.status, "transfer"); assert.equal(t.total, 7); assert.equal(t.grandEstimate, 14);
-  assert.equal(quote(DATA, { dest: "Χανιά", catId: "tenekes_syn" }).status, "noprice");
+  assert.equal(quote(DATA, { dest: "Χανιά", catId: "tenekes_syn" }).total, 10);
+  assert.equal(quote(DATA, { dest: "Κέρκυρα", catId: "mikro" }).status, "noprice");
+  assert.equal(quote(DATA, { dest: "Ρέθυμνο", catId: "mikro" }).total, 10, "Κρήτη μέσω Χανίων/Ηρακλείου");
+  assert.equal(quote(DATA, { dest: "Ηγουμενίτσα", catId: "mikro" }).eta.includes("ρωτήστε"), true);
   assert.equal(quote(DATA, { dest: "Χαλκιδική", catId: "mikro" }).status, "none");
-  assert.equal(quote(DATA, { dest: "Κέρκυρα", catId: "mikro" }).status, "ask");
+  assert.equal(quote(DATA, { dest: "Άμφισσα", catId: "mikro" }).status, "ask");
+  assert.equal(quote(DATA, { dest: "Θήβα", catId: "mikro" }).status, "none");
 });
 
 test("κάθε προορισμός με τιμή έχει πίνακα, κάθε κλειδί δρομολογίου υπάρχει", () => {
