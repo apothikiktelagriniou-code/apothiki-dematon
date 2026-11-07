@@ -559,3 +559,7 @@ article.row.is-star{box-shadow:inset 4px 0 0 #f59e0b}
 .camopts{margin:4px 0}
 label.camshot{display:block;text-align:center;cursor:pointer}
 label.camshot.disabled{opacity:.5;pointer-events:none}
+/* 🎁 κλήρωση */
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+@media (max-width:520px){.grid2{grid-template-columns:minmax(0,1fr)}}
+#dlgBody textarea,#dlgBody .grid2 input,#dlgBody .grid2 select{font:inherit;padding:10px;border-radius:10px;border:1px solid rgba(127,127,127,.35);background:var(--surface);color:inherit;min-height:44px;width:100%}

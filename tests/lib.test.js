@@ -414,3 +414,20 @@ test("cashFix: 2η ανάγνωση + σύνολο διορθώνει ποσά·
   // η 2η ανάγνωση έκανε το ίδιο λάθος → ύποπτη από τον προορισμό
   r = cashFix(a, a, 40); assert.ok(!r.resolved); assert.equal(r.suspects.length, 1); assert.match(r.suspects[0].why[0], /συνήθως 6/);
 });
+
+// ---------------------------------------------------------------- 🎁 κλήρωση
+import { parseContestMessage, initials, drawOrder } from "../src/lib.js";
+test("κλήρωση: διαβάζει το μήνυμα της φόρμας (ελληνικά/αγγλικά)", () => {
+  const gr = parseContestMessage("Ενδιαφέρον για παράδοση στο σπίτι\nΥπηρεσία: Παράδοση δέματος στο σπίτι\nΌνομα: Γιώργος Παπαδόπουλος\nΚινητό: 697 123 4567\nΔιεύθυνση: Παπαστράτου 10\nΣυμμετοχή στην κλήρωση (αποδέχεται τους όρους): ΝΑΙ");
+  assert.equal(gr.name, "Γιώργος Παπαδόπουλος"); assert.equal(gr.phone, "6971234567"); assert.equal(gr.address, "Παπαστράτου 10"); assert.equal(gr.optIn, true);
+  const en = parseContestMessage("[08/11, 01:10] Home delivery interest\nName: John Smith\nMobile: +30 6981112223\nAddress: Main St 1\nEnters the prize draw (accepts terms): NO");
+  assert.equal(en.phone, "6981112223"); assert.equal(en.optIn, false);
+  assert.equal(parseContestMessage("γεια").optIn, null);
+});
+test("κλήρωση: αρχικά και τυχαία σειρά χωρίς απώλειες", () => {
+  assert.equal(initials("Γιώργος Παπαδόπουλος"), "Γ.Π.");
+  assert.equal(initials(""), "—");
+  let k = 0; const seq = [0, 1, 0, 2, 1];
+  const out = drawOrder(["a", "b", "c", "d", "e", "f"], n => seq[k++ % seq.length] % n);
+  assert.deepEqual(out.slice().sort(), ["a", "b", "c", "d", "e", "f"]);
+});

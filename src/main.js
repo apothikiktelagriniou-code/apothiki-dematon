@@ -9,6 +9,7 @@ import { openManifest } from "./manifest.js";
 import { initOutgoing, showOutgoing, reloadOutgoing } from "./outgoing.js";
 import { autoBackup, downloadBackup, lastBackup } from "./backup.js";
 import { initHealth, openHealth, smsSendFailed, SMS_FAIL_TAG } from "./health.js";
+import { initContest, openContest } from "./contest.js";
 
 // «Να με θυμάσαι»: η σύνδεση μένει στη συσκευή (localStorage) και ανανεώνεται μόνη της.
 // Χωρίς αυτό (π.χ. ξένος υπολογιστής) κρατιέται μόνο μέχρι να κλείσει ο browser (sessionStorage).
@@ -80,6 +81,7 @@ async function boot() {
     onSaved: p => { rows.set(p.id, p); scheduleRender(); bizSoon(); maybeAutoSms(p); } });
   initCamera();
   initHealth({ sb, operator, loggedIn: () => !$("app").hidden, rows: () => [...rows.values()], updateParcel });
+  initContest({ sb, operator });
 }
 $("loginForm").onsubmit = async e => {
   e.preventDefault(); $("lgBtn").disabled = true; show($("lgMsg"), "", "bad");
@@ -1605,6 +1607,7 @@ function setMode(m) {
 let outInit = false;
 // ---- αντίγραφα ασφαλείας
 $("healthBtn").onclick = () => { $("healthBtn").closest("details").open = false; openHealth(); };
+$("contestBtn").onclick = () => { $("contestBtn").closest("details").open = false; openContest(); };
 $("backupBtn").onclick = async () => {
   const b = $("backupBtn"); if (b.disabled) return; b.disabled = true; const m = $("netMsg");
   try {

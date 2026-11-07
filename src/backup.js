@@ -1,7 +1,7 @@
 // Αντίγραφα ασφαλείας: όλα τα δεδομένα σε ένα αρχείο .json.gz
 // - αυτόματα μία φορά τη μέρα (από όποια συσκευή ανοίξει πρώτη) στον ιδιωτικό χώρο «backups» — κρατιούνται 30 μέρες
 // - και με το χέρι: «⬇ Λήψη αντιγράφου» στον υπολογιστή/κινητό, για να υπάρχει και εκτός Supabase.
-const TABLES = ["parcels", "customers", "outgoing", "outgoing_reports", "outgoing_cash", "manifests", "shift_notes", "batches", "app_settings", "activity_log"];
+const TABLES = ["parcels", "customers", "outgoing", "outgoing_reports", "outgoing_cash", "manifests", "shift_notes", "batches", "app_settings", "activity_log", "contest_entries"];
 const KEEP_DAYS = 30;
 const day = (d = new Date()) => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
 

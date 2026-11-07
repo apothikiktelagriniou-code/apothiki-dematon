@@ -680,3 +680,27 @@ export function cashFix(items, items2, total, appFare = () => null) {
   }
   return { items: out, before, after: sum(out), changed, resolved, suspects: [...suspects.values()] };
 }
+
+// ---------------------------------------------------------------- 🎁 κλήρωση (λίστα αναμονής παράδοσης στο σπίτι)
+/** Διαβάζει το μήνυμα της φόρμας της ιστοσελίδας (όπως φτάνει στο WhatsApp/email, ελληνικά ή αγγλικά). */
+export function parseContestMessage(text) {
+  const t = String(text || "");
+  const pick = re => { const m = t.match(re); return m ? m[1].trim() : ""; };
+  const name = pick(/(?:Όνομα|Ονοματεπώνυμο|Name)\s*:\s*(.+)/i);
+  const phoneRaw = pick(/(?:Κινητό|Τηλέφωνο|Mobile|Phone)\s*:\s*(.+)/i);
+  const address = pick(/(?:Διεύθυνση|Address)\s*:\s*(.+)/i);
+  const optLine = pick(/(?:Συμμετοχή στην κλήρωση[^:]*|Enters the prize draw[^:]*)\s*:\s*(.+)/i);
+  const optIn = optLine ? /^(ναι|yes)/i.test(optLine) : null;
+  return { name, phone: cleanPhone(phoneRaw), phoneRaw, address, optIn };
+}
+/** Αρχικά για δημόσια ανακοίνωση: «Γεώργιος Παπαδόπουλος» → «Γ.Π.» */
+export function initials(name) {
+  return String(name || "").trim().split(/\s+/).filter(Boolean).slice(0, 3).map(w => w[0].toUpperCase() + ".").join("") || "—";
+}
+/** Τυχαία σειρά (Fisher–Yates) με κρυπτογραφικό τυχαίο. rnd(n) → ακέραιος 0..n-1 */
+export function drawOrder(ids, rnd) {
+  const a = ids.slice();
+  for (let i = a.length - 1; i > 0; i--) { const j = rnd(i + 1); [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
+}
+export const cryptoRnd = n => { const b = new Uint32Array(1); const lim = Math.floor(0x100000000 / n) * n; let x; do { crypto.getRandomValues(b); x = b[0]; } while (x >= lim); return x % n; };
