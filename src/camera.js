@@ -48,9 +48,12 @@ async function shoot() {
   const v = $("camVideo"); if (!v.videoWidth) return;
   sound.unlock(); cam.busy = true; $("camShot").disabled = true;
   try {
+    let blob = null;
+    // Android: φωτογραφία πλήρους ανάλυσης του αισθητήρα (όχι καρέ βίντεο)
+    if (window.ImageCapture && cam.track.readyState === "live") { try { blob = await new ImageCapture(cam.track).takePhoto(); } catch { blob = null; } }
     const c = document.createElement("canvas"); c.width = v.videoWidth; c.height = v.videoHeight; c.getContext("2d").drawImage(v, 0, 0);
     const dark = lumaOf(c) < DARK - 12;
-    const blob = await new Promise(r => c.toBlob(r, "image/jpeg", 0.92));
+    if (!blob) blob = await new Promise(r => c.toBlob(r, "image/jpeg", 0.92));
     const file = new File([blob], "etiketa-" + Date.now() + ".jpg", { type: "image/jpeg", lastModified: Date.now() });
     flash("dup", "⏳ ΔΙΑΒΑΖΩ…", dark ? "Σκοτεινή φωτογραφία" : "", "Κράτα το επόμενο δέμα έτοιμο");
     const res = await Promise.race([enqueueShot(file), new Promise(r => setTimeout(() => r({ late: true }), 30000))]);
@@ -65,13 +68,14 @@ async function openCam() {
   const dlg = $("camDlg"); dlg.showModal(); sound.unlock();
   $("camStatus").textContent = "Άνοιγμα κάμερας…"; $("camStatus").className = "msg info"; $("camFlash").hidden = true; $("camLight").hidden = true;
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false });
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" }, width: { ideal: 3840 }, height: { ideal: 2160 } }, audio: false });
     const track = stream.getVideoTracks()[0]; const caps = (track.getCapabilities && track.getCapabilities()) || {};
     try { if ((caps.focusMode || []).includes("continuous")) await track.applyConstraints({ advanced: [{ focusMode: "continuous" }] }); } catch { /* */ }
     cam = { stream, track, caps, ok: 0, bad: 0, busy: false, torch: false, userTorch: false };
     const v = $("camVideo"); v.srcObject = stream; await v.play().catch(() => {});
     $("camTorch").hidden = !caps.torch;
-    $("camStatus").textContent = "Βάλε την ετικέτα να γεμίζει την οθόνη και πάτα «📸 Λήψη» (ή πάνω στην εικόνα).";
+    const st = track.getSettings ? track.getSettings() : {}; cam.res = st.width ? st.width + "×" + st.height : "";
+    $("camStatus").textContent = (cam.res ? "[" + cam.res + "] " : "") + "Βάλε την ετικέτα να γεμίζει την οθόνη και πάτα «📸 Λήψη» (ή πάνω στην εικόνα).";
     lightLoop();
   } catch (e) {
     $("camStatus").className = "msg bad";
