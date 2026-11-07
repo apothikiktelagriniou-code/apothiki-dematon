@@ -45,7 +45,7 @@ const I = {
 // ---------- κομμάτια που χτίζονται από τα δεδομένα ----------
 const C = DATA.CATEGORIES;
 const tariffTable = () => {
-  const order = ["athina", "patra", "thess", "ioannina", "larisa", "lamia", "volos", "ipeiros", "kriti", "nomos"]; // Κέρκυρα: μόλις μπουν τιμές
+  const order = ["athina", "patra", "thess", "ioannina", "larisa", "lamia", "volos", "ipeiros", "kriti", "nomos"];
   return `<div class="table-wrap"><table class="data"><thead><tr><th scope="col">Είδος δέματος</th>${order.map(k => `<th scope="col">${esc(DATA.TARIFFS[k].label)}</th>`).join("")}</tr></thead><tbody>${
     C.map(c => `<tr><th scope="row" style="font-weight:600">${esc(c.name)}</th>${order.map(k => { const v = DATA.TARIFFS[k].p[c.id]; return `<td class="${v == null ? "na" : ""}">${v == null ? "ρωτήστε" : eur(v)}</td>`; }).join("")}</tr>`).join("")
   }</tbody></table></div><p class="caption">Επίσημος τιμοκατάλογος ΚΤΕΛ Αιτωλοακαρνανίας, ανά τεμάχιο, με ΦΠΑ. Οι τιμές μπορεί να αλλάξουν· ισχύει η τιμή του ταμείου.</p>`;
@@ -68,7 +68,7 @@ const destGroups = () => {
   <div><h2>Απευθείας δρομολόγια</h2><p class="muted" style="margin-top:6px">Το δέμα φεύγει με το επόμενο λεωφορείο και φτάνει αυθημερόν. Δίπλα σε κάθε πόλη, οι μέρες που υπάρχει δρομολόγιο, αν δεν είναι καθημερινό.</p><ul class="dest-list">${by("direct").map(chip).join("")}</ul></div>
   <div><h2>Εντός Νομού Αιτωλοακαρνανίας</h2><p class="muted" style="margin-top:6px">Ίδια τιμή για όλο τον νομό.</p><ul class="dest-list">${by("local").map(chip).join("")}</ul></div>
   <div><h2>Με ανταπόκριση</h2><div class="grid g3" style="margin-top:12px">${hubs}</div></div>
-  <div><h2>Ρωτήστε μας</h2><p class="muted" style="margin-top:6px">Για αυτούς τους προορισμούς η τιμή και η διαδρομή δίνονται στο τηλέφωνο.</p><ul class="dest-list">${by("ask").map(d => `<li>${esc(d.name)}</li>`).join("")}</ul></div>
+  ${by("ask").length ? `<div><h2>Ρωτήστε μας</h2><p class="muted" style="margin-top:6px">Για αυτούς τους προορισμούς η τιμή και η διαδρομή δίνονται στο τηλέφωνο.</p><ul class="dest-list">${by("ask").map(d => `<li>${esc(d.name)}</li>`).join("")}</ul></div>` : ""}
   <div><h2>Δεν εξυπηρετούνται</h2><ul class="dest-list none">${by("none").map(d => `<li>${esc(d.name)}</li>`).join("")}</ul></div>
 </div>`;
 };

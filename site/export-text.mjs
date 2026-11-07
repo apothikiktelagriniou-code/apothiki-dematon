@@ -54,13 +54,10 @@ for (const [k, h] of Object.entries(D.HUBS)) {
   line(`   ${list.map(x => x.name + (x.eta ? ` [${x.eta}]` : "")).join(", ")}`);
 }
 line();
-line("6. ΡΩΤΗΣΤΕ ΜΑΣ (εκκρεμεί απάντηση)");
-line(`   ${sortEl(D.DESTINATIONS.filter(x => x.type === "ask")).map(x => x.name).join(", ") || "—"}`);
-line();
-line("7. ΔΕΝ ΕΞΥΠΗΡΕΤΟΥΝΤΑΙ");
+line("6. ΔΕΝ ΕΞΥΠΗΡΕΤΟΥΝΤΑΙ");
 line(`   ${sortEl(D.DESTINATIONS.filter(x => x.type === "none")).map(x => x.name).join(", ")}`);
 line();
-line("8. ΑΛΛΕΣ ΧΡΕΩΣΕΙΣ ΚΑΙ ΠΛΗΡΩΜΕΣ");
+line("7. ΑΛΛΕΣ ΧΡΕΩΣΕΙΣ ΚΑΙ ΠΛΗΡΩΜΕΣ");
 line(`- Φύλαξη δέματος: δωρεάν ${D.STORAGE.freeDays} ημέρες από την άφιξη, μετά ${D.STORAGE.perDay} €/ημέρα, έως ${D.STORAGE.cap} € συνολικά.`);
 line(`- Φύλαξη αποσκευών: ${D.LUGGAGE.perPiecePerDay} € ${D.LUGGAGE.note.toLowerCase()}`);
 line(`- Παράδοση/παραλαβή στο σπίτι (ΔΕΝ έχει ξεκινήσει): ${D.HOME.zones.map(z => `${z.name} ${z.price} €`).join(", ")}, ${D.HOME.hours}, ${D.HOME.vehicles.toLowerCase()}. ${D.HOME.athensNote}`);

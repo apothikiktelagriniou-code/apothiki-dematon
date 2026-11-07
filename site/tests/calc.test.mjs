@@ -27,11 +27,12 @@ test("τιμές απευθείας, εντός νομού, ανταπόκρισ
   const t = quote(DATA, { dest: "Τρίπολη", catId: "mikro" });
   assert.equal(t.status, "transfer"); assert.equal(t.total, 7); assert.equal(t.grandEstimate, 14);
   assert.equal(quote(DATA, { dest: "Χανιά", catId: "tenekes_syn" }).total, 10);
-  assert.equal(quote(DATA, { dest: "Κέρκυρα", catId: "mikro" }).status, "noprice");
+  assert.equal(quote(DATA, { dest: "Κέρκυρα", catId: "mikro" }).total, 10, "Κέρκυρα = τιμές Ηρακλείου");
   assert.equal(quote(DATA, { dest: "Ρέθυμνο", catId: "mikro" }).total, 10, "Κρήτη μέσω Χανίων/Ηρακλείου");
-  assert.equal(quote(DATA, { dest: "Ηγουμενίτσα", catId: "mikro" }).eta.includes("ρωτήστε"), true);
+  assert.ok(quote(DATA, { dest: "Ηγουμενίτσα", catId: "mikro" }).eta.includes("επόμενη"));
+  assert.ok(quote(DATA, { dest: "Κεφαλονιά", catId: "mikro" }).eta.includes("14:00"));
   assert.equal(quote(DATA, { dest: "Χαλκιδική", catId: "mikro" }).status, "none");
-  assert.equal(quote(DATA, { dest: "Άμφισσα", catId: "mikro" }).status, "ask");
+  assert.equal(quote(DATA, { dest: "Άμφισσα", catId: "mikro" }).status, "none");
   assert.equal(quote(DATA, { dest: "Θήβα", catId: "mikro" }).status, "none");
 });
 
