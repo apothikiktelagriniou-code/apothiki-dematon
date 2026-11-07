@@ -57,6 +57,14 @@ test("επόμενες αναχωρήσεις", () => {
   assert.equal(daysLabel(SCHEDULE_TIMES, ["ΑΘΗΝΑ"]), "Καθημερινά");
 });
 
+test("επιβάρυνση βάρους: ανενεργή, και σωστή όταν ενεργοποιηθεί", () => {
+  assert.equal(quote(DATA, { dest: "Αθήνα", catId: "mesaio", kg: 14 }).total, 8, "ανενεργή → καμία επιβάρυνση");
+  const ON = { ...DATA, OVERWEIGHT: { enabled: true, fromKg: 10, perKg: 1 } };
+  assert.equal(quote(ON, { dest: "Αθήνα", catId: "mesaio", kg: 14 }).total, 12);
+  assert.equal(quote(ON, { dest: "Αθήνα", catId: "mesaio", kg: 10.5, pieces: 2 }).total, 17);
+  assert.equal(quote(ON, { dest: "Αθήνα", catId: "mikro", kg: 4 }).extra, 0);
+});
+
 test("φύλαξη: 10 μέρες δωρεάν, 3 €/ημέρα, έως 20 €", () => {
   const S = DATA.STORAGE;
   assert.equal(storageFee(S, "2026-11-01", "2026-11-11").fee, 0);

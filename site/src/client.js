@@ -97,7 +97,7 @@
         classed && classed.by === "kg" ? h("span", { class: "muted", style: "font-weight:400" }, " (λόγω βάρους)") : null));
       if (!dest) { card.append(h("span", { class: "eyebrow" }, "Ενδεικτική τιμή"), h("p", { class: "muted", style: "margin-top:8px" }, "Διαλέξτε προορισμό για να δείτε τιμή και επόμενες αναχωρήσεις."), catLine); if (warnHit) out.append(warnHit); return; }
 
-      const q = quote(SITE, { dest, catId, pieces: val("c-n") });
+      const q = quote(SITE, { dest, catId, pieces: val("c-n"), kg: isBox ? val("c-kg") : 0 });
       if (q.status === "none") { card.append(h("div", { class: "notice bad" }, h("b", {}, `Δεν στέλνουμε σε ${dest}`), "Δεν υπάρχει δρομολόγιο ή ανταπόκριση προς τα εκεί από το Αγρίνιο."), contactLine()); return; }
       if (q.status === "ask" || q.status === "noprice") { card.append(h("div", { class: "notice info" }, h("b", {}, "Ρωτήστε μας για τιμή"), `Για ${dest}${q.status === "noprice" && cat ? " και " + cat.name.toLowerCase() : ""} η τιμή δίνεται στο ταμείο ή στο τηλέφωνο.`), contactLine()); if (warnHit) out.append(warnHit); return; }
 
@@ -108,6 +108,7 @@
       const dl = h("dl", { class: "kv", style: "margin-top:12px" },
         h("dt", {}, "Κατηγορία"), h("dd", {}, cat.name, classed && classed.by === "kg" ? h("span", { class: "muted", style: "font-weight:400" }, " (λόγω βάρους)") : null),
         h("dt", {}, "Προορισμός"), h("dd", {}, q.dest.name),
+        q.extra ? [h("dt", {}, "Επιβάρυνση βάρους"), h("dd", {}, `+${eur(q.extra)} ανά τεμάχιο`)] : null,
         q.hub ? [h("dt", {}, "Μέσω"), h("dd", {}, q.hub.label)] : null,
         h("dt", {}, "Παράδοση"), h("dd", {}, q.eta || ""));
       card.append(dl);

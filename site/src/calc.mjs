@@ -28,7 +28,7 @@ export function findDest(dests, name) {
 
 // Ενδεικτική τιμή. Επιστρέφει { status, perPiece, total, ... }
 // status: ok | transfer | ask | none | noprice | oversize
-export function quote(site, { dest, catId, pieces = 1 }) {
+export function quote(site, { dest, catId, pieces = 1, kg = 0 }) {
   const d = typeof dest === "string" ? findDest(site.DESTINATIONS, dest) : dest;
   const n = Math.max(1, Math.min(99, Math.floor(Number(pieces) || 1)));
   if (!d) return { status: "ask" };
@@ -38,7 +38,10 @@ export function quote(site, { dest, catId, pieces = 1 }) {
   const t = site.TARIFFS[hub ? hub.tariff : d.tariff];
   const p = t && t.p[catId];
   if (p == null) return { status: "noprice", dest: d };
-  const out = { status: hub ? "transfer" : "ok", dest: d, hub, perPiece: p, pieces: n, total: p * n, eta: (hub && !d.eta) ? hub.eta : d.eta };
+  const ow = site.OVERWEIGHT, w = Number(kg) || 0;
+  const extra = ow && ow.enabled && w > ow.fromKg ? Math.round((w - ow.fromKg) * ow.perKg * 100) / 100 : 0;
+  const per = Math.round((p + extra) * 100) / 100;
+  const out = { status: hub ? "transfer" : "ok", dest: d, hub, base: p, extra, perPiece: per, pieces: n, total: Math.round(per * n * 100) / 100, eta: (hub && !d.eta) ? hub.eta : d.eta };
   if (hub) { out.otherEstimate = p * n; out.grandEstimate = p * n * 2; }
   return out;
 }
