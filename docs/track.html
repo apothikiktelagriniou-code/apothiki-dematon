@@ -68,7 +68,7 @@ $("f").onsubmit = async e => {
   $("go").disabled = true; show("info", "Αναζήτηση…", "");
   try {
     const r = await fetch(URL_ + "/rest/v1/rpc/track_parcel", { method: "POST", headers: { apikey: KEY, "content-type": "application/json" }, body: JSON.stringify({ p_receipt: $("rc").value, p_name: nm }) });
-    if (r.status === 429) return show("warn", "Πολλές αναζητήσεις", "Δοκιμάστε ξανά σε λίγο.");
+    if (r.status === 429 || (r.status === 400 && /too_many/.test(await r.clone().text()))) return show("warn", "Πολλές αναζητήσεις", "Δοκιμάστε ξανά σε 15 λεπτά.");
     if (!r.ok) throw new Error(r.status);
     const [x] = await r.json();
     if (!x) return show("warn", "Δεν βρέθηκε ακόμα", "Αν το δέμα στάλθηκε σήμερα, μπορεί να μην έχει φτάσει ή να μην έχει καταχωρηθεί ακόμα. Ελέγξτε τον αριθμό και τα γράμματα, ή καλέστε μας.");
