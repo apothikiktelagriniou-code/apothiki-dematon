@@ -8,6 +8,7 @@ import { initCapture, pendingReviewCount, toJpegB64, loadQueue } from "./capture
 import { openManifest } from "./manifest.js";
 import { initOutgoing, showOutgoing, reloadOutgoing } from "./outgoing.js";
 import { autoBackup, downloadBackup, lastBackup } from "./backup.js";
+import { initHealth, openHealth, smsSendFailed, SMS_FAIL_TAG } from "./health.js";
 
 // «Να με θυμάσαι»: η σύνδεση μένει στη συσκευή (localStorage) και ανανεώνεται μόνη της.
 // Χωρίς αυτό (π.χ. ξένος υπολογιστής) κρατιέται μόνο μέχρι να κλείσει ο browser (sessionStorage).
@@ -78,6 +79,7 @@ async function boot() {
     similarCustomers,
     onSaved: p => { rows.set(p.id, p); scheduleRender(); bizSoon(); maybeAutoSms(p); } });
   initCamera();
+  initHealth({ sb, operator, loggedIn: () => !$("app").hidden, rows: () => [...rows.values()], updateParcel });
 }
 $("loginForm").onsubmit = async e => {
   e.preventDefault(); $("lgBtn").disabled = true; show($("lgMsg"), "", "bad");
@@ -917,7 +919,7 @@ async function setChannel(p, ch) {
 }
 async function sendSms(p, text) {
   const { data, error } = await sb.functions.invoke("send-sms", { body: { phone: p.recipient_phone, text } });
-  if (error) { let b = {}; try { b = await error.context.json(); } catch {} return { ok: false, error: b.error === "missing_credentials" ? "δεν έχουν μπει τα στοιχεία του κινητού στο Supabase" : (b.detail || b.error || "σφάλμα δικτύου") }; }
+  if (error) { let b = {}; try { b = await error.context.json(); } catch {} const why = b.error === "missing_credentials" ? "δεν έχουν μπει τα στοιχεία του κινητού στο Supabase" : (b.detail || b.error || "σφάλμα δικτύου"); if (b.error === "sms_failed") smsSendFailed(p, why); return { ok: false, error: why }; }
   if (data && data.id) updateParcel(p.id, { sms_message_id: data.id }).catch(() => {});
   return { ok: true };
 }
@@ -953,7 +955,7 @@ async function bulkSms() {
   const smsIds = new Set((data || []).map(c => c.id));
   let other = new Set();
   if (autoSmsOn()) { const r2 = await sb.from("customers").select("id").not("channel", "is", null).neq("channel", "sms").limit(5000); other = new Set((r2.data || []).map(c => c.id)); }
-  const list = [...rows.values()].filter(p => p.status === "arrived" && /^69/.test(p.recipient_phone || "") && !(p.phone_source === "handwritten" && !p.phone_confirmed) &&
+  const list = [...rows.values()].filter(p => p.status === "arrived" && /^69/.test(p.recipient_phone || "") && !(p.phone_source === "handwritten" && !p.phone_confirmed) && !(p.tags || []).includes(SMS_FAIL_TAG) &&
     (smsIds.has(p.customer_id) || (autoSmsOn() && autoSmsOk(p) && !other.has(p.customer_id))));
   return list;
 }
@@ -1602,6 +1604,7 @@ function setMode(m) {
 }
 let outInit = false;
 // ---- αντίγραφα ασφαλείας
+$("healthBtn").onclick = () => { $("healthBtn").closest("details").open = false; openHealth(); };
 $("backupBtn").onclick = async () => {
   const b = $("backupBtn"); if (b.disabled) return; b.disabled = true; const m = $("netMsg");
   try {

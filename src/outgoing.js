@@ -424,6 +424,7 @@ async function save(id, patch) {
 // Χωρίς σήμα στην αποβάθρα: η «φόρτωση» κρατιέται στο κινητό και στέλνεται μόλις επανέλθει το ίντερνετ.
 const QK = "outQueue";
 const qGet = () => { try { return JSON.parse(localStorage.getItem(QK) || "[]"); } catch { return []; } };
+export const outQueueInfo = () => qGet().length;
 const qSet = q => { try { localStorage.setItem(QK, JSON.stringify(q)); } catch { /* */ } };
 const netErr = e => !navigator.onLine || /fetch|network|Failed to|timeout|Load failed/i.test(String(e && (e.message || e)));
 async function saveQueued(r, patch) {

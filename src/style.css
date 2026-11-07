@@ -547,3 +547,8 @@ article.row.is-star{box-shadow:inset 4px 0 0 #f59e0b}
 @keyframes camsnap{0%{filter:brightness(2.2)}100%{filter:none}}
 .vermsg{display:block;width:100%;text-align:center;font-weight:700;cursor:pointer;border:0}
 .vermsg[hidden]{display:none}
+.healthmsg{display:block;width:100%;text-align:left;font-weight:700;cursor:pointer;border:0}
+.healthmsg[hidden]{display:none}
+.hsec{margin:14px 0 4px;font-size:16px}.hsec.ok{color:#15803d}.hsec.bad{color:#dc2626}
+.hrow{padding:4px 0;border-bottom:1px solid rgba(127,127,127,.15);font-size:14px}
+.hrow.bad{color:#dc2626;font-weight:700}.hrow.warn{color:#b45309}.hrow.opt{opacity:.7}

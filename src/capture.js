@@ -95,6 +95,8 @@ async function send() {
 }
 
 const FILL_TXT = { receipt_no: "αριθμός", recipient: "παραλήπτης", origin_city: "πόλη", departure: "ώρα", fare_eur: "κόμιστρο", pieces: "τεμάχια", destination_city: "προορισμός" };
+/** Για την «Κατάσταση συστήματος»: πόσες φωτογραφίες περιμένουν σε αυτή τη συσκευή και από πότε. */
+export async function outboxInfo() { const a = await obAll().catch(() => []); return { n: a.length, oldest: a.length ? Math.min(...a.map(x => x.at)) : null }; }
 // ---------- επεξεργασία ουράς ----------
 let running = false, stats = { auto: 0, review: 0, fail: 0, total: 0 };
 async function refreshOutboxInfo() {

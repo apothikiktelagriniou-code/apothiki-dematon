@@ -14,7 +14,7 @@ Deno.serve(async req => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   const user = Deno.env.get("SMSGATE_USER"), pass = Deno.env.get("SMSGATE_PASS");
   const url = new URL(req.url);
-  if (url.searchParams.get("health") === "1") return json({ ok: true, ready: !!(user && pass) });
+  if (url.searchParams.get("health") === "1") return json({ ok: true, ready: !!(user && pass), version: "2026-11-07-status" });
 
   const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY") ?? req.headers.get("apikey") ?? "", {
     global: { headers: { Authorization: req.headers.get("Authorization") ?? "" } },
@@ -23,8 +23,16 @@ Deno.serve(async req => {
   if (!u) return json({ error: "unauthorized" }, 401);
   if (!user || !pass) return json({ error: "missing_credentials" }, 500);
 
-  let b: { phone?: string; text?: string };
+  let b: { phone?: string; text?: string; status?: string };
   try { b = await req.json(); } catch { return json({ error: "bad_request" }, 400); }
+  // κατάσταση ενός SMS που στάλθηκε: Pending / Processed / Sent / Delivered / Failed
+  if (b.status) {
+    const r = await fetch("https://api.sms-gate.app/3rdparty/v1/messages/" + encodeURIComponent(String(b.status)), { headers: { authorization: "Basic " + btoa(user + ":" + pass) } });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) return json({ error: "status_failed", status: r.status, detail: j?.message || "" }, 502);
+    const rc = (j.recipients || [])[0] || {};
+    return json({ ok: true, id: j.id, state: rc.state || j.state || null, error: rc.error || null });
+  }
   const phone = String(b.phone ?? "").replace(/\D/g, "").replace(/^30(?=\d{10}$)/, "");
   const text = String(b.text ?? "").trim();
   if (!/^(69\d{8})$/.test(phone)) return json({ error: "invalid_phone" }, 400); // μόνο κινητά δέχονται SMS
