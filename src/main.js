@@ -469,6 +469,7 @@ const needsRemind = p => p.status === "notified" && daysSince(p.notified_at || p
 const lateTransit = p => p.status === "transit" && (hoursSince(p.created_at) >= (settings.transit_alert_hours || 3) || new Date(p.created_at).toDateString() !== new Date().toDateString());
 const sameDay = (iso, d) => iso && new Date(iso).toDateString() === d;
 const phoneOk = p => !!p.recipient_phone;
+const mobileOk = p => /^69\d{8}$/.test(String(p.recipient_phone || "").replace(/\D/g, "").replace(/^(0030|30)(?=69)/, "")); // SMS μόνο σε κινητά
 
 const away = p => !!p.bypassed;
 // ---------------------------------------------------------------- έλεγχος με καταστάσεις πρακτορείων
@@ -565,7 +566,8 @@ function matches(p) {
   // η αναζήτηση ψάχνει σε όλα· ένα επιλεγμένο δρομολόγιο δείχνει όλα του τα δέματα ακόμα κι αν είμαστε στο «Σήμερα»
   if (!qq && !(tripFilter && filter === "today")) switch (filter) {
     case "waiting": if (isClosed(p)) return false; break;
-    case "tonotify": if (p.status !== "arrived" || !phoneOk(p)) return false; break; // μόνο όσα έχουν τηλέφωνο
+    case "tonotify": if (p.status !== "arrived" || !mobileOk(p)) return false; break; // μόνο κινητά 69… (SMS)
+    case "landline": if (p.status !== "arrived" || !phoneOk(p) || mobileOk(p)) return false; break; // σταθερό → τηλεφώνημα
     case "remind": if (!needsRemind(p)) return false; break;
     case "nophone": if (isClosed(p) || isTransit(p) || phoneOk(p)) return false; break;
     case "transit": if (!(p.status === "transit" || (p.status === "forwarded" && !away(p)))) return false; break;
@@ -664,7 +666,7 @@ function render() {
   else show($("tripSum"), "", "info");
 
   // μαζική ειδοποίηση
-  const toN = all.filter(p => p.status === "arrived" && phoneOk(p)).length;
+  const toN = all.filter(p => p.status === "arrived" && mobileOk(p)).length;
   $("bulkBar").hidden = !toN && !bulk; $("bulkSmsBtn").hidden = !(smsOn() && smsReady); renderSmsToggle(); renderAutoSms(); $("bulkBtn").textContent = bulk ? "Σταμάτημα" : "Ειδοποίηση όλων (" + toN + ")";
   $("bulkHint").textContent = bulk ? "Πάτα κανάλι και ανοίγει το επόμενο." : "Δέματα με τηλέφωνο που δεν έχουν ειδοποιηθεί.";
 
@@ -806,7 +808,7 @@ $("q").addEventListener("input", () => { clearTimeout(qT); const q = $("q").valu
 
 // ---------------------------------------------------------------- ειδοποίηση
 function nextToNotify(after) {
-  const l = [...rows.values()].filter(p => p.status === "arrived" && phoneOk(p) && p.id !== after).sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)));
+  const l = [...rows.values()].filter(p => p.status === "arrived" && mobileOk(p) && p.id !== after).sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)));
   return l[0] ? l[0].id : null;
 }
 function notifyBox(p) {
