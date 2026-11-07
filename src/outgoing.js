@@ -106,6 +106,8 @@ function renderSoon() {
 }
 setInterval(depTick, 30000); setTimeout(depTick, 5000);
 
+/** Ξαναφόρτωμα μετά από ύπνο/παρασκήνιο (οι ζωντανές αλλαγές που χάθηκαν). */
+export function reloadOutgoing() { if (active) load(); }
 export function showOutgoing(on) { active = on; if (on) { load(); loadStarred(); } }
 
 // ---------------------------------------------------------------- 🚌 ΒΑΣΗ ΔΡΟΜΟΛΟΓΙΩΝ

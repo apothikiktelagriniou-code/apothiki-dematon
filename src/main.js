@@ -4,9 +4,9 @@ import {
   HOME, norm, shelfFor, cleanPhone, fmtPhone, parseGrDate, fmtGr, toLocalInput, money, hoursSince, daysSince,
   tripsOf, tripLabel, sortTrips, isClosed, isTransit, parseLabel, fillTemplate, toCSV, cleanIdDoc, sameReceipt, likelySameParcel, sameNameTrip, smsFor, soundKey, greeklishToGreek, greekName, isGreeklishName, surnameFirst, expectHelp, expectProgress } from "./lib.js";
 import { initCamera } from "./camera.js";
-import { initCapture, pendingReviewCount, toJpegB64 } from "./capture.js";
+import { initCapture, pendingReviewCount, toJpegB64, loadQueue } from "./capture.js";
 import { openManifest } from "./manifest.js";
-import { initOutgoing, showOutgoing } from "./outgoing.js";
+import { initOutgoing, showOutgoing, reloadOutgoing } from "./outgoing.js";
 import { autoBackup, downloadBackup, lastBackup } from "./backup.js";
 
 // «Να με θυμάσαι»: η σύνδεση μένει στη συσκευή (localStorage) και ανανεώνεται μόνη της.
@@ -174,6 +174,30 @@ function subscribe() {
 }
 let rT = null; const scheduleRender = () => { clearTimeout(rT); rT = setTimeout(render, 120); };
 window.addEventListener("online", () => { $("netMsg").hidden = true; loadParcels(); });
+// ---------------------------------------------------------------- συγχρονισμός κινητού–υπολογιστή
+// Όταν το κινητό «κοιμάται» ή η εφαρμογή πάει στο παρασκήνιο, η ζωντανή σύνδεση κόβεται και οι αλλαγές της άλλης
+// συσκευής ΔΕΝ ξαναστέλνονται. Γι' αυτό: μόλις ξαναφανεί η εφαρμογή, ξαναφορτώνει τα πάντα + ελέγχει για νέα έκδοση.
+let hiddenAt = 0, lastSync = Date.now();
+async function resync(why) {
+  if (!sb || $("app").hidden) return;
+  await loadParcels().catch(() => {}); loadManifests(); loadNotes(); loadQueue(); reloadOutgoing();
+  lastSync = Date.now(); checkVersion();
+}
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) { hiddenAt = Date.now(); return; }
+  if (hiddenAt && Date.now() - hiddenAt > 15000) resync("visible");
+});
+window.addEventListener("focus", () => { if (Date.now() - lastSync > 120000) resync("focus"); });
+setInterval(() => { if (!document.hidden && Date.now() - lastSync > 300000) resync("interval"); }, 60000); // δίχτυ ασφαλείας ανά 5′
+// νέα έκδοση: η ανοιχτή εφαρμογή στο κινητό μπορεί να τρέχει παλιό κώδικα για μέρες
+async function checkVersion() {
+  try {
+    const r = await fetch("./version.json?t=" + Date.now(), { cache: "no-store" }); if (!r.ok) return;
+    const v = (await r.json()).build;
+    if (v && typeof __BUILD__ !== "undefined" && v !== __BUILD__) { const b = $("verMsg"); b.hidden = false; b.textContent = "🆕 Υπάρχει νέα έκδοση της εφαρμογής — πάτα εδώ για ενημέρωση"; }
+  } catch { /* εκτός σύνδεσης */ }
+}
+setTimeout(checkVersion, 8000);
 window.addEventListener("offline", () => show($("netMsg"), "Χωρίς σύνδεση στο internet.", "warn"));
 
 /** Νέο δέμα· αν υπάρχει ήδη στη λίστα «Δεν πέρασαν» (ίδιος αριθμός), το μεταφέρει αντί για διπλή εγγραφή. */

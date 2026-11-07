@@ -545,3 +545,5 @@ article.row.is-star{box-shadow:inset 4px 0 0 #f59e0b}
 .camlog-ok{color:#15803d}.camlog-bad{color:#dc2626;font-weight:800}
 #camVideo.snap{animation:camsnap .25s}
 @keyframes camsnap{0%{filter:brightness(2.2)}100%{filter:none}}
+.vermsg{display:block;width:100%;text-align:center;font-weight:700;cursor:pointer;border:0}
+.vermsg[hidden]{display:none}
