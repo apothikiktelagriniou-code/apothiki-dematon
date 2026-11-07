@@ -533,3 +533,9 @@ article.row.is-star{box-shadow:inset 4px 0 0 #f59e0b}
 .rcands .cand { display: block; text-align: left; white-space: normal; border: 2px solid #c9a227; line-height: 1.35; }
 .rcands .cand b { display: block; }
 .rcands .cand span { font-weight: 400; opacity: .85; }
+/* κάμερα εισερχομένων */
+.camlight{position:absolute;left:8px;right:8px;top:8px;z-index:1;padding:8px 10px;border-radius:10px;background:rgba(234,179,8,.95);color:#111;font-weight:800;text-align:center}
+.camlight[hidden]{display:none}
+.camshot{margin-top:8px;font-size:22px;padding:16px}
+.capflash{position:fixed;inset:auto 12px 90px 12px;min-height:150px;border-radius:16px;z-index:60;box-shadow:0 10px 30px rgba(0,0,0,.35)}
+.capflash .sf-big{font-size:clamp(30px,10vw,54px)}

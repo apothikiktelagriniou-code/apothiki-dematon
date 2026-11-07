@@ -3,6 +3,7 @@ import { SUPABASE_URL, SUPABASE_KEY } from "./config.js";
 import {
   HOME, norm, shelfFor, cleanPhone, fmtPhone, parseGrDate, fmtGr, toLocalInput, money, hoursSince, daysSince,
   tripsOf, tripLabel, sortTrips, isClosed, isTransit, parseLabel, fillTemplate, toCSV, cleanIdDoc, sameReceipt, likelySameParcel, sameNameTrip, smsFor, soundKey, greeklishToGreek, greekName, isGreeklishName, surnameFirst, expectHelp, expectProgress } from "./lib.js";
+import { initCamera } from "./camera.js";
 import { initCapture, pendingReviewCount, toJpegB64 } from "./capture.js";
 import { openManifest } from "./manifest.js";
 import { initOutgoing, showOutgoing } from "./outgoing.js";
@@ -76,6 +77,7 @@ async function boot() {
     expectHelp: d => { const op = openExpects(); if (!op.length) return null; const live = liveRows(); return expectHelp(d, op, it => live.some(p => p.source !== "manifest" && sameReceipt(p.receipt_no, it.receipt_no))); },
     similarCustomers,
     onSaved: p => { rows.set(p.id, p); scheduleRender(); bizSoon(); maybeAutoSms(p); } });
+  initCamera();
 }
 $("loginForm").onsubmit = async e => {
   e.preventDefault(); $("lgBtn").disabled = true; show($("lgMsg"), "", "bad");

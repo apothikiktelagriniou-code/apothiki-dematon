@@ -106,10 +106,11 @@ export async function pump() {
   if (running || !navigator.onLine) return;
   running = true;
   try {
-    let items = (await obAll()).sort((a, b) => a.at - b.at);
-    while (items.length && navigator.onLine) {
-      const chunk = items.splice(0, 3);
-      const res = await Promise.all(chunk.map(processOne));
+    // ξαναδιαβάζει την ουρά σε κάθε γύρο: ό,τι μπαίνει από την κάμερα όσο τρέχει, παίρνεται αμέσως
+    for (;;) {
+      if (!navigator.onLine) break;
+      const items = (await obAll()).sort((a, b) => a.at - b.at); if (!items.length) break;
+      const res = await Promise.all(items.slice(0, 3).map(processOne));
       await refreshOutboxInfo();
       if (res.includes("offline")) break;
     }
@@ -121,6 +122,26 @@ export async function pump() {
     if (done >= stats.total) { D.sb.from("batches").insert({ photo_count: stats.total, auto_saved: stats.auto, queued: stats.review, failed: stats.fail, device: matchMedia("(pointer:fine)").matches ? "pc" : "phone", operator: D.operator() }).then(() => {}); stats.total = 0; }
   }
 }
+// ---------- αποτέλεσμα ανά φωτογραφία: πράσινο (πέρασε) / κόκκινο (δεν πέρασε) ----------
+const waiters = new Map();
+function report(id, r) { const w = waiters.get(id); if (w) { waiters.delete(id); w(r); } else pageFlash(r); }
+let pfT = null;
+function pageFlash(r) {
+  const f = $("capFlash"); if (!f) return; clearTimeout(pfT);
+  f.className = "scanflash capflash " + (r.ok ? "ok" : "bad"); f.hidden = false;
+  $("capBig").textContent = r.ok ? "✓ ΠΕΡΑΣΕ" : "✗ ΔΕΝ ΠΕΡΑΣΕ"; $("capName").textContent = r.name || ""; $("capSub").textContent = r.sub || "";
+  pfT = setTimeout(() => { f.hidden = true; }, r.ok ? 1300 : 3500);
+}
+const subOk = p => p.status === "transit" ? "Μεταφόρτωση → " + (p.destination_city || "") : (p.shelf ? "Ράφι " + p.shelf : "") ;
+/** Μία φωτογραφία ετικέτας από την κάμερα → ουρά → υπόσχεση με το αποτέλεσμα ({ok, name, sub}). */
+export async function enqueueShot(file) {
+  if (D.needOperator()) return null;
+  const id = crypto.randomUUID(); const res = new Promise(r => waiters.set(id, r));
+  const img = await toJpegB64(file, 1600, 0.8), thumb = await toJpegB64(file, 1000, 0.6);
+  await obPut({ id, batch: "cam-" + new Date().toDateString(), imgs: [img], pkgIdx: -1, pkg: null, thumb, at: Date.now(), operator: D.operator(), old: $("oldStock").checked });
+  if (!stats.total) stats = { auto: 0, review: 0, fail: 0, pieces: 0, total: 0 }; stats.total++;
+  pump(); return res;
+}
 async function processOne(it) {
   const pkgIdx = typeof it.pkgIdx === "number" ? it.pkgIdx : -1;
   const { data, error } = await D.sb.functions.invoke("extract-receipt", { body: { images: it.imgs.map(d => ({ data: d, media_type: "image/jpeg" })), package_index: pkgIdx } });
@@ -130,7 +151,8 @@ async function processOne(it) {
     if (st === 401) { show($("capMsg"), "Η σύνδεση έληξε. Αποσυνδέσου και ξαναμπές — οι φωτογραφίες περιμένουν.", "bad"); return "offline"; }
     let body = {}; try { body = await error.context.json(); } catch {}
     if (body.error === "missing_key") { show($("capMsg"), "Λείπει το κλειδί Anthropic στο Supabase (Edge Functions → Secrets → ANTHROPIC_API_KEY).", "bad"); return "offline"; }
-    await toQueue(it, { notes: "Σφάλμα ανάγνωσης: " + (body.detail || body.error || ("HTTP " + st)) }, ["ai_unavailable"]); stats.review++; await obDel(it.id); return "review";
+    await toQueue(it, { notes: "Σφάλμα ανάγνωσης: " + (body.detail || body.error || ("HTTP " + st)) }, ["ai_unavailable"]); stats.review++; await obDel(it.id);
+    report(it.id, { ok: false, name: "Δεν διαβάστηκε", sub: "Πήγε στο «Για έλεγχο» — ξαναφωτογράφισε πιο καθαρά" }); return "review";
   }
   const d = data.data; if (it.old) d.old_stock = true;
   // κατάσταση που ανέβηκε πριν: τσεκάρισμα + συμπλήρωση ό,τι δεν διαβάστηκε καλά
@@ -148,7 +170,8 @@ async function processOne(it) {
   // ίδιος αριθμός απόδειξης = επόμενο τεμάχιο της ίδιας αποστολής
   const addPiece = async () => {
     const { data: rows } = await D.sb.rpc("add_piece", { p_receipt: d.receipt_no, p_total: Number(d.pieces) || 1 });
-    if (rows && rows.length) { D.onSaved(rows[0]); if (it.pkg && !rows[0].package_photo_path) await D.attachPackage(rows[0].id, it.pkg, d.package_desc); stats.auto++; stats.pieces = (stats.pieces || 0) + 1; await obDel(it.id); return true; }
+    if (rows && rows.length) { D.onSaved(rows[0]); if (it.pkg && !rows[0].package_photo_path) await D.attachPackage(rows[0].id, it.pkg, d.package_desc); stats.auto++; stats.pieces = (stats.pieces || 0) + 1; await obDel(it.id);
+      report(it.id, { ok: true, name: rows[0].recipient_name || "", sub: "Τεμάχιο " + (rows[0].pieces_in || "?") + "/" + (rows[0].pieces_total || "?") + (subOk(rows[0]) ? " · " + subOk(rows[0]) : "") }); return true; }
     return false;
   };
   const ex = d.receipt_no && D.findByReceipt(d.receipt_no);
@@ -173,9 +196,9 @@ async function processOne(it) {
     p.customer_id = custs.length === 1 ? custs[0].id : await D.linkCustomer(p.recipient_name, p.recipient_phone);
     const ins = await D.saveParcel(p);
     if (ins.error && ins.error.code === "23505" && (Number(d.pieces) || 1) > 1 && await addPiece()) return "ok";
-    if (ins.error) { await toQueue(it, d, [ins.error.code === "23505" ? "duplicate" : "ai_unavailable"]); stats.review++; }
-    else { D.onSaved(ins.data); if (it.pkg) await D.attachPackage(ins.data.id, it.pkg, d.package_desc); stats.auto++; }
-  } else { await toQueue(it, d, dec.problems); stats.review++; }
+    if (ins.error) { const pr = [ins.error.code === "23505" ? "duplicate" : "ai_unavailable"]; await toQueue(it, d, pr); stats.review++; report(it.id, { ok: false, name: d.recipient || d.receipt_no || "", sub: pr.map(problemText).join(" · ") + " → «Για έλεγχο»" }); }
+    else { D.onSaved(ins.data); if (it.pkg) await D.attachPackage(ins.data.id, it.pkg, d.package_desc); stats.auto++; report(it.id, { ok: true, name: ins.data.recipient_name || "", sub: subOk(ins.data) }); }
+  } else { await toQueue(it, d, dec.problems); stats.review++; report(it.id, { ok: false, name: d.recipient || d.receipt_no || "", sub: dec.problems.map(problemText).join(" · ") + " → «Για έλεγχο»" }); }
   await obDel(it.id);
   return "ok";
 }

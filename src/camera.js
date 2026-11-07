@@ -1,0 +1,95 @@
+// 📸 Κάμερα εισερχομένων: μία-μία ετικέτα, ένδειξη φωτισμού (+ φακός όπου υποστηρίζεται),
+// και μετά την ανάγνωση: ΠΡΑΣΙΝΟ «πέρασε — επόμενο» ή ΚΟΚΚΙΝΟ «δεν πέρασε».
+import { sound } from "./scan.js";
+import { enqueueShot } from "./capture.js";
+
+const $ = id => document.getElementById(id);
+let cam = null;
+const DARK = 62, BRIGHT = 95; // μέση φωτεινότητα 0–255
+
+/** Μέση φωτεινότητα ενός καρέ (μικρό δείγμα, γρήγορο). */
+export function lumaOf(src, w = 48, h = 36) {
+  const c = document.createElement("canvas"); c.width = w; c.height = h; const g = c.getContext("2d", { willReadFrequently: true });
+  g.drawImage(src, 0, 0, w, h); const d = g.getImageData(0, 0, w, h).data; let s = 0;
+  for (let i = 0; i < d.length; i += 4) s += 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+  return s / (w * h);
+}
+
+async function setTorch(on) {
+  if (!cam || !cam.caps.torch) return;
+  try { await cam.track.applyConstraints({ advanced: [{ torch: on }] }); cam.torch = on; $("camTorch").classList.toggle("primary", on); } catch { /* */ }
+}
+function lightLoop() {
+  if (!cam) return;
+  const v = $("camVideo");
+  if (v.videoWidth) {
+    const L = lumaOf(v); cam.l = L;
+    const dark = L < DARK, warn = $("camLight");
+    if (dark) {
+      warn.hidden = false;
+      if (cam.caps.torch && !cam.torch && !cam.userTorch) { setTorch(true); cam.autoTorch = true; }
+      warn.textContent = cam.caps.torch ? (cam.torch ? "🔦 Φακός ανοιχτός — ακόμα λίγο φως, πλησίασε την ετικέτα" : "💡 Λίγο φως — πάτα 🔦") : "💡 Λίγο φως — πήγαινε σε πιο φωτεινό σημείο, ή χρησιμοποίησε το «📷 Φωτογραφίες δεμάτων» με φλας";
+    } else if (L > BRIGHT) warn.hidden = true;
+  }
+  cam.loop = setTimeout(lightLoop, 400);
+}
+
+let flashT = null;
+function flash(kind, big, name, sub, ms) {
+  const f = $("camFlash"); clearTimeout(flashT);
+  f.className = "scanflash " + kind; f.hidden = false;
+  $("camBig").textContent = big; $("camName").textContent = name || ""; $("camSub").textContent = sub || "";
+  $("camCnt").textContent = cam ? "✓ " + cam.ok + (cam.bad ? " · ✗ " + cam.bad : "") : "";
+  if (ms) flashT = setTimeout(() => { f.hidden = true; }, ms);
+}
+
+async function shoot() {
+  if (!cam || cam.busy) return;
+  const v = $("camVideo"); if (!v.videoWidth) return;
+  sound.unlock(); cam.busy = true; $("camShot").disabled = true;
+  try {
+    const c = document.createElement("canvas"); c.width = v.videoWidth; c.height = v.videoHeight; c.getContext("2d").drawImage(v, 0, 0);
+    const dark = lumaOf(c) < DARK - 12;
+    const blob = await new Promise(r => c.toBlob(r, "image/jpeg", 0.92));
+    const file = new File([blob], "etiketa-" + Date.now() + ".jpg", { type: "image/jpeg", lastModified: Date.now() });
+    flash("dup", "⏳ ΔΙΑΒΑΖΩ…", dark ? "Σκοτεινή φωτογραφία" : "", "Κράτα το επόμενο δέμα έτοιμο");
+    const res = await Promise.race([enqueueShot(file), new Promise(r => setTimeout(() => r({ late: true }), 30000))]);
+    if (!res) { $("camFlash").hidden = true; return; } // χωρίς χρήστη
+    if (res.late) { flash("warn", "⏳ ΑΡΓΕΙ", "Χωρίς σύνδεση ή αργό δίκτυο", "Θα διαβαστεί μόλις γίνει δυνατό — συνέχισε", 2500); return; }
+    if (res.ok) { cam.ok++; sound.ok(); flash("ok", "✓ ΠΕΡΑΣΕ", res.name, [res.sub, "ΕΠΟΜΕΝΟ ▶"].filter(Boolean).join(" · "), 1400); }
+    else { cam.bad++; sound.bad(); flash("bad", "✗ ΔΕΝ ΠΕΡΑΣΕ", res.name, (res.sub || "") + (dark ? " · Η φωτογραφία ήταν σκοτεινή — άνοιξε φακό" : "") + " · Πάτα για συνέχεια"); }
+  } finally { if (cam) { cam.busy = false; $("camShot").disabled = false; } }
+}
+
+async function openCam() {
+  const dlg = $("camDlg"); dlg.showModal(); sound.unlock();
+  $("camStatus").textContent = "Άνοιγμα κάμερας…"; $("camStatus").className = "msg info"; $("camFlash").hidden = true; $("camLight").hidden = true;
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false });
+    const track = stream.getVideoTracks()[0]; const caps = (track.getCapabilities && track.getCapabilities()) || {};
+    try { if ((caps.focusMode || []).includes("continuous")) await track.applyConstraints({ advanced: [{ focusMode: "continuous" }] }); } catch { /* */ }
+    cam = { stream, track, caps, ok: 0, bad: 0, busy: false, torch: false, userTorch: false };
+    const v = $("camVideo"); v.srcObject = stream; await v.play().catch(() => {});
+    $("camTorch").hidden = !caps.torch;
+    $("camStatus").textContent = "Βάλε την ετικέτα να γεμίζει την οθόνη και πάτα «📸 Λήψη» (ή πάνω στην εικόνα).";
+    lightLoop();
+  } catch (e) {
+    $("camStatus").className = "msg bad";
+    $("camStatus").textContent = "Δεν άνοιξε η κάμερα (" + (e.name === "NotAllowedError" ? "δεν δόθηκε άδεια" : e.message || e.name) + "). Χρησιμοποίησε το «📷 Φωτογραφίες δεμάτων».";
+  }
+}
+function closeCam() {
+  if (cam) { clearTimeout(cam.loop); cam.stream.getTracks().forEach(t => t.stop()); cam = null; }
+  $("camVideo").srcObject = null; $("camDlg").close();
+}
+export function initCamera() {
+  if (!$("camBtn")) return;
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { $("camBtn").hidden = true; return; }
+  $("camBtn").onclick = openCam;
+  $("camClose").onclick = closeCam;
+  $("camDlg").addEventListener("cancel", e => { e.preventDefault(); closeCam(); });
+  $("camShot").onclick = shoot;
+  $("camVideo").onclick = shoot;
+  $("camFlash").onclick = () => { if (cam && cam.busy) return; clearTimeout(flashT); $("camFlash").hidden = true; };
+  $("camTorch").onclick = () => { if (!cam) return; cam.userTorch = true; setTorch(!cam.torch); };
+}

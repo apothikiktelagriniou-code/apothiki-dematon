@@ -13,8 +13,8 @@
 <link rel="apple-touch-icon" href="./icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
-  <script type="module" crossorigin src="./assets/index-BuYRi8Kc.js"></script>
-  <link rel="stylesheet" crossorigin href="./assets/index-CHh2lrFG.css">
+  <script type="module" crossorigin src="./assets/index-hLKzHrpI.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-Bh-aF3Om.css">
 </head>
 <body>
 <!-- ΣΥΝΔΕΣΗ -->
@@ -134,7 +134,8 @@
       <div class="capture" id="captureBox">
         <button type="button" class="btn small" id="expectBtn">📥 Κατάσταση πριν τα δέματα</button>
         <div id="expectBox" hidden></div>
-        <label class="btn primary big" for="photos"><span class="cam">📷</span> Φωτογραφίες δεμάτων</label>
+        <button type="button" class="btn primary big" id="camBtn"><span class="cam">📸</span> Κάμερα — ένα-ένα με έλεγχο</button>
+        <label class="btn big" for="photos"><span class="cam">📷</span> Φωτογραφίες δεμάτων</label>
         <input id="photos" type="file" accept="image/*" multiple hidden>
         <label class="check"><input type="checkbox" id="autoSend" checked> <span><b>Αυτόματη αποστολή</b> — οι φωτογραφίες διαβάζονται αμέσως, χωρίς «Αποστολή»</span></label>
         <div class="hint">Μόνο οι ετικέτες διαβάζονται — οι φωτογραφίες δεν κρατιούνται. Φωτογραφία ολόκληρου δέματος: από την κάρτα («📷 Φωτο δέματος»). Στον υπολογιστή: σύρε τις φωτογραφίες εδώ ή Ctrl+V.</div>
@@ -248,6 +249,16 @@
     <form id="scanManual" class="toolbar"><input id="scanNum" inputmode="numeric" autocomplete="off" placeholder="ή γράψε αριθμό / 6 τελευταία ψηφία" aria-label="Αριθμός απόδειξης"><button class="btn small" type="submit">OK</button><button class="btn small primary" type="button" id="scanAdd" title="Δέμα εκτός κατάστασης: φωτογράφισε την απόδειξη μέσα στο πλαίσιο">＋ Εκτός κατάστασης</button></form>
     <div id="scanLog" class="scanlog"></div>
   </dialog>
+  <dialog id="camDlg" class="scanner" aria-labelledby="camTitle">
+    <div class="scanhead"><h2 id="camTitle">📸 Ετικέτες δεμάτων</h2><button class="btn" type="button" id="camClose">Τέλος</button></div>
+    <div class="scanview"><video id="camVideo" playsinline muted></video>
+      <div id="camLight" class="camlight" hidden role="status"></div>
+      <div id="camFlash" class="scanflash" hidden role="alert"><div id="camBig" class="sf-big"></div><div id="camName" class="sf-name"></div><div id="camSub" class="sf-sub"></div><div id="camCnt" class="sf-cnt"></div></div>
+      <button class="btn small torch" type="button" id="camTorch" hidden aria-label="Φακός">🔦</button></div>
+    <button class="btn primary big wide camshot" type="button" id="camShot">📸 Λήψη</button>
+    <div id="camStatus" class="msg info" role="status"></div>
+  </dialog>
+  <div id="capFlash" class="scanflash capflash" hidden role="alert"><div id="capBig" class="sf-big"></div><div id="capName" class="sf-name"></div><div id="capSub" class="sf-sub"></div></div>
   <dialog id="outDlg" class="sheet" aria-labelledby="outDlgTitle">
     <form id="outForm">
       <div class="sheet-head"><h2 id="outDlgTitle">Εξερχόμενο</h2><button class="btn small" type="button" id="outCancel" aria-label="Κλείσιμο">✕</button></div>
