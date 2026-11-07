@@ -1,0 +1,33 @@
+<!--meta {"title":"Επικοινωνία · Αποθήκη Δεμάτων ΚΤΕΛ Αγρινίου","description":"Τηλέφωνο, WhatsApp, email, ωράριο και θέση της αποθήκης δεμάτων στον σταθμό ΚΤΕΛ Αγρινίου.","ld":"business"}-->
+<section class="page-head"><div class="wrap">
+  <span class="crumbs"><a href="index.html">Αρχική</a> / Επικοινωνία</span>
+  <h1>Επικοινωνία</h1>
+  <p>Είμαστε μέσα στον σταθμό ΚΤΕΛ Αγρινίου. Για γρήγορη απάντηση, καλέστε μας ή στείλτε WhatsApp.</p>
+</div></section>
+
+<section class="section"><div class="wrap grid g2" style="gap:24px;align-items:start">
+  <div class="grid" style="gap:16px">
+    <div class="panel contact-list">
+      <div class="row"><span class="ico">{{i:phone}}</span><div><b>Σταθερό</b><span class="v">{{phone}}</span></div></div>
+      <div class="row"><span class="ico">{{i:phone}}</span><div><b>Κινητό και WhatsApp</b><span class="v">{{mobile}}</span><div style="margin-top:4px"><a href="{{whatsapp}}">Μήνυμα στο WhatsApp</a></div></div></div>
+      <div class="row"><span class="ico">{{i:mail}}</span><div><b>Email</b><span class="v" style="font-size:17px">{{email}}</span></div></div>
+      <div class="row"><span class="ico">{{i:pin}}</span><div><b>Διεύθυνση</b><span class="v" style="font-size:17px">Σταθμός ΚΤΕΛ Αγρινίου, αποθήκη δεμάτων</span>
+        <div style="margin-top:6px"><a href="{{maps}}" target="_blank" rel="noopener">Άνοιγμα στον χάρτη</a></div></div></div>
+      <div class="draft"><b>Εκκρεμεί:</b> οδός, αριθμός, ΤΚ και οδηγίες πρόσβασης (από ποια είσοδο, πού παρκάρετε).</div>
+    </div>
+    <div class="panel"><h3>Ωράριο</h3><div style="margin-top:10px">{{hours}}</div></div>
+  </div>
+  <div class="grid" style="gap:14px">
+    <form class="form panel" data-msgform="Μήνυμα από την ιστοσελίδα" novalidate>
+      <h3>Στείλτε μας μήνυμα</h3>
+      <div class="field"><label for="m-name">Όνομα</label><input id="m-name" name="m-name" data-label="Όνομα" required autocomplete="name"></div>
+      <div class="field"><label for="m-phone">Τηλέφωνο</label><input id="m-phone" type="tel" data-label="Τηλέφωνο" required autocomplete="tel"></div>
+      <div class="field"><label for="m-topic">Θέμα</label><select id="m-topic" data-label="Θέμα"><option>Αποστολή δέματος</option><option>Παραλαβή δέματος</option><option>Φύλαξη αποσκευών</option><option>Επιχείρηση</option><option>Άλλο</option></select></div>
+      <div class="field"><label for="m-rc">Αριθμός απόδειξης (αν υπάρχει)</label><input id="m-rc" class="mono" data-label="Απόδειξη" inputmode="numeric"></div>
+      <div class="field"><label for="m-msg">Μήνυμα</label><textarea id="m-msg" data-label="Μήνυμα" required></textarea></div>
+      <button class="btn btn-primary" type="submit">Συνέχεια</button>
+      <p style="font-size:13px;color:var(--muted)">Το μήνυμα στέλνεται από εσάς με WhatsApp ή email. Η ιστοσελίδα δεν κρατά τα στοιχεία σας.</p>
+    </form>
+    <div data-msg-out class="grid" style="gap:12px"></div>
+  </div>
+</div></section>

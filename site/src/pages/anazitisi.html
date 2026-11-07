@@ -1,0 +1,31 @@
+<!--meta {"title":"Πού είναι το δέμα μου; · Αναζήτηση δέματος ΚΤΕΛ","description":"Δείτε αν έφτασε το δέμα σας στην αποθήκη δεμάτων ΚΤΕΛ Αγρινίου, με τον αριθμό απόδειξης και τα 3 πρώτα γράμματα του επωνύμου."}-->
+<section class="page-head"><div class="wrap">
+  <span class="crumbs"><a href="index.html">Αρχική</a> / Αναζήτηση δέματος</span>
+  <h1>Πού είναι το δέμα μου;</h1>
+  <p>Γράψτε τον αριθμό της απόδειξης και τα 3 πρώτα γράμματα του επωνύμου του παραλήπτη.</p>
+</div></section>
+
+<section class="section"><div class="wrap grid g2" style="gap:24px;align-items:start">
+  <div class="grid" style="gap:14px">
+    <form class="form panel" data-track autocomplete="off" novalidate>
+      <div class="field"><label for="t-rc">Αριθμός απόδειξης</label>
+        <input id="t-rc" class="mono" inputmode="numeric" placeholder="π.χ. 228-336-12345" required>
+        <span class="hint">Στην απόδειξη που σας έδωσε ο αποστολέας («Αρ. Απόδειξης»). Στις χειρόγραφες αποδείξεις: ο κόκκινος αριθμός.</span></div>
+      <div class="field"><label for="t-nm">3 πρώτα γράμματα επωνύμου παραλήπτη</label>
+        <input id="t-nm" maxlength="20" autocapitalize="characters" placeholder="π.χ. ΠΑΠ" required>
+        <span class="hint">Ζητάμε μόνο 3 γράμματα, για να μη βλέπει άλλος τα δέματά σας.</span></div>
+      <button class="btn btn-primary" type="submit">{{i:search}} Έλεγχος</button>
+    </form>
+    <div data-track-out role="status" aria-live="polite"></div>
+  </div>
+  <div class="grid" style="gap:16px">
+    <div class="panel"><h3>Τι δείχνει η αναζήτηση</h3>
+      <dl class="kv" style="margin-top:10px">
+        <dt><span class="tag ok">Έφτασε</span></dt><dd>Το δέμα σας περιμένει, με ημέρα και ώρα άφιξης, και μέχρι πότε η φύλαξη είναι δωρεάν.</dd>
+        <dt><span class="tag info">Παραδόθηκε</span></dt><dd>Το δέμα έχει παραληφθεί, με ημέρα και ώρα.</dd>
+        <dt><span class="tag info">Μεταφόρτωση</span></dt><dd>Πέρασε από το Αγρίνιο και συνεχίζει για άλλη πόλη.</dd>
+      </dl>
+      <p class="muted" style="margin-top:12px;font-size:14px">Δεν εμφανίζουμε ονόματα, τηλέφωνα ή άλλα προσωπικά στοιχεία.</p></div>
+    <div class="panel"><h3>Δεν το βρίσκετε;</h3><p class="muted" style="margin-top:6px">Αν στάλθηκε σήμερα, μπορεί να μην έχει φτάσει ακόμα. Ελέγξτε τον αριθμό ή καλέστε μας στο {{phone}}.</p></div>
+  </div>
+</div></section>

@@ -1,0 +1,53 @@
+<!--meta {"title":"Αποστολές δεμάτων για επιχειρήσεις στο Αγρίνιο","description":"Καθημερινές αποστολές δεμάτων με ΚΤΕΛ για καταστήματα, ανταλλακτικά, φαρμακαποθήκες και e-shops του Αγρινίου. Αναχωρήσεις από 04:00, ενημέρωση παραλήπτη με SMS."}-->
+<section class="page-head"><div class="wrap">
+  <span class="crumbs"><a href="index.html">Αρχική</a> / Για επιχειρήσεις</span>
+  <h1>Για επιχειρήσεις</h1>
+  <p>Στέλνετε σε πελάτες ή υποκαταστήματα κάθε μέρα; Τα λεωφορεία του ΚΤΕΛ φεύγουν από το πρωί ως το βράδυ, και ο παραλήπτης ενημερώνεται χωρίς να τον πάρετε τηλέφωνο.</p>
+</div></section>
+
+<section class="section"><div class="wrap">
+  <div class="grid g4">
+    <div class="panel"><span class="eyebrow">Αθήνα</span><p class="num" style="font-size:32px;font-weight:600;color:var(--heading);margin-top:6px">{{athensDaily}}</p><p class="muted">αναχωρήσεις την ημέρα</p></div>
+    <div class="panel"><span class="eyebrow">Πάτρα</span><p class="num" style="font-size:32px;font-weight:600;color:var(--heading);margin-top:6px">{{patraDaily}}</p><p class="muted">αναχωρήσεις την ημέρα</p></div>
+    <div class="panel"><span class="eyebrow">Απευθείας</span><p class="num" style="font-size:32px;font-weight:600;color:var(--heading);margin-top:6px">{{nDirect}}</p><p class="muted">πόλεις, αυθημερόν</p></div>
+    <div class="panel"><span class="eyebrow">Ανοιχτά</span><p class="num" style="font-size:32px;font-weight:600;color:var(--heading);margin-top:6px">06:30</p><p class="muted">από Δευτέρα ως Παρασκευή</p></div>
+  </div>
+</div></section>
+
+<section class="section alt"><div class="wrap grid g2" style="gap:32px;align-items:start">
+  <div>
+    <div class="section-head"><span class="eyebrow">Ποιους εξυπηρετούμε</span><h2>Ήδη στέλνουν μαζί μας</h2></div>
+    <ul style="padding-left:20px;margin:0;display:grid;gap:8px">
+      <li><b>Ανταλλακτικά αυτοκινήτων</b> προς συνεργεία σε όλη την Ελλάδα.</li>
+      <li><b>Φαρμακαποθήκες</b> και αποστολές φαρμάκων.</li>
+      <li><b>Λιπαντικά</b> και τεχνικά είδη.</li>
+      <li><b>Καταστήματα και e-shops</b> που στέλνουν παραγγελίες πελατών.</li>
+    </ul>
+    <div class="section-head" style="margin-top:28px"><h2 style="font-size:24px">Τι κερδίζετε</h2></div>
+    <ul style="padding-left:20px;margin:0;display:grid;gap:8px">
+      <li>Το δέμα φεύγει με το επόμενο λεωφορείο, όχι την επόμενη μέρα.</li>
+      <li>Ο παραλήπτης παίρνει SMS όταν φτάσει, και βλέπει την κατάσταση online.</li>
+      <li>Ένα σημείο για όλους τους προορισμούς του ΚΤΕΛ, μέσα στην πόλη.</li>
+    </ul>
+  </div>
+  <div class="grid" style="gap:14px">
+    <form class="form panel" data-msgform="Ενδιαφέρον επιχείρησης — ιστοσελίδα" novalidate>
+      <h3>Εκδήλωση ενδιαφέροντος</h3>
+      <div class="field"><label for="b-name">Επωνυμία</label><input id="b-name" name="b-name" data-label="Επωνυμία" required autocomplete="organization"></div>
+      <div class="grid g2">
+        <div class="field"><label for="b-person">Υπεύθυνος</label><input id="b-person" data-label="Υπεύθυνος" required autocomplete="name"></div>
+        <div class="field"><label for="b-phone">Τηλέφωνο</label><input id="b-phone" type="tel" data-label="Τηλέφωνο" required autocomplete="tel"></div>
+      </div>
+      <div class="field"><label for="b-email">Email</label><input id="b-email" type="email" data-label="Email" autocomplete="email"></div>
+      <div class="grid g2">
+        <div class="field"><label for="b-vol">Δέματα την εβδομάδα</label><select id="b-vol" data-label="Δέματα/εβδομάδα"><option value="">—</option><option>1–10</option><option>10–50</option><option>50–150</option><option>Πάνω από 150</option></select></div>
+        <div class="field"><label for="b-dest">Κύριοι προορισμοί</label><input id="b-dest" data-label="Προορισμοί" placeholder="π.χ. Αθήνα, Πάτρα"></div>
+      </div>
+      <div class="field"><label for="b-msg">Μήνυμα</label><textarea id="b-msg" data-label="Μήνυμα"></textarea></div>
+      <label class="check"><input type="checkbox" id="b-consent" data-label="Συμφωνεί σε ενημερωτικά email"><span>Θέλω να λαμβάνω ενημερωτικά email για δρομολόγια και αλλαγές τιμών. Μπορώ να σταματήσω οποτεδήποτε.</span></label>
+      <button class="btn btn-primary" type="submit">Συνέχεια</button>
+      <p class="hint" style="font-size:13px;color:var(--muted)">Το μήνυμα στέλνεται από εσάς με WhatsApp ή email. Δείτε το <a href="aporrito.html">απόρρητο</a>.</p>
+    </form>
+    <div data-msg-out class="grid" style="gap:12px"></div>
+  </div>
+</div></section>
