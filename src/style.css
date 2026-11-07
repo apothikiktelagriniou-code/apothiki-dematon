@@ -552,3 +552,10 @@ article.row.is-star{box-shadow:inset 4px 0 0 #f59e0b}
 .hsec{margin:14px 0 4px;font-size:16px}.hsec.ok{color:#15803d}.hsec.bad{color:#dc2626}
 .hrow{padding:4px 0;border-bottom:1px solid rgba(127,127,127,.15);font-size:14px}
 .hrow.bad{color:#dc2626;font-weight:700}.hrow.warn{color:#b45309}.hrow.opt{opacity:.7}
+/* κάμερα: τρόπος «κάμερα κινητού» — χωρίς ζωντανή εικόνα, μόνο η περιοχή σήμανσης */
+#camDlg.native .scanview{aspect-ratio:auto;min-height:190px;max-height:none;display:flex;align-items:center;justify-content:center}
+#camDlg.native .scanview video{display:none}
+#camDlg.native .scanview::before{content:"📷 Η φωτογραφία τραβιέται με την κάμερα του κινητού";color:#cbd5e1;font-weight:700;padding:16px;text-align:center}
+.camopts{margin:4px 0}
+label.camshot{display:block;text-align:center;cursor:pointer}
+label.camshot.disabled{opacity:.5;pointer-events:none}

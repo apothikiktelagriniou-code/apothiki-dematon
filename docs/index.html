@@ -13,8 +13,8 @@
 <link rel="apple-touch-icon" href="./icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
-  <script type="module" crossorigin src="./assets/index-DUTd4yqT.js"></script>
-  <link rel="stylesheet" crossorigin href="./assets/index-Ca36mVUX.css">
+  <script type="module" crossorigin src="./assets/index--hnTaMyA.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-BWdKL4jK.css">
 </head>
 <body>
 <!-- ΣΥΝΔΕΣΗ -->
@@ -253,13 +253,16 @@
     <div id="scanLog" class="scanlog"></div>
   </dialog>
   <dialog id="camDlg" class="scanner" aria-labelledby="camTitle">
-    <div class="scanhead"><h2 id="camTitle">📸 Ετικέτες</h2><button class="btn small" type="button" id="camFast">⚡ Συνεχόμενη</button><button class="btn" type="button" id="camClose">Τέλος</button></div>
+    <div class="scanhead"><h2 id="camTitle">📸 Ετικέτες</h2><button class="btn" type="button" id="camClose">Τέλος</button></div>
+    <div class="quick camopts"><button class="btn small" type="button" id="camFast">⚡ Συνεχόμενη</button><button class="btn small" type="button" id="camLive" hidden>🎥 Ζωντανή</button></div>
     <div class="scanview"><video id="camVideo" playsinline muted></video>
       <div id="camLight" class="camlight" hidden role="status"></div>
       <div id="camFlash" class="scanflash" hidden role="alert"><div id="camBig" class="sf-big"></div><div id="camName" class="sf-name"></div><div id="camSub" class="sf-sub"></div><div id="camCnt" class="sf-cnt"></div></div>
       <div id="camPend" class="campend" hidden></div>
       <button class="btn small torch" type="button" id="camTorch" hidden aria-label="Φακός">🔦</button></div>
-    <button class="btn primary big wide camshot" type="button" id="camShot">📸 Λήψη</button>
+    <button class="btn primary big wide camshot" type="button" id="camShot" hidden>📸 Λήψη</button>
+    <label class="btn primary big wide camshot" id="camShotLbl" for="camNative">📸 Φωτογράφισε ετικέτα</label>
+    <input type="file" id="camNative" accept="image/*" capture="environment" hidden>
     <div id="camStatus" class="msg info" role="status"></div>
     <div id="camLog" class="camlog" aria-live="polite"></div>
   </dialog>
