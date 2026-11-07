@@ -7,7 +7,7 @@ const BOX_IDS = ["fakelos", "mikro", "mesaio", "megalo"];
 
 // Βρίσκει κατηγορία από διαστάσεις (εκ.) και βάρος (kg). Κρατά τη μεγαλύτερη από «κατά διαστάσεις» και «κατά βάρος».
 // fromId: από ποια κατηγορία ξεκινά (ο φάκελος μετράει μόνο αν ο πελάτης διάλεξε φάκελο).
-export function classifyBox(cats, dims, kg, fromId = "mikro") {
+export function classifyBox(cats, dims, kg, fromId = "mikro", weightBumps = true) {
   const list = cats.filter(c => BOX_IDS.includes(c.id));
   const start = Math.max(0, list.findIndex(c => c.id === fromId));
   const d = (dims || []).map(Number).filter(n => n > 0).sort((a, b) => b - a);
@@ -15,10 +15,11 @@ export function classifyBox(cats, dims, kg, fromId = "mikro") {
   let byDims = -1, byKg = -1;
   if (d.length === 3) byDims = list.findIndex((c, i) => i >= start && d[0] <= c.box.L && d[1] <= c.box.W && d[2] <= c.box.H);
   else byDims = start;
-  byKg = w > 0 ? list.findIndex((c, i) => i >= start && w <= c.kg) : start;
+  const maxKg = list[list.length - 1].kg;
+  byKg = !(w > 0) ? start : weightBumps ? list.findIndex((c, i) => i >= start && w <= c.kg) : (w <= maxKg ? start : -1);
   if (byDims < 0 || byKg < 0) return { id: null, oversize: true, by: byDims < 0 ? "dims" : "kg" };
   const i = Math.max(byDims, byKg);
-  return { id: list[i].id, oversize: false, by: byKg > byDims ? "kg" : byDims > byKg ? "dims" : "both" };
+  return { id: list[i].id, oversize: false, by: byKg > byDims ? "kg" : byDims > byKg ? "dims" : "both", dimsId: list[byDims].id, sorted: d };
 }
 
 export function findDest(dests, name) {

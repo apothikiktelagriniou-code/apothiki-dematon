@@ -93,7 +93,7 @@
         const dims = [val("c-l"), val("c-w"), val("c-h")];
         const filled = dims.filter(Number).length;
         if (filled > 0 && filled < 3) { card.append(h("p", { class: "muted" }, T("Συμπληρώστε και τις τρεις διαστάσεις.", "Fill in all three dimensions."))); return; }
-        classed = classifyBox(SITE.CATEGORIES, filled === 3 ? dims : [], val("c-kg"), kind === "fakelos" ? "fakelos" : "mikro");
+        classed = classifyBox(SITE.CATEGORIES, filled === 3 ? dims : [], val("c-kg"), kind === "fakelos" ? "fakelos" : "mikro", SITE.SIZE_RULE.weightBumpsCategory);
         if (classed.oversize) return oversize();
         catId = classed.id; kg = val("c-kg");
       }
@@ -128,9 +128,40 @@
           h("div", { class: "deps", style: "margin-top:6px" }, deps.map(d => h("div", {}, h("span", { class: "num" }, d.time), h("span", {}, d.day), h("span", { class: "muted", style: "font-size:13px" }, T(`φέρτε το έως ${before(d.time)}`, `bring it by ${before(d.time)}`)), d.express ? h("span", { class: "tag info" }, "Express") : null)))));
       }
       if (q.dest.note) card.append(h("p", { class: "muted", style: "margin-top:10px;font-size:14px" }, L(q.dest.note)));
+      card.append(breakdown({ q, cat, classed, kg, kind }));
       card.append(h("p", { class: "muted", style: "margin-top:12px;font-size:13px" }, T("Η τελική τιμή ορίζεται στο ταμείο, μετά από ζύγισμα και μέτρηση. Τιμές ΚΤΕΛ Αιτωλοακαρνανίας με ΦΠΑ.", "The final price is set at the counter after weighing and measuring. KTEL Aetolia-Acarnania prices, VAT included.")));
       if (warnHit) out.append(warnHit);
     };
+    // «Πώς υπολογίστηκε»: τα ίδια βήματα με το ταμείο, με τα νούμερα αυτού του δέματος
+    const n2 = v => LANG === "en" ? v.toFixed(2) : v.toFixed(2).replace(".", ",");
+    const kgS = v => (LANG === "en" ? String(v) : String(v).replace(".", ",")) + " kg";
+    const breakdown = ({ q, cat, classed, kg, kind }) => {
+      const steps = [];
+      const tLabel = L(SITE.TARIFFS[q.hub ? q.hub.tariff : q.dest.tariff].label);
+      const catName = L(cat.name);
+      if (classed) {
+        const d = classed.sorted;
+        const dimsTxt = d && d.length === 3 ? `${d[0]} × ${d[1]} × ${d[2]} ${T("εκ.", "cm")}` : "";
+        const dimsCat = L(SITE.CATEGORIES.find(c => c.id === classed.dimsId).name);
+        steps.push(classed.by === "kg"
+          ? T(`Κατηγορία: ${dimsTxt ? `οι διαστάσεις ${dimsTxt} χωράνε σε «${dimsCat}», ` : ""}αλλά με ${kgS(Number(kg))} ανεβαίνει σε «${catName}».`, `Category: ${dimsTxt ? `size ${dimsTxt} fits "${dimsCat}", ` : ""}but at ${kgS(Number(kg))} it moves up to "${catName}".`)
+          : T(`Κατηγορία: ${dimsTxt ? `οι διαστάσεις ${dimsTxt} χωράνε σε ` : ""}«${catName}».`, `Category: ${dimsTxt ? `size ${dimsTxt} fits ` : ""}"${catName}".`));
+      } else steps.push(T(`Είδος: «${catName}»${kind === "tenekes" || kind === "arni" ? " (σταθερή τιμή, χωρίς επιβάρυνση βάρους)" : ""}.`, `Item: "${catName}"${kind === "tenekes" || kind === "arni" ? " (fixed price, no weight surcharge)" : ""}.`));
+      steps.push(T(`Βασική τιμή, στήλη «${tLabel}»${q.hub ? `, μέσω ${L(q.hub.label)}` : ""}: ${eur(q.base)}.`, `Base price, "${tLabel}" column${q.hub ? `, via ${L(q.hub.label)}` : ""}: ${eur(q.base)}.`));
+      const OWc = SITE.OVERWEIGHT, w = Number(kg) || 0;
+      if (OWc && OWc.enabled && OWc.cats.includes(cat.id)) {
+        if (w > OWc.fromKg) {
+          const over = Math.ceil(Math.round((w - OWc.fromKg) * 1000) / 1000), raw = over * q.rate;
+          steps.push(T(`Βάρος ${kgS(w)}: ${over} ${over === 1 ? "κιλό" : "κιλά"} πάνω από τα ${OWc.fromKg} × ${n2(q.rate)} € (το ${Math.round(OWc.share * 100)}% της τιμής τσουβαλιού) = ${n2(raw)} € → στρογγύλεμα ${eur(q.extra)}.`,
+            `Weight ${kgS(w)}: ${over} kg over ${OWc.fromKg} × €${n2(q.rate)} (${Math.round(OWc.share * 100)}% of the sack price) = €${n2(raw)} → rounded up to ${eur(q.extra)}.`));
+        } else steps.push(T(`Βάρος${w ? " " + kgS(w) : ""}: έως ${OWc.fromKg} kg, χωρίς επιβάρυνση.`, `Weight${w ? " " + kgS(w) : ""}: up to ${OWc.fromKg} kg, no surcharge.`));
+      }
+      steps.push(T(`Ανά τεμάχιο: ${eur(q.base)}${q.extra ? ` + ${eur(q.extra)}` : ""} = ${eur(q.perPiece)}${q.pieces > 1 ? ` · × ${q.pieces} τεμάχια = ${eur(q.total)}` : ""}.`,
+        `Per item: ${eur(q.base)}${q.extra ? ` + ${eur(q.extra)}` : ""} = ${eur(q.perPiece)}${q.pieces > 1 ? ` · × ${q.pieces} items = ${eur(q.total)}` : ""}.`));
+      if (q.hub) steps.push(T(`Ανταπόκριση: περίπου άλλα ${eur(q.otherEstimate)} σε φάκελο πάνω στο δέμα, για το πρακτορείο που συνεχίζει.`, `Connection: about ${eur(q.otherEstimate)} more in an envelope on the parcel, for the agency that carries it on.`));
+      return h("details", { class: "how", open: true }, h("summary", {}, T("Πώς υπολογίστηκε", "How we calculated it")), h("ol", {}, steps.map(s => h("li", {}, s))));
+    };
+
     form.addEventListener("input", render); form.addEventListener("change", render);
     form.addEventListener("submit", e => e.preventDefault());
     const pre = new URLSearchParams(location.search).get("to");

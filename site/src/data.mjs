@@ -132,6 +132,10 @@ export const DESTINATIONS = [
 // Ισχύει μόνο για τις κατηγορίες του `cats` (τενεκέδες και αρνί έχουν σταθερή τιμή).
 export const OVERWEIGHT = { enabled: true, fromKg: 10, share: 0.05, refCat: "tsouvali", cats: ["fakelos", "mikro", "mesaio", "megalo", "tsouvali"] };
 
+// Κανόνας κατηγορίας: true = το βάρος μπορεί να ανεβάσει την κατηγορία (μικρό έως 5 kg, μεσαίο έως 15 kg κ.λπ.)
+// false = η κατηγορία βγαίνει μόνο από τις διαστάσεις και το βάρος χρεώνεται μόνο με την επιβάρυνση (χωρίς διπλή χρέωση).
+export const SIZE_RULE = { weightBumpsCategory: true };
+
 export const STORAGE = { freeDays: 10, perDay: 3, cap: 20 };
 export const LUGGAGE = { perPiecePerDay: 2, note: "Ανά κομμάτι, ανά ημέρα, στις ώρες λειτουργίας της αποθήκης." };
 

@@ -194,7 +194,8 @@ fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
 
 .calc { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr); gap: 20px; align-items: start; }
 @media (max-width: 900px) { .calc { grid-template-columns: minmax(0, 1fr); } }
-.result { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 84px); display: grid; gap: 14px; }
+.result { display: grid; gap: 14px; }
+@media (min-width: 901px) { .result { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 84px); } }
 .price { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
 .price .big { font: 800 52px/1 var(--f-display); color: var(--heading); font-variant-numeric: tabular-nums; }
 .price .per { color: var(--muted); }
@@ -271,3 +272,9 @@ details.q .a { padding: 0 18px 18px; color: var(--ink); max-width: 70ch; }
 .lang-switch:hover { background: rgba(255,255,255,.1); }
 .menu-btn { order: 3; }
 @media (max-width: 1140px) { .lang-switch { margin-left: auto; } .menu-btn { margin-left: 8px; } }
+
+/* «Πώς υπολογίστηκε» στον υπολογιστή */
+details.how { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 10px; }
+details.how summary { cursor: pointer; font-weight: 700; color: var(--teal); font-size: 15px; }
+details.how ol { margin: 8px 0 0; padding-left: 20px; display: grid; gap: 6px; font-size: 14px; color: var(--ink); }
+details.how li { font-variant-numeric: tabular-nums; }

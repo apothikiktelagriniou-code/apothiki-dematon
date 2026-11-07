@@ -19,6 +19,13 @@ test("κατηγορία από διαστάσεις και βάρος", () => {
   assert.equal(classifyBox(C, [32, 23, 1], 0.2).id, "mikro", "χωρίς επιλογή φακέλου ξεκινά από μικρό");
 });
 
+test("κανόνας κατηγορίας χωρίς διπλή χρέωση (όταν απενεργοποιηθεί το ανέβασμα λόγω βάρους)", () => {
+  assert.equal(classifyBox(C, [30, 20, 15], 20, "mikro", false).id, "mikro");
+  assert.equal(classifyBox(C, [30, 20, 15], 20, "mikro", true).id, "megalo");
+  assert.equal(classifyBox(C, [30, 20, 15], 31, "mikro", false).oversize, true, "πάνω από 30 kg πάντα «καλέστε μας»");
+  assert.equal(classifyBox(C, [30, 20, 15], 8).dimsId, "mikro");
+});
+
 test("τιμές απευθείας, εντός νομού, ανταπόκριση", () => {
   assert.equal(quote(DATA, { dest: "Αθήνα", catId: "mesaio" }).total, 8);
   assert.equal(quote(DATA, { dest: "Βέροια", catId: "megalo", pieces: 2 }).total, 24, "τιμές Θεσσαλονίκης × 2");
