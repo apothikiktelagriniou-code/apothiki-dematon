@@ -209,6 +209,18 @@
     });
   }
 
+  // ---------- Φίλτρο πίνακα προορισμών ----------
+  const dq = $("[data-dest-filter]");
+  if (dq) {
+    const rows = $$(".dest-table tbody tr"), cnt = $("[data-dest-count]");
+    const run = () => {
+      const q = norm(dq.value).trim(); let n = 0;
+      for (const r of rows) { const ok = !q || norm(r.dataset.q).includes(q); r.hidden = !ok; if (ok) n++; }
+      cnt.textContent = T(`${n} από ${rows.length} προορισμούς`, `${n} of ${rows.length} destinations`);
+    };
+    dq.addEventListener("input", run); run();
+  }
+
   // ---------- Παράδοση στο σπίτι ----------
   const home = $("[data-home]");
   if (home) {
