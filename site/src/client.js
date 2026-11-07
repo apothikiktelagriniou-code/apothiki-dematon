@@ -44,7 +44,7 @@
   const calcEl = $("[data-calc]");
   if (calcEl) {
     const OW = SITE.OVERWEIGHT;
-    const owHint = OW && OW.enabled ? T(`Πάνω από ${OW.fromKg} κιλά: +${String(OW.perKg).replace(".", ",")} € ανά κιλό και τεμάχιο, στρογγυλεμένο στο επόμενο ευρώ.`, `Over ${OW.fromKg} kg: +€${OW.perKg} per kg per item, rounded up to the next euro.`) : "";
+    const owHint = OW && OW.enabled ? T(`Πάνω από ${OW.fromKg} κιλά υπάρχει επιβάρυνση ανά κιλό, ανάλογα με τον προορισμό.`, `Over ${OW.fromKg} kg there is a per-kg surcharge that depends on the destination.`) : "";
     const KINDS = [
       { id: "fakelos", name: T("Φάκελος", "Envelope"), sub: T("έγγραφα, έως 1 kg", "documents, up to 1 kg") },
       { id: "box", name: T("Κούτα / δέμα", "Box / parcel"), sub: T("βάλτε διαστάσεις και βάρος", "enter size and weight") },
@@ -116,7 +116,7 @@
       card.append(h("dl", { class: "kv", style: "margin-top:12px" },
         h("dt", {}, T("Κατηγορία", "Category")), h("dd", {}, L(cat.name), byKg),
         h("dt", {}, T("Προορισμός", "Destination")), h("dd", {}, L(q.dest.name)),
-        q.extra ? [h("dt", {}, T("Επιβάρυνση βάρους", "Weight surcharge")), h("dd", {}, T(`+${eur(q.extra)} ανά τεμάχιο (βασική ${eur(q.base)})`, `+${eur(q.extra)} per item (base ${eur(q.base)})`))] : null,
+        q.extra ? [h("dt", {}, T("Επιβάρυνση βάρους", "Weight surcharge")), h("dd", {}, T(`+${eur(q.extra)} ανά τεμάχιο (βασική ${eur(q.base)}, ${String(q.rate.toFixed(2)).replace(".", ",")} €/kg πάνω από ${OW.fromKg} kg)`, `+${eur(q.extra)} per item (base ${eur(q.base)}, €${q.rate.toFixed(2)}/kg over ${OW.fromKg} kg)`))] : null,
         q.hub ? [h("dt", {}, T("Μέσω", "Via")), h("dd", {}, L(q.hub.label))] : null,
         h("dt", {}, T("Παράδοση", "Delivery")), h("dd", {}, L(q.eta) || "")));
       const keys = q.hub ? q.hub.sched : q.dest.sched;

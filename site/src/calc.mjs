@@ -38,19 +38,27 @@ export function quote(site, { dest, catId, pieces = 1, kg = 0 }) {
   const t = site.TARIFFS[hub ? hub.tariff : d.tariff];
   const p = t && t.p[catId];
   if (p == null) return { status: "noprice", dest: d };
-  const extra = overweightExtra(site.OVERWEIGHT, catId, kg);
+  const extra = overweightExtra(site.OVERWEIGHT, catId, kg, t);
+  const rate = kgRate(site.OVERWEIGHT, t);
   const per = Math.round((p + extra) * 100) / 100;
-  const out = { status: hub ? "transfer" : "ok", dest: d, hub, base: p, extra, perPiece: per, pieces: n, total: Math.round(per * n * 100) / 100, eta: (hub && !d.eta) ? hub.eta : d.eta };
+  const out = { status: hub ? "transfer" : "ok", dest: d, hub, base: p, extra, rate, perPiece: per, pieces: n, total: Math.round(per * n * 100) / 100, eta: (hub && !d.eta) ? hub.eta : d.eta };
   if (hub) { out.otherEstimate = out.total; out.grandEstimate = out.total * 2; }
   return out;
 }
 
-// Επιβάρυνση βάρους ανά τεμάχιο: κάθε αρχόμενο κιλό πάνω από fromKg × perKg, στρογγυλεμένο προς τα πάνω σε ακέραιο €.
-export function overweightExtra(ow, catId, kg) {
+// Ευρώ ανά κιλό πάνω από το όριο, για έναν τιμοκατάλογο (προορισμό): share × τιμή τσουβαλιού.
+export function kgRate(ow, tariff) {
+  if (!ow || !ow.enabled || !tariff) return 0;
+  const ref = tariff.p[ow.refCat || "tsouvali"];
+  return ref == null ? 0 : Math.round(ref * ow.share * 100) / 100;
+}
+
+// Επιβάρυνση βάρους ανά τεμάχιο: αρχόμενα κιλά πάνω από fromKg × kgRate, στρογγυλεμένο προς τα πάνω σε ακέραιο €.
+export function overweightExtra(ow, catId, kg, tariff) {
   const w = Number(kg) || 0;
   if (!ow || !ow.enabled || w <= ow.fromKg || (ow.cats && !ow.cats.includes(catId))) return 0;
   const kgOver = Math.ceil(Math.round((w - ow.fromKg) * 1000) / 1000);
-  return Math.ceil(Math.round(kgOver * ow.perKg * 100) / 100);
+  return Math.ceil(Math.round(kgOver * kgRate(ow, tariff) * 100) / 100);
 }
 
 // Τρέχουσα ημέρα (0 = Δευτέρα) και λεπτά, ώρα Ελλάδας.

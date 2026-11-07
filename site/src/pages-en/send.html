@@ -20,7 +20,7 @@
     </ol>
   </div>
   <div class="grid" style="gap:16px">
-    <div class="panel"><h3>Size and weight</h3><p class="muted" style="margin:6px 0 12px">The category comes from size and weight.</p>{{sizeTable}}<p class="notice info" style="margin-top:12px"><b>Heavy parcels</b>Over {{owFrom}} kg, €{{owPer}} is added for each extra kg, per item, rounded up to the next euro. E.g. a 30 kg sack to Patras: €10 + €10 = €20.</p></div>
+    <div class="panel"><h3>Size and weight</h3><p class="muted" style="margin:6px 0 12px">The category comes from size and weight.</p>{{sizeTable}}<p class="notice info" style="margin-top:12px"><b>Heavy parcels</b>Over {{owFrom}} kg, each extra kg costs {{owShare}}% of the destination's sack price, per item, rounded up to the next euro. The further it goes, the higher the surcharge: {{owExamples}}. E.g. a 30 kg sack to Patras: €10 + €10 = €20. Tins and lamb have a fixed price.</p></div>
     <div class="panel"><h3>Packing</h3><ul style="margin:8px 0 0;padding-left:20px;display:grid;gap:6px">
       <li>Wrap fragile items separately, with padding around them.</li>
       <li>Liquids and oil in a tightly sealed container, kept upright.</li>

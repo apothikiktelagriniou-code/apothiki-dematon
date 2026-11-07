@@ -58,17 +58,23 @@ test("επόμενες αναχωρήσεις", () => {
   assert.equal(daysLabel(SCHEDULE_TIMES, ["ΑΘΗΝΑ"]), "Καθημερινά");
 });
 
-test("επιβάρυνση βάρους: 0,50 €/kg πάνω από 10 kg, στρογγύλεμα προς τα πάνω", () => {
-  assert.equal(quote(DATA, { dest: "Πάτρα", catId: "tsouvali", kg: 30 }).total, 20, "παράδειγμα Άγη");
-  assert.equal(quote(DATA, { dest: "Αθήνα", catId: "tsouvali", kg: 30 }).total, 22);
-  assert.equal(quote(DATA, { dest: "Αθήνα", catId: "mesaio", kg: 11 }).extra, 1, "0,50 → 1 €");
-  assert.equal(quote(DATA, { dest: "Αθήνα", catId: "mesaio", kg: 12 }).extra, 1);
-  assert.equal(quote(DATA, { dest: "Αθήνα", catId: "mesaio", kg: 13 }).extra, 2, "1,50 → 2 €");
+test("επιβάρυνση βάρους: 5% της τιμής τσουβαλιού ανά κιλό πάνω από 10 kg, στρογγύλεμα προς τα πάνω", () => {
+  const sack30 = d => quote(DATA, { dest: d, catId: "tsouvali", kg: 30 }).total;
+  assert.equal(sack30("Πάτρα"), 20, "παράδειγμα Άγη");
+  assert.equal(sack30("Μεσολόγγι"), 16);
+  assert.equal(sack30("Αθήνα"), 24);
+  assert.equal(sack30("Θεσσαλονίκη"), 30);
+  assert.equal(sack30("Χανιά"), 40);
+  assert.equal(quote(DATA, { dest: "Αθήνα", catId: "mesaio", kg: 11 }).extra, 1, "0,60 → 1 €");
+  assert.equal(quote(DATA, { dest: "Αθήνα", catId: "mesaio", kg: 13 }).extra, 2, "1,80 → 2 €");
+  assert.equal(quote(DATA, { dest: "Πάτρα", catId: "mesaio", kg: 13 }).extra, 2, "1,50 → 2 €");
   assert.equal(quote(DATA, { dest: "Αθήνα", catId: "mesaio", kg: 10.2 }).extra, 1, "αρχόμενο κιλό");
   assert.equal(quote(DATA, { dest: "Αθήνα", catId: "mesaio", kg: 10 }).extra, 0);
-  assert.equal(quote(DATA, { dest: "Αθήνα", catId: "megalo", kg: 30, pieces: 2 }).total, 40, "(10 + 10) × 2");
-  assert.equal(quote(DATA, { dest: "Αθήνα", catId: "tenekes", kg: 17 }).extra, 0, "όχι στους τενεκέδες");
-  assert.equal(quote(DATA, { dest: "Τρίπολη", catId: "mesaio", kg: 14 }).grandEstimate, 20, "ανταπόκριση: (8+2) × 2");
+  assert.equal(quote(DATA, { dest: "Αθήνα", catId: "megalo", kg: 30, pieces: 2 }).total, 44, "(10 + 12) × 2");
+  assert.equal(quote(DATA, { dest: "Αθήνα", catId: "tenekes", kg: 17 }).extra, 0, "τενεκές: σταθερή τιμή");
+  assert.equal(quote(DATA, { dest: "Αθήνα", catId: "arni", kg: 15 }).extra, 0, "αρνί: σταθερή τιμή");
+  assert.equal(quote(DATA, { dest: "Τρίπολη", catId: "mesaio", kg: 14 }).grandEstimate, 22, "ανταπόκριση: (8+3) × 2");
+  assert.equal(quote(DATA, { dest: "Αθήνα", catId: "mikro" }).rate, 0.6);
 });
 
 test("αγγλικά: κάθε κείμενο προορισμού έχει απόδοση", async () => {

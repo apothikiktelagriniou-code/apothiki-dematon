@@ -1,6 +1,7 @@
 // Βγάζει όλους τους προορισμούς και τις τιμές σε απλό κείμενο, από τα ίδια δεδομένα με την ιστοσελίδα.
 // node site/export-text.mjs > Προορισμοί_και_τιμές.txt
 import * as D from "./src/data.mjs";
+import { kgRate } from "./src/calc.mjs";
 import { SCHEDULE_TIMES } from "../src/schedule-seed.js";
 
 const S = ["Δευ", "Τρι", "Τετ", "Πεμ", "Παρ", "Σαβ", "Κυρ"];
@@ -30,11 +31,11 @@ for (const c of C) {
   else line(`- ${c.name}${c.kg ? `: έως ${c.kg} kg` : ""}${c.note ? ` — ${c.note}` : ""}`);
 }
 line("- Μεγαλύτερο από 80 × 60 × 60 εκ. ή πάνω από 30 kg: ρωτήστε.");
-if (D.OVERWEIGHT.enabled) line(`- Πάνω από ${D.OVERWEIGHT.fromKg} kg: +${D.OVERWEIGHT.perKg.toFixed(2).replace(".", ",")} € ανά επιπλέον κιλό και τεμάχιο, στρογγυλεμένο στο επόμενο ευρώ (κουτιά, φάκελοι, τσουβάλια). Π.χ. τσουβάλι 30 kg Πάτρα = 20 €.`);
+if (D.OVERWEIGHT.enabled) line(`- Πάνω από ${D.OVERWEIGHT.fromKg} kg (κουτιά, φάκελοι, τσουβάλια): κάθε επιπλέον κιλό = ${Math.round(D.OVERWEIGHT.share * 100)}% της τιμής τσουβαλιού του προορισμού, ανά τεμάχιο, στρογγυλεμένο στο επόμενο ευρώ (βλ. «€/kg» σε κάθε τιμοκατάλογο). Τενεκέδες και αρνί: σταθερή τιμή.`);
 line("- Μετράει η μεγαλύτερη κατηγορία από διαστάσεις και βάρος (μικρό κουτί 8 kg = μεσαίο).");
 line();
 line("2. ΤΙΜΟΚΑΤΑΛΟΓΟΣ");
-for (const t of Object.values(D.TARIFFS)) { line(`${t.label}`); line(`   ${priceLine(t)}`); }
+for (const t of Object.values(D.TARIFFS)) { line(`${t.label}`); line(`   ${priceLine(t)}`); if (D.OVERWEIGHT.enabled) line(`   Πάνω από ${D.OVERWEIGHT.fromKg} kg: +${kgRate(D.OVERWEIGHT, t).toFixed(2).replace(".", ",")} € ανά κιλό · τσουβάλι 30 kg = ${t.p.tsouvali + Math.ceil(20 * kgRate(D.OVERWEIGHT, t))} €`); }
 line();
 line("3. ΑΠΕΥΘΕΙΑΣ ΔΡΟΜΟΛΟΓΙΑ");
 for (const d of sortEl(D.DESTINATIONS.filter(x => x.type === "direct"))) {

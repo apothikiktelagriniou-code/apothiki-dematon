@@ -10,7 +10,7 @@ import { FAQ, FAQ_EN } from "./src/faq.mjs";
 import { EN, tr } from "./src/en.mjs";
 import { SCHEDULE_TIMES } from "../src/schedule-seed.js";
 import { SUPABASE_URL, SUPABASE_KEY } from "../src/config.js";
-import { daysLabel } from "./src/calc.mjs";
+import { daysLabel, kgRate } from "./src/calc.mjs";
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const ARTIFACT = process.argv.includes("--artifact");
@@ -60,14 +60,15 @@ function makeLang(lang) {
   const sortL = (a, b) => L(a.name).localeCompare(L(b.name), lang);
   const kgFmt = n => (lang === "en" ? String(n) : String(n).replace(".", ","));
   const eur = n => n == null ? "—" : (lang === "en" ? `€${n}` : `${n} €`);
+  const money2 = n => (lang === "en" ? `€${n.toFixed(2)}` : `${n.toFixed(2).replace(".", ",")} €`);
   const ow = DATA.OVERWEIGHT;
 
   const tariffTable = () => {
     const order = ["athina", "patra", "thess", "ioannina", "larisa", "lamia", "volos", "ipeiros", "kriti", "nomos"];
     return `<div class="table-wrap"><table class="data"><thead><tr><th scope="col">${t("Είδος δέματος", "Item")}</th>${order.map(k => `<th scope="col">${esc(L(DATA.TARIFFS[k].label))}</th>`).join("")}</tr></thead><tbody>${
       C.map(c => `<tr><th scope="row" style="font-weight:600">${esc(L(c.name))}</th>${order.map(k => { const v = DATA.TARIFFS[k].p[c.id]; return `<td class="${v == null ? "na" : ""}">${v == null ? t("ρωτήστε", "ask") : eur(v)}</td>`; }).join("")}</tr>`).join("")
-    }</tbody></table></div><p class="caption">${t("Επίσημος τιμοκατάλογος ΚΤΕΛ Αιτωλοακαρνανίας, ανά τεμάχιο, με ΦΠΑ. Οι τιμές μπορεί να αλλάξουν· ισχύει η τιμή του ταμείου.", "Official KTEL Aetolia-Acarnania price list, per item, VAT included. Prices may change; the counter price applies.")}${
-      ow.enabled ? " " + t(`Πάνω από ${ow.fromKg} κιλά: +${kgFmt(ow.perKg)} € ανά κιλό και τεμάχιο, στρογγυλεμένο στο επόμενο ευρώ (κουτιά, φάκελοι, τσουβάλια).`, `Over ${ow.fromKg} kg: +€${ow.perKg} per kg per item, rounded up to the next euro (boxes, envelopes, sacks).`) : ""}</p>`;
+    }${ow.enabled ? `<tr><th scope="row" style="font-weight:600">${t(`Ανά κιλό πάνω από ${ow.fromKg} kg`, `Per kg over ${ow.fromKg} kg`)}</th>${order.map(k => `<td>+${money2(kgRate(ow, DATA.TARIFFS[k]))}</td>`).join("")}</tr>` : ""}</tbody></table></div><p class="caption">${t("Επίσημος τιμοκατάλογος ΚΤΕΛ Αιτωλοακαρνανίας, ανά τεμάχιο, με ΦΠΑ. Οι τιμές μπορεί να αλλάξουν· ισχύει η τιμή του ταμείου.", "Official KTEL Aetolia-Acarnania price list, per item, VAT included. Prices may change; the counter price applies.")}${
+      ow.enabled ? " " + t(`Επιβάρυνση βάρους (τελευταία γραμμή): για κουτιά, φακέλους και τσουβάλια, ανά κιλό πάνω από ${ow.fromKg} kg και ανά τεμάχιο, στρογγυλεμένη στο επόμενο ευρώ. Τενεκέδες και αρνί έχουν σταθερή τιμή.`, `Weight surcharge (last row): for boxes, envelopes and sacks, per kg over ${ow.fromKg} kg and per item, rounded up to the next euro. Tins and lamb have a fixed price.`) : ""}</p>`;
   };
   const sizeTable = () => `<div class="table-wrap"><table class="data"><thead><tr><th scope="col">${t("Κατηγορία", "Category")}</th><th scope="col">${t("Χωράει σε (εκ.)", "Fits in (cm)")}</th><th scope="col">${t("Έως", "Up to")}</th></tr></thead><tbody>${
     C.filter(c => c.box).map(c => `<tr><th scope="row" style="font-weight:600">${esc(L(c.name))}</th><td class="num">${c.box.L} × ${c.box.W} × ${c.box.H}</td><td class="num">${kgFmt(c.kg)} kg</td></tr>`).join("")
@@ -111,7 +112,8 @@ function makeLang(lang) {
     "{{homePrice}}": () => DATA.HOME.zones[0].price, "{{homeHours}}": () => DATA.HOME.hours, "{{homeVehicles}}": () => esc(L(DATA.HOME.vehicles)),
     "{{homeZones}}": () => DATA.HOME.zones.map(z => `<option value="${z.id}">${esc(L(z.name))}</option>`).join(""),
     "{{athensNote}}": () => esc(L(DATA.HOME.athensNote)), "{{luggage}}": () => DATA.LUGGAGE.perPiecePerDay, "{{cutoff}}": () => B.cutoffMin,
-    "{{owFrom}}": () => ow.fromKg, "{{owPer}}": () => kgFmt(ow.perKg),
+    "{{owFrom}}": () => ow.fromKg, "{{owShare}}": () => Math.round(ow.share * 100),
+    "{{owExamples}}": () => ["nomos", "patra", "athina", "thess", "kriti"].map(k => { const tf = DATA.TARIFFS[k]; return `${esc(L(tf.label))}: ${money2(kgRate(ow, tf))}/kg`; }).join(" · "),
     "{{address}}": () => esc(`${L(B.address.place)}, ${L(B.address.street)}, ${B.address.postal} ${L(B.address.city)}`),
     ...Object.fromEntries(Object.entries(I).map(([k, v]) => [`{{i:${k}}}`, () => v])),
   };
