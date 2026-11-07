@@ -70,13 +70,14 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 .brand .chip img { width: 54px; height: 27px; display: block; }
 .brand b { font: 800 16px/1.1 var(--f-display); display: block; letter-spacing: .01em; }
 .brand small { font-size: 12px; color: var(--on-band-muted); display: block; }
+.brand b, .brand small { white-space: nowrap; }
 .nav { margin-left: auto; display: flex; align-items: center; gap: 4px; }
 .nav a { color: var(--on-band); text-decoration: none; font-weight: 500; font-size: 15px; padding: 8px 10px; border-radius: 8px; white-space: nowrap; }
 .nav a:hover, .nav a[aria-current="page"] { background: rgba(255,255,255,.1); }
 .nav a[aria-current="page"] { box-shadow: inset 0 -2px 0 var(--amber); border-radius: 8px 8px 0 0; }
 .nav .call { background: var(--teal); color: var(--btn-ink); font-weight: 700; margin-left: 6px; }
 .menu-btn { display: none; margin-left: auto; background: transparent; color: var(--on-band); border: 1px solid rgba(255,255,255,.3); border-radius: 10px; font: 600 15px var(--f-body); min-height: 44px; padding: 0 14px; cursor: pointer; }
-@media (max-width: 980px) {
+@media (max-width: 1140px) {
   .menu-btn { display: block; }
   .nav { display: none; position: absolute; left: 0; right: 0; top: 100%; background: var(--band); flex-direction: column; align-items: stretch; padding: 8px max(16px, env(safe-area-inset-right, 0px)) 16px max(16px, env(safe-area-inset-left, 0px)); border-top: 1px solid rgba(255,255,255,.12); }
   .nav.open { display: flex; }
@@ -264,3 +265,9 @@ details.q .a { padding: 0 18px 18px; color: var(--ink); max-width: 70ch; }
 
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; transition: none !important; } }
 .btn svg { width: 22px; height: 22px; flex: none; }
+/* Αλλαγή γλώσσας */
+.site-head .nav { order: 1; }
+.lang-switch { order: 2; margin-left: 8px; color: var(--on-band); border: 1px solid rgba(255,255,255,.35); border-radius: 8px; padding: 6px 10px; font: 700 14px/1 var(--f-body); text-decoration: none; letter-spacing: .04em; }
+.lang-switch:hover { background: rgba(255,255,255,.1); }
+.menu-btn { order: 3; }
+@media (max-width: 1140px) { .lang-switch { margin-left: auto; } .menu-btn { margin-left: 8px; } }

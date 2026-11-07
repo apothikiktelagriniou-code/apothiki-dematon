@@ -1,0 +1,43 @@
+<!--meta {"title":"Parcel home delivery in Agrinio","description":"Parcel delivery to your door and pickup from homes or shops within the town of Agrinio. Price, hours, areas."}-->
+<section class="page-head"><div class="wrap">
+  <span class="crumbs"><a href="index.html">Home</a> / Home delivery</span>
+  <h1>Home delivery <span class="tag" style="font-size:13px">Soon</span></h1>
+  <p>We are preparing delivery of your parcel to your door, and pickup from your home or shop, within the town of Agrinio.</p>
+</div></section>
+
+<section class="section"><div class="wrap grid g2" style="gap:24px;align-items:start">
+  <div class="panel" data-home>
+    <span class="eyebrow">Estimate</span>
+    <h2 style="font-size:24px;margin-top:6px">How much will it cost?</h2>
+    <div class="field" style="margin-top:14px"><label for="h-zone">Area</label>
+      <select id="h-zone"><option value="">Choose an area…</option>{{homeZones}}<option value="other">Another area</option></select></div>
+    <div data-home-out style="margin-top:16px"></div>
+    <div class="notice warn" style="margin-top:16px"><b>Not started yet</b>We will announce the service here once it starts. Until then, parcels are collected at the depot in the bus station.</div>
+  </div>
+  <div class="grid" style="gap:16px">
+    <div class="panel"><h3>What it will include</h3><ul style="margin:10px 0 0;padding-left:20px;display:grid;gap:6px">
+      <li><b>Home delivery:</b> the parcel that came to you by KTEL is brought to your door.</li>
+      <li><b>Pickup from home or shop:</b> we collect your parcel and send it on the bus.</li>
+      <li><b>Hours:</b> {{homeHours}}.</li>
+      <li><b>Vehicles:</b> {{homeVehicles}}, so larger parcels too.</li>
+      <li>{{athensNote}}</li>
+    </ul></div>
+    <div class="grid" style="gap:14px">
+      <form class="form panel" data-msgform="Home delivery interest" novalidate>
+        <h3>Register your interest</h3>
+        <p class="muted" style="margin-top:-6px;font-size:15px">This is not a booking. Once the service starts, we'll call you to confirm address, time and price.</p>
+        <div class="field"><label for="d-kind">What you need</label><select id="d-kind" data-label="Service"><option>Delivery of a parcel to my home</option><option>Pickup of a parcel from my home or shop</option></select></div>
+        <div class="grid g2">
+          <div class="field"><label for="d-name">Full name</label><input id="d-name" name="d-name" data-label="Name" required autocomplete="name"></div>
+          <div class="field"><label for="d-phone">Mobile</label><input id="d-phone" type="tel" data-label="Mobile" required autocomplete="tel"></div>
+        </div>
+        <div class="field"><label for="d-addr">Address in Agrinio</label><input id="d-addr" data-label="Address" required autocomplete="street-address"></div>
+        <div class="field"><label for="d-rc">Receipt number (if any)</label><input id="d-rc" class="mono" data-label="Receipt" inputmode="numeric"></div>
+        <div class="field"><label for="d-note">Notes</label><textarea id="d-note" data-label="Notes" placeholder="e.g. floor, doorbell, best time"></textarea></div>
+        <button class="btn btn-primary" type="submit">Continue</button>
+        <p style="font-size:13px;color:var(--muted)">You send the message yourself by WhatsApp or email. This website keeps none of your data.</p>
+      </form>
+      <div data-msg-out class="grid" style="gap:12px"></div>
+    </div>
+  </div>
+</div></section>

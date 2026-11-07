@@ -6,6 +6,8 @@ export const FAQ = [
       a: "Εξαρτάται από το είδος του δέματος (φάκελος, μικρό, μεσαίο ή μεγάλο κουτί, τενεκές, τσουβάλι) και τον προορισμό. Για παράδειγμα, ένα μεσαίο κουτί για Αθήνα κοστίζει 8 €. Δείτε ενδεικτική τιμή στον <a href=\"apostoli.html#ypologismos\">υπολογιστή κόστους</a>. Οι τιμές ορίζονται από το ΚΤΕΛ Αιτωλοακαρνανίας και περιλαμβάνουν ΦΠΑ." },
     { top: true, q: "Πότε φτάνει το δέμα;",
       a: "Στους προορισμούς με απευθείας δρομολόγιο φτάνει την ίδια ημέρα, με το επόμενο λεωφορείο. Φέρτε το δέμα το αργότερο 20 λεπτά πριν την αναχώρηση. Με ανταπόκριση μέσω άλλου ΚΤΕΛ μπορεί να χρειαστεί και την επόμενη ημέρα. Ο υπολογιστής δείχνει τις επόμενες αναχωρήσεις από το Αγρίνιο." },
+    { q: "Υπάρχει επιβάρυνση για βαριά δέματα;",
+      a: "Ναι. Για κουτιά, φακέλους και τσουβάλια πάνω από 10 κιλά προστίθενται 0,50 € για κάθε επιπλέον κιλό, ανά τεμάχιο, στρογγυλεμένα στο επόμενο ευρώ. Για παράδειγμα, ένα τσουβάλι 30 κιλών για Πάτρα κοστίζει 10 € + 10 € = 20 €." },
     { q: "Πώς πρέπει να συσκευάσω το δέμα;",
       a: "Σε κλειστή, γερή κούτα, κολλημένη με ταινία σε όλες τις ενώσεις. Τα εύθραυστα τυλίγονται χωριστά με αφρώδες υλικό ή χαρτί. Γράψτε καθαρά ονοματεπώνυμο και κινητό του παραλήπτη. Τα υγρά (π.χ. λάδι) πρέπει να είναι σε δοχείο που κλείνει ερμητικά." },
     { q: "Τι δεν μπορώ να στείλω;",
@@ -34,5 +36,42 @@ export const FAQ = [
   ]},
   { cat: "Επιχειρήσεις", items: [
     { q: "Στέλνετε καθημερινά για επιχειρήσεις;", a: "Ναι. Καταστήματα, ανταλλακτικά, φαρμακαποθήκες και ηλεκτρονικά καταστήματα στέλνουν μαζί μας καθημερινά, με πολλά δρομολόγια την ημέρα προς Αθήνα και Πάτρα. Δείτε τη σελίδα <a href=\"epixeiriseis.html\">για επιχειρήσεις</a>." },
+  ]},
+];
+
+export const FAQ_EN = [
+  { cat: "Sending", items: [
+    { top: true, q: "How much does it cost to send a parcel?",
+      a: "It depends on the item (envelope, small, medium or large box, olive oil tin, sack) and the destination. For example, a medium box to Athens costs €8. Get an estimate with the <a href=\"send.html#ypologismos\">price calculator</a>. Prices are set by KTEL Aetolia-Acarnania and include VAT." },
+    { top: true, q: "When will the parcel arrive?",
+      a: "Towns with a direct bus get it the same day, on the next bus. With a connection through another KTEL it may take until the next day. Bring the parcel at least 20 minutes before departure. The calculator shows the next departures from Agrinio." },
+    { q: "Is there a charge for heavy parcels?",
+      a: "Yes. For boxes, envelopes and sacks over 10 kg, €0.50 is added for each extra kg, per item, rounded up to the next euro. For example, a 30 kg sack to Patras costs €10 + €10 = €20." },
+    { q: "How should I pack my parcel?",
+      a: "Use a closed, sturdy box taped on every seam. Wrap fragile items separately. Write the recipient's full name and mobile number clearly. Liquids such as oil must be in a container that seals tightly." },
+    { q: "What can't I send?",
+      a: "Flammable or explosive items (fuel, gas canisters, fireworks), dangerous or poisonous materials, sharp objects without safe packaging, anything dirty or strong-smelling, and live animals. See the <a href=\"terms.html#apagorevmena\">terms</a>." },
+    { q: "Can I send to a town without a direct bus?",
+      a: "Often, yes, with a connection: Macedonia and Thrace via Macedonia Bus Station, Thessaly and Igoumenitsa via Ioannina, the Peloponnese via Corinth, Kefalonia via Patras and all of Crete via Chania or Heraklion. You pay the KTEL Aetolia-Acarnania price here and put about the same amount in an envelope on the parcel for the agency that carries it on. See the <a href=\"destinations.html\">destinations</a>." },
+  ]},
+  { cat: "Collecting", items: [
+    { top: true, q: "How will I know my parcel has arrived?",
+      a: "We send an SMS to the mobile number the sender gave. You can also use <a href=\"track.html\">parcel tracking</a> with the receipt number and the first 3 letters of your surname." },
+    { top: true, q: "What do I need to collect it?",
+      a: "An ID card, passport or driving licence. Having the receipt number or the SMS makes it quicker." },
+    { q: "Can someone else collect it for me?",
+      a: "Yes, with written authorisation from the recipient and their own ID. Call us first so we can tell you exactly what is needed." },
+    { q: "How long do you keep a parcel?",
+      a: "The first 10 days from arrival are free. After that, storage costs €3 a day, up to €20 in total." },
+  ]},
+  { cat: "Payment and service", items: [
+    { q: "How can I pay?", a: "Cash, card or IRIS, at the depot counter." },
+    { q: "Do you store luggage?", a: "Yes, €2 per item per day, during opening hours." },
+    { q: "What are your opening hours?", a: "Monday to Friday 06:30–21:30, Saturday and Sunday 08:00–21:30. Public holidays: Sunday hours. Closed only on Easter Sunday, 25 and 26 December and 15 August." },
+    { q: "Do you deliver to homes?", a: "We are preparing home delivery and pickup from homes or shops within Agrinio. See <a href=\"home-delivery.html\">home delivery</a>." },
+    { q: "Are you KTEL? Where do I buy a ticket?", a: "We are the parcel depot inside the KTEL Agrinio bus station and handle parcels only. For passenger tickets and timetables, see the KTEL Aetolia-Acarnania website." },
+  ]},
+  { cat: "Businesses", items: [
+    { q: "Do you handle daily business shipments?", a: "Yes. Shops, spare-parts dealers, pharmaceutical wholesalers and online stores ship with us every day, with many daily buses to Athens and Patras. See <a href=\"business.html\">for businesses</a>." },
   ]},
 ];

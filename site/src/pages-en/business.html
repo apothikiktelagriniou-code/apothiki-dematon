@@ -1,0 +1,53 @@
+<!--meta {"title":"Business parcel shipping in Agrinio","description":"Daily KTEL parcel shipping for shops, spare-parts dealers, pharmaceutical wholesalers and online stores in Agrinio. Departures from 04:00, SMS to recipients."}-->
+<section class="page-head"><div class="wrap">
+  <span class="crumbs"><a href="index.html">Home</a> / For businesses</span>
+  <h1>For businesses</h1>
+  <p>Shipping to customers or branches every day? KTEL buses leave from early morning until evening, and recipients are notified without you having to call them.</p>
+</div></section>
+
+<section class="section"><div class="wrap">
+  <div class="grid g4">
+    <div class="panel"><span class="eyebrow">Athens</span><p class="num" style="font-size:32px;font-weight:600;color:var(--heading);margin-top:6px">{{athensDaily}}</p><p class="muted">departures a day</p></div>
+    <div class="panel"><span class="eyebrow">Patras</span><p class="num" style="font-size:32px;font-weight:600;color:var(--heading);margin-top:6px">{{patraDaily}}</p><p class="muted">departures a day</p></div>
+    <div class="panel"><span class="eyebrow">Direct</span><p class="num" style="font-size:32px;font-weight:600;color:var(--heading);margin-top:6px">{{nDirect}}</p><p class="muted">towns, same day</p></div>
+    <div class="panel"><span class="eyebrow">Open</span><p class="num" style="font-size:32px;font-weight:600;color:var(--heading);margin-top:6px">06:30</p><p class="muted">Monday to Friday</p></div>
+  </div>
+</div></section>
+
+<section class="section alt"><div class="wrap grid g2" style="gap:32px;align-items:start">
+  <div>
+    <div class="section-head"><span class="eyebrow">Who we serve</span><h2>Already shipping with us</h2></div>
+    <ul style="padding-left:20px;margin:0;display:grid;gap:8px">
+      <li><b>Car spare-parts dealers</b> shipping to garages across Greece.</li>
+      <li><b>Pharmaceutical wholesalers</b> and medicine deliveries.</li>
+      <li><b>Lubricants</b> and technical supplies.</li>
+      <li><b>Shops and online stores</b> sending customer orders.</li>
+    </ul>
+    <div class="section-head" style="margin-top:28px"><h2 style="font-size:24px">What you gain</h2></div>
+    <ul style="padding-left:20px;margin:0;display:grid;gap:8px">
+      <li>The parcel leaves on the next bus, not the next day.</li>
+      <li>The recipient gets an SMS on arrival and can track the parcel online.</li>
+      <li>One drop-off point in town for every KTEL destination.</li>
+    </ul>
+  </div>
+  <div class="grid" style="gap:14px">
+    <form class="form panel" data-msgform="Business enquiry — website" novalidate>
+      <h3>Register your interest</h3>
+      <div class="field"><label for="b-name">Company name</label><input id="b-name" name="b-name" data-label="Company" required autocomplete="organization"></div>
+      <div class="grid g2">
+        <div class="field"><label for="b-person">Contact person</label><input id="b-person" data-label="Contact" required autocomplete="name"></div>
+        <div class="field"><label for="b-phone">Phone</label><input id="b-phone" type="tel" data-label="Phone" required autocomplete="tel"></div>
+      </div>
+      <div class="field"><label for="b-email">Email</label><input id="b-email" type="email" data-label="Email" autocomplete="email"></div>
+      <div class="grid g2">
+        <div class="field"><label for="b-vol">Parcels per week</label><select id="b-vol" data-label="Parcels/week"><option value="">—</option><option>1–10</option><option>10–50</option><option>50–150</option><option>Over 150</option></select></div>
+        <div class="field"><label for="b-dest">Main destinations</label><input id="b-dest" data-label="Destinations" placeholder="e.g. Athens, Patras"></div>
+      </div>
+      <div class="field"><label for="b-msg">Message</label><textarea id="b-msg" data-label="Message"></textarea></div>
+      <label class="check"><input type="checkbox" id="b-consent" data-label="Agrees to informational emails"><span>I'd like to receive informational emails about timetables and price changes. I can stop at any time.</span></label>
+      <button class="btn btn-primary" type="submit">Continue</button>
+      <p style="font-size:13px;color:var(--muted)">You send the message yourself by WhatsApp or email. See our <a href="privacy.html">privacy notice</a>.</p>
+    </form>
+    <div data-msg-out class="grid" style="gap:12px"></div>
+  </div>
+</div></section>

@@ -38,12 +38,19 @@ export function quote(site, { dest, catId, pieces = 1, kg = 0 }) {
   const t = site.TARIFFS[hub ? hub.tariff : d.tariff];
   const p = t && t.p[catId];
   if (p == null) return { status: "noprice", dest: d };
-  const ow = site.OVERWEIGHT, w = Number(kg) || 0;
-  const extra = ow && ow.enabled && w > ow.fromKg ? Math.round((w - ow.fromKg) * ow.perKg * 100) / 100 : 0;
+  const extra = overweightExtra(site.OVERWEIGHT, catId, kg);
   const per = Math.round((p + extra) * 100) / 100;
   const out = { status: hub ? "transfer" : "ok", dest: d, hub, base: p, extra, perPiece: per, pieces: n, total: Math.round(per * n * 100) / 100, eta: (hub && !d.eta) ? hub.eta : d.eta };
-  if (hub) { out.otherEstimate = p * n; out.grandEstimate = p * n * 2; }
+  if (hub) { out.otherEstimate = out.total; out.grandEstimate = out.total * 2; }
   return out;
+}
+
+// Επιβάρυνση βάρους ανά τεμάχιο: κάθε αρχόμενο κιλό πάνω από fromKg × perKg, στρογγυλεμένο προς τα πάνω σε ακέραιο €.
+export function overweightExtra(ow, catId, kg) {
+  const w = Number(kg) || 0;
+  if (!ow || !ow.enabled || w <= ow.fromKg || (ow.cats && !ow.cats.includes(catId))) return 0;
+  const kgOver = Math.ceil(Math.round((w - ow.fromKg) * 1000) / 1000);
+  return Math.ceil(Math.round(kgOver * ow.perKg * 100) / 100);
 }
 
 // Τρέχουσα ημέρα (0 = Δευτέρα) και λεπτά, ώρα Ελλάδας.
@@ -55,10 +62,11 @@ export function athensNow(date = new Date()) {
 }
 
 const toMin = t => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
-const DAYS = ["Δευτέρα", "Τρίτη", "Τετάρτη", "Πέμπτη", "Παρασκευή", "Σάββατο", "Κυριακή"];
+const DAYS = { el: ["Δευτέρα", "Τρίτη", "Τετάρτη", "Πέμπτη", "Παρασκευή", "Σάββατο", "Κυριακή"], en: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] };
+const REL = { el: ["Σήμερα", "Αύριο"], en: ["Today", "Tomorrow"] };
 
 // Επόμενες αναχωρήσεις από Αγρίνιο για τα κλειδιά προορισμού. days: '1111100' = Δευ..Κυρ.
-export function nextDepartures(schedule, keys, now, count = 3) {
+export function nextDepartures(schedule, keys, now, count = 3, lang = "el") {
   const rows = schedule.filter(r => keys.includes(r.dest));
   const out = [], seen = new Set();
   for (let k = 0; k < 8 && out.length < count; k++) {
@@ -68,7 +76,7 @@ export function nextDepartures(schedule, keys, now, count = 3) {
     for (const r of today) {
       const key = k + r.time;
       if (seen.has(key)) continue; seen.add(key);
-      out.push({ time: r.time, day: k === 0 ? "Σήμερα" : k === 1 ? "Αύριο" : DAYS[dow], express: !!r.express, conn: !!r.conn, notes: r.notes || "" });
+      out.push({ time: r.time, day: k < 2 ? REL[lang][k] : DAYS[lang][dow], rel: k, express: !!r.express, conn: !!r.conn, notes: r.notes || "" });
       if (out.length >= count) break;
     }
   }
@@ -76,11 +84,11 @@ export function nextDepartures(schedule, keys, now, count = 3) {
 }
 
 // Ημέρες που φεύγει λεωφορείο (για την καρτέλα προορισμού): «Καθημερινά», «Δευ–Παρ», «Παρ, Κυρ» κ.λπ.
-export function daysLabel(schedule, keys) {
+export function daysLabel(schedule, keys, lang = "el") {
   const mask = [0, 1, 2, 3, 4, 5, 6].map(i => schedule.some(r => keys.includes(r.dest) && r.days[i] === "1"));
-  if (mask.every(Boolean)) return "Καθημερινά";
-  const S = ["Δευ", "Τρι", "Τετ", "Πεμ", "Παρ", "Σαβ", "Κυρ"];
-  if (mask.slice(0, 5).every(Boolean) && !mask[5] && !mask[6]) return "Δευτέρα – Παρασκευή";
+  if (mask.every(Boolean)) return lang === "en" ? "Daily" : "Καθημερινά";
+  const S = lang === "en" ? ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] : ["Δευ", "Τρι", "Τετ", "Πεμ", "Παρ", "Σαβ", "Κυρ"];
+  if (mask.slice(0, 5).every(Boolean) && !mask[5] && !mask[6]) return lang === "en" ? "Monday – Friday" : "Δευτέρα – Παρασκευή";
   const on = S.filter((_, i) => mask[i]);
   return on.length ? on.join(", ") : "";
 }

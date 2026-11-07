@@ -126,9 +126,10 @@ export const DESTINATIONS = [
     ["Πάργα", "Ήπειρος"], ["Κόνιτσα", "Ήπειρος"], ["Μέτσοβο", "Ήπειρος"]].map(([n, r]) => D(n, r, "none", null)),
 ];
 
-// Επιβάρυνση βάρους (ιδέα από το πρωτότυπο v4): +perKg € ανά kg πάνω από fromKg, ανά τεμάχιο.
-// ΑΝΕΝΕΡΓΗ μέχρι να επιβεβαιωθεί ότι την έχει εγκρίνει το Δ.Σ. του ΚΤΕΛ. Για ενεργοποίηση: enabled: true.
-export const OVERWEIGHT = { enabled: false, fromKg: 10, perKg: 1 };
+// Επιβάρυνση βάρους: +perKg € για κάθε (αρχόμενο) κιλό πάνω από fromKg, ανά τεμάχιο,
+// στρογγυλεμένη προς τα πάνω σε ακέραιο ευρώ (0,50 → 1 €). Π.χ. τσουβάλι 30 kg Πάτρα: 10 + 10 = 20 €.
+// Ισχύει μόνο για τις κατηγορίες του `cats` (όχι τενεκέδες, όχι αρνί).
+export const OVERWEIGHT = { enabled: true, fromKg: 10, perKg: 0.5, cats: ["fakelos", "mikro", "mesaio", "megalo", "tsouvali"] };
 
 export const STORAGE = { freeDays: 10, perDay: 3, cap: 20 };
 export const LUGGAGE = { perPiecePerDay: 2, note: "Ανά κομμάτι, ανά ημέρα, στις ώρες λειτουργίας της αποθήκης." };

@@ -52,17 +52,34 @@ test("κάθε προορισμός με τιμή έχει πίνακα, κάθ�
 test("επόμενες αναχωρήσεις", () => {
   const r = nextDepartures(SCHEDULE_TIMES, ["ΘΕΣΣΑΛΟΝΙΚΗ"], { dow: 0, minutes: 10 * 60 }, 2);
   assert.deepEqual(r.map(x => x.day + " " + x.time), ["Αύριο 09:30", "Τετάρτη 09:30"]);
+  assert.equal(nextDepartures(SCHEDULE_TIMES, ["ΘΕΣΣΑΛΟΝΙΚΗ"], { dow: 0, minutes: 600 }, 1, "en")[0].day, "Tomorrow");
   const a = nextDepartures(SCHEDULE_TIMES, ["ΑΘΗΝΑ"], { dow: 0, minutes: 10 * 60 }, 3);
   assert.equal(a[0].time, "11:00");
   assert.equal(daysLabel(SCHEDULE_TIMES, ["ΑΘΗΝΑ"]), "Καθημερινά");
 });
 
-test("επιβάρυνση βάρους: ανενεργή, και σωστή όταν ενεργοποιηθεί", () => {
-  assert.equal(quote(DATA, { dest: "Αθήνα", catId: "mesaio", kg: 14 }).total, 8, "ανενεργή → καμία επιβάρυνση");
-  const ON = { ...DATA, OVERWEIGHT: { enabled: true, fromKg: 10, perKg: 1 } };
-  assert.equal(quote(ON, { dest: "Αθήνα", catId: "mesaio", kg: 14 }).total, 12);
-  assert.equal(quote(ON, { dest: "Αθήνα", catId: "mesaio", kg: 10.5, pieces: 2 }).total, 17);
-  assert.equal(quote(ON, { dest: "Αθήνα", catId: "mikro", kg: 4 }).extra, 0);
+test("επιβάρυνση βάρους: 0,50 €/kg πάνω από 10 kg, στρογγύλεμα προς τα πάνω", () => {
+  assert.equal(quote(DATA, { dest: "Πάτρα", catId: "tsouvali", kg: 30 }).total, 20, "παράδειγμα Άγη");
+  assert.equal(quote(DATA, { dest: "Αθήνα", catId: "tsouvali", kg: 30 }).total, 22);
+  assert.equal(quote(DATA, { dest: "Αθήνα", catId: "mesaio", kg: 11 }).extra, 1, "0,50 → 1 €");
+  assert.equal(quote(DATA, { dest: "Αθήνα", catId: "mesaio", kg: 12 }).extra, 1);
+  assert.equal(quote(DATA, { dest: "Αθήνα", catId: "mesaio", kg: 13 }).extra, 2, "1,50 → 2 €");
+  assert.equal(quote(DATA, { dest: "Αθήνα", catId: "mesaio", kg: 10.2 }).extra, 1, "αρχόμενο κιλό");
+  assert.equal(quote(DATA, { dest: "Αθήνα", catId: "mesaio", kg: 10 }).extra, 0);
+  assert.equal(quote(DATA, { dest: "Αθήνα", catId: "megalo", kg: 30, pieces: 2 }).total, 40, "(10 + 10) × 2");
+  assert.equal(quote(DATA, { dest: "Αθήνα", catId: "tenekes", kg: 17 }).extra, 0, "όχι στους τενεκέδες");
+  assert.equal(quote(DATA, { dest: "Τρίπολη", catId: "mesaio", kg: 14 }).grandEstimate, 20, "ανταπόκριση: (8+2) × 2");
+});
+
+test("αγγλικά: κάθε κείμενο προορισμού έχει απόδοση", async () => {
+  const { EN } = await import("../src/en.mjs");
+  const need = new Set();
+  for (const d of DATA.DESTINATIONS) { need.add(d.name); need.add(d.region); if (d.eta) need.add(d.eta); if (d.note) need.add(d.note); }
+  for (const h of Object.values(DATA.HUBS)) { need.add(h.label); need.add(h.eta); }
+  for (const t of Object.values(DATA.TARIFFS)) need.add(t.label);
+  for (const c of DATA.CATEGORIES) { need.add(c.name); if (c.note) need.add(c.note); }
+  const missing = [...need].filter(s => !(s in EN));
+  assert.deepEqual(missing, []);
 });
 
 test("φύλαξη: 10 μέρες δωρεάν, 3 €/ημέρα, έως 20 €", () => {
