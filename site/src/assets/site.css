@@ -398,3 +398,13 @@ form[data-poll] { display: grid; gap: 24px; }
 .heritage .photo { margin-top: 20px; max-width: 720px; }
 .heritage .caption { margin-top: 14px; }
 @media (max-width: 600px) { .timeline li { grid-template-columns: minmax(0, 1fr); } .timeline .yr { font-size: 18px; } }
+
+/* Παλιές φωτογραφίες */
+.gallery { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-top: 24px; align-items: start; }
+.gallery .photo img { aspect-ratio: 4 / 3; object-fit: cover; border-top: 0; filter: saturate(.9); }
+.gallery .photo figcaption { margin-top: 6px; }
+.heritage .gallery .photo { margin-top: 0; max-width: none; }
+@media (max-width: 760px) {
+  .gallery { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: 80%; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 6px; margin-inline: -16px; padding-inline: 16px; -webkit-overflow-scrolling: touch; }
+  .gallery .photo { scroll-snap-align: start; }
+}

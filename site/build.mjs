@@ -151,7 +151,7 @@ function makeLang(lang) {
     const f = ["jpg", "jpeg", "webp", "png"].map(x => name + "." + x).find(x => existsSync(join(PHOTO_DIR, x)));
     if (!f) return "";
     const cap = t(capEl, capEn || capEl);
-    return `<figure class="photo"><img src="${lang === "en" ? "../" : ""}assets/photos/${f}" alt="${esc(cap)}" loading="lazy" width="1200" height="800"><figcaption>${esc(cap)}</figcaption></figure>`;
+    return `<figure class="photo"><img src="${lang === "en" ? "../" : ""}assets/photos/${f}" alt="${esc(cap)}" loading="lazy"><figcaption>${esc(cap)}</figcaption></figure>`;
   };
   const fill = s => s.replace(/\{\{photo:([a-z0-9-]+)\|([^|}]*)(?:\|([^}]*))?\}\}/g, (_, n, a, b) => photo(n, a, b))
     .replace(/\{\{[^}]+\}\}/g, m => TOKENS[m] ? String(TOKENS[m]()) : (console.warn("Άγνωστο:", m), m));
