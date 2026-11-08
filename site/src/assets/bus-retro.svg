@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 300" role="img" aria-labelledby="t">
+  <title id="t">Παλιό υπεραστικό λεωφορείο με δέματα στη σχάρα της οροφής</title>
+  <!-- δρόμος -->
+  <path d="M10 262H630" stroke="#0C3456" stroke-width="3" stroke-linecap="round"/>
+  <path d="M40 276h60M150 276h60M260 276h60M370 276h60M480 276h60" stroke="#0C3456" stroke-width="3" stroke-linecap="round" opacity=".35"/>
+
+  <!-- δέματα στη σχάρα -->
+  <g stroke="#0C3456" stroke-width="3" stroke-linejoin="round">
+    <rect x="150" y="38" width="62" height="38" rx="2" fill="#E9D7B0"/>
+    <path d="M181 38v38M150 54h62" stroke-width="2" opacity=".55"/>
+    <rect x="218" y="50" width="44" height="26" rx="2" fill="#F2B632"/>
+    <path d="M240 50v26" stroke-width="2" opacity=".55"/>
+    <rect x="270" y="30" width="34" height="46" rx="3" fill="#C9D4DF"/>
+    <path d="M278 30v-6h18v6" fill="none"/>
+    <path d="M314 76c-4-22 2-34 22-36 22 2 28 14 24 36z" fill="#D9C08A"/>
+    <path d="M330 41c4-7 10-7 14 0" fill="none"/>
+    <rect x="372" y="46" width="70" height="30" rx="2" fill="#E9D7B0"/>
+    <path d="M407 46v30" stroke-width="2" opacity=".55"/>
+    <rect x="450" y="56" width="40" height="20" rx="2" fill="#E0F1F5"/>
+  </g>
+  <!-- σχάρα -->
+  <path d="M120 78H520M130 78v10M200 78v10M270 78v10M340 78v10M410 78v10M480 78v10" stroke="#0C3456" stroke-width="3" stroke-linecap="round"/>
+
+  <!-- αμάξωμα -->
+  <path d="M60 236V142c0-38 26-54 62-54h428c22 0 34 12 34 32v116z" fill="#F4EEDF" stroke="#0C3456" stroke-width="4" stroke-linejoin="round"/>
+  <!-- κάτω χρώμα -->
+  <path d="M62 178h520v58H62z" fill="#017F98"/>
+  <path d="M62 172h520" stroke="#0C3456" stroke-width="4"/>
+  <path d="M60 236h524" stroke="#0C3456" stroke-width="4"/>
+
+  <!-- πινακίδα προορισμού -->
+  <rect x="78" y="96" width="92" height="20" rx="2" fill="#0C3456"/>
+  <text x="124" y="111" text-anchor="middle" font-family="'Fira Sans Condensed','Arial Narrow',sans-serif" font-weight="700" font-size="14" fill="#F2B632" letter-spacing="1">ΑΓΡΙΝΙΟΝ</text>
+
+  <!-- παρμπρίζ και παράθυρα -->
+  <path d="M74 166c0-22 10-40 30-44h40v44z" fill="#BFD9E4" stroke="#0C3456" stroke-width="3" stroke-linejoin="round"/>
+  <g fill="#BFD9E4" stroke="#0C3456" stroke-width="3">
+    <rect x="196" y="122" width="56" height="44" rx="6"/>
+    <rect x="262" y="122" width="56" height="44" rx="6"/>
+    <rect x="328" y="122" width="56" height="44" rx="6"/>
+    <rect x="394" y="122" width="56" height="44" rx="6"/>
+    <rect x="460" y="122" width="56" height="44" rx="6"/>
+    <path d="M526 122h32c8 0 12 4 12 12v32h-44z" />
+  </g>
+  <!-- πόρτα -->
+  <rect x="152" y="122" width="34" height="108" rx="3" fill="#BFD9E4" stroke="#0C3456" stroke-width="3"/>
+  <path d="M169 122v108" stroke="#0C3456" stroke-width="2"/>
+  <!-- γραμμή διακόσμησης -->
+  <path d="M196 196h380" stroke="#F4EEDF" stroke-width="5" stroke-linecap="round"/>
+  <!-- φανάρι, προφυλακτήρας -->
+  <circle cx="74" cy="196" r="9" fill="#F2B632" stroke="#0C3456" stroke-width="3"/>
+  <path d="M52 236h22" stroke="#0C3456" stroke-width="7" stroke-linecap="round"/>
+  <path d="M572 236h18" stroke="#0C3456" stroke-width="7" stroke-linecap="round"/>
+
+  <!-- τροχοί -->
+  <g stroke="#0C3456" stroke-width="4">
+    <path d="M100 236a36 36 0 0 1 72 0" fill="#0C3456"/>
+    <path d="M444 236a36 36 0 0 1 72 0" fill="#0C3456"/>
+    <circle cx="136" cy="240" r="24" fill="#2B3E52"/>
+    <circle cx="480" cy="240" r="24" fill="#2B3E52"/>
+    <circle cx="136" cy="240" r="9" fill="#C9D4DF"/>
+    <circle cx="480" cy="240" r="9" fill="#C9D4DF"/>
+  </g>
+</svg>

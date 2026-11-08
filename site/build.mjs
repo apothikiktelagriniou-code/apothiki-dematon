@@ -181,7 +181,7 @@ ${meta.noindex ? '<meta name="robots" content="noindex">\n' : ""}<link rel="cano
 <meta property="og:type" content="website"><meta property="og:locale" content="${t("el_GR", "en_GB")}"><meta property="og:site_name" content="${esc(L(B.name))}">
 <meta property="og:title" content="${esc(meta.title)}"><meta property="og:description" content="${esc(meta.description)}">
 <meta property="og:url" content="${url}"><meta property="og:image" content="${B.domain}/assets/og.jpg">
-<meta name="theme-color" content="#17191C">
+<meta name="theme-color" content="#0C3456">
 <link rel="icon" href="${pre}assets/icon-192.png"><link rel="apple-touch-icon" href="${pre}assets/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fira+Sans+Condensed:wght@600;700;800&family=Fira+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap">
