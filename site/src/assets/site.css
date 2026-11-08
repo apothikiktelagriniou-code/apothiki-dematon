@@ -455,12 +455,3 @@ table.season .m-deps { display: none; }
 .access b { display: inline; font-size: 15px; color: var(--heading); }
 .contact-list .access b { display: inline; color: var(--heading); font-size: 15px; font-weight: 700; }
 
-/* Στέλνουν μαζί μας */
-.partners { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
-.partner { display: grid; place-items: center; min-height: 96px; padding: 14px 18px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); text-decoration: none; color: var(--heading); transition: border-color .15s ease; }
-.partner img { max-width: 100%; max-height: 56px; width: auto; height: auto; filter: grayscale(1); opacity: .8; transition: filter .2s ease, opacity .2s ease; }
-.partner span { font: 700 19px/1.2 var(--f-display); text-align: center; color: var(--muted); }
-a.partner:hover { border-color: var(--teal); }
-a.partner:hover img, .partner:hover img { filter: none; opacity: 1; }
-.partner.pending { border-style: dashed; }
-@media (max-width: 480px) { .partners { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

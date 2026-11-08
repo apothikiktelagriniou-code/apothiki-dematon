@@ -112,7 +112,7 @@ function makeLang(lang) {
     "{{phone}}": () => `<a class="num" href="tel:+30${B.phone}">${lang === "en" ? "+30 " : ""}${B.phoneDisplay}</a>`,
     "{{mobile}}": () => `<a class="num" href="tel:+30${B.mobile}">${lang === "en" ? "+30 " : ""}${B.mobileDisplay}</a>`,
     "{{whatsapp}}": () => `https://wa.me/30${B.mobile}`, "{{email}}": () => `<a href="mailto:${B.email}">${B.email}</a>`,
-    "{{maps}}": () => B.mapsUrl, "{{partners}}": () => partnersStrip(), "{{access}}": () => `<ul class="access"><li><b>${t("Είσοδος", "Entrance")}:</b> ${t("μπαίνετε από την Εθνική Οδό Αγρινίου – Αντιρρίου. Η αποθήκη είναι δεξιά από την είσοδο του σταθμού ΚΤΕΛ.", "turn in from the Agrinio – Antirrio national road. The depot is to the right of the KTEL station entrance.")}</li><li><b>${t("Στάθμευση", "Parking")}:</b> ${t("στις θέσεις με την ταμπέλα για παραλαβή και παράδοση ασυνόδευτων δεμάτων.", "in the signposted spaces for dropping off and collecting unaccompanied parcels.")}</li></ul>`, "{{ktel}}": () => B.ktelUrl, "{{name}}": () => esc(L(B.name)), "{{slogan}}": () => esc(L(B.slogan)),
+    "{{maps}}": () => B.mapsUrl, "{{access}}": () => `<ul class="access"><li><b>${t("Είσοδος", "Entrance")}:</b> ${t("μπαίνετε από την Εθνική Οδό Αγρινίου – Αντιρρίου. Η αποθήκη είναι δεξιά από την είσοδο του σταθμού ΚΤΕΛ.", "turn in from the Agrinio – Antirrio national road. The depot is to the right of the KTEL station entrance.")}</li><li><b>${t("Στάθμευση", "Parking")}:</b> ${t("στις θέσεις με την ταμπέλα για παραλαβή και παράδοση ασυνόδευτων δεμάτων.", "in the signposted spaces for dropping off and collecting unaccompanied parcels.")}</li></ul>`, "{{ktel}}": () => B.ktelUrl, "{{name}}": () => esc(L(B.name)), "{{slogan}}": () => esc(L(B.slogan)),
     "{{nDirect}}": () => counts.direct, "{{nLocal}}": () => counts.local, "{{nTransfer}}": () => counts.transfer,
     "{{athensDaily}}": () => counts.athensDaily, "{{patraDaily}}": () => counts.patraDaily,
     "{{free}}": () => DATA.STORAGE.freeDays, "{{perDay}}": () => DATA.STORAGE.perDay, "{{cap}}": () => DATA.STORAGE.cap,
@@ -167,17 +167,6 @@ function makeLang(lang) {
     return `<div class="table-wrap"><table class="data season"><thead><tr><th scope="col">${t("Προορισμός", "Destination")}</th>${cats.map(c => `<th scope="col">${SHORT[c.id] ? t(...SHORT[c.id]) : esc(L(c.name))}</th>`).join("")}<th scope="col" class="deps-col">${t("Αναχωρήσεις", "Departures")}</th></tr></thead><tbody>${
       rows.map(d => `<tr><th scope="row">${esc(L(d.name))}<small class="m-deps">${esc(deps(d))}</small></th>${cats.map(c => { const v = DATA.TARIFFS[d.tariff].p[c.id]; return `<td class="num">${v == null ? t("ρωτήστε", "ask") : eur(v)}</td>`; }).join("")}<td class="deps-cell">${esc(deps(d))}</td></tr>`).join("")
     }</tbody></table></div>`;
-  };
-  const partnersStrip = () => {
-    const P = (DATA.PARTNERS || []).filter(p => p.approved || PROTOTYPE);
-    if (!P.length) return "";
-    const pre = lang === "en" ? "../" : "";
-    const logo = p => ["svg", "png", "webp", "jpg"].map(x => p.file + "." + x).find(f => existsSync(join(ROOT, "src/assets/partners", f)));
-    const tile = p => { const f = logo(p); const inner = f ? `<img src="${pre}assets/partners/${f}" alt="${esc(p.name)}" loading="lazy">` : `<span>${esc(p.name)}</span>`;
-      const cls = "partner" + (p.approved ? "" : " pending");
-      return p.url ? `<a class="${cls}" href="${esc(p.url)}" target="_blank" rel="noopener">${inner}</a>` : `<div class="${cls}">${inner}</div>`; };
-    const pending = P.some(p => !p.approved);
-    return `<section class="section partners-sec"><div class="wrap"><div class="section-head"><h2>${t("Στέλνουν μαζί μας", "Shipping with us")}</h2></div><div class="partners">${P.map(tile).join("")}</div>${pending ? `<p class="draft" style="margin-top:14px"><b>${t("Προεπισκόπηση:", "Preview:")}</b> ${t("Τα ονόματα με διακεκομμένο περίγραμμα δεν έχουν δώσει ακόμα άδεια και δεν θα εμφανίζονται στη δημόσια σελίδα.", "Names with a dashed border have not given permission yet and will not appear on the public page.")}</p>` : ""}</div></section>`;
   };
   const fill = s => s.replace(/\{\{eur:([a-z]+):([a-z_]+)\}\}/g, (m, k, c) => { const v = DATA.TARIFFS[k] && DATA.TARIFFS[k].p[c]; if (v == null) throw new Error("Άγνωστη τιμή: " + m); return eur(v); })
     .replace(/\{\{seasonTable:([a-z_,]+)\|([^}]+)\}\}/g, (_, c, n) => seasonTable(c.split(","), n.split(",").map(x => x.trim())))
