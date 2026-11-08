@@ -722,3 +722,31 @@ export function pollSummary(rows) {
     comments: list.filter(r => r.comment).map(r => ({ at: r.created_at, text: r.comment })).slice(0, 20),
   };
 }
+
+// 💳 Αιτήματα πληρωμής (Viva Quick Pay / IRIS)
+export const PAY_PURPOSE = { fare: "Ναύλος δέματος", home: "Παράδοση στο σπίτι", pickup: "Παραλαβή από το σπίτι", storage: "Φύλαξη", other: "Άλλο" };
+const eur2 = n => (Math.round(Number(n || 0) * 100) / 100).toFixed(2).replace(".", ",") + " €";
+/** Κείμενο μηνύματος προς αυτόν που πληρώνει. */
+export function paymentMessage(r, business = "Αποθήκη Δεμάτων ΚΤΕΛ Αγρινίου") {
+  const amount = Number(r.fare || 0) + Number(r.service || 0);
+  const what = [PAY_PURPOSE[r.purpose] || PAY_PURPOSE.other, r.recipient ? "για " + r.recipient : "", r.receipt ? "(απόδειξη " + r.receipt + ")" : ""].filter(Boolean).join(" ");
+  const lines = [`${business}: ${what}.`, `Ποσό: ${eur2(amount)}.`];
+  if (r.link) lines.push(`Πληρωμή με κάρτα, Apple/Google Pay ή IRIS: ${r.link}`);
+  lines.push("Μόλις ολοκληρωθεί η πληρωμή, θα σας στείλουμε επιβεβαίωση.");
+  return lines.join("\n");
+}
+/** Σύνοψη για το ταμείο ημέρας: πληρωμένα που δεν έχουν αποδοθεί. */
+export function paymentSummary(rows) {
+  const list = Array.isArray(rows) ? rows : [];
+  const paid = list.filter(r => r.status === "paid");
+  const unsettled = paid.filter(r => !r.settled_at);
+  const sum = (a, k) => Math.round(a.reduce((s, r) => s + Number(r[k] || 0), 0) * 100) / 100;
+  return {
+    pending: list.filter(r => r.status === "pending").length,
+    paid: paid.length,
+    fareToSettle: sum(unsettled, "fare"),
+    serviceUnsettled: sum(unsettled, "service"),
+    unsettledIds: unsettled.map(r => r.id),
+  };
+}
+export const looksLikePayLink = s => /^https:\/\/([a-z0-9-]+\.)*vivapayments\.com\/|^https:\/\/([a-z0-9-]+\.)*viva\.com\//i.test(String(s || "").trim());

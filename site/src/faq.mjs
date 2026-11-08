@@ -30,6 +30,7 @@ export const FAQ = [
   ]},
   { cat: "Πληρωμή και εξυπηρέτηση", items: [
     { q: "Πώς πληρώνω;", a: "Με μετρητά, κάρτα ή IRIS, στο ταμείο της αποθήκης." },
+    { q: "Μπορεί να πληρώσει κάποιος άλλος από μακριά;", a: "Σύντομα, ναι. Αφού ζυγίσουμε το δέμα, στέλνουμε σε αυτόν που πληρώνει σύνδεσμο με το τελικό ποσό, για πληρωμή με κάρτα, Apple Pay, Google Pay ή IRIS. <a href=\"apostoli.html#plironei-allos\">Πώς γίνεται</a>." },
     { q: "Φυλάτε αποσκευές;", a: "Ναι, 2 € ανά κομμάτι την ημέρα, στις ώρες λειτουργίας της αποθήκης." },
     { q: "Τι ώρες είστε ανοιχτά;", a: "Δευτέρα έως Παρασκευή 06:30–21:30, Σάββατο και Κυριακή 08:00–21:30. Στις αργίες ισχύει το ωράριο Κυριακής. Κλειστά μόνο Κυριακή του Πάσχα, 25 και 26 Δεκεμβρίου και 15 Αυγούστου." },
     { q: "Κάνετε παράδοση στο σπίτι;", a: "Ετοιμάζουμε την υπηρεσία παράδοσης και παραλαβής στο σπίτι ή στο κατάστημα, μέσα στην πόλη του Αγρινίου. Δείτε τη σελίδα <a href=\"spiti.html\">παράδοσης στο σπίτι</a>." },
@@ -68,6 +69,7 @@ export const FAQ_EN = [
   ]},
   { cat: "Payment and service", items: [
     { q: "How can I pay?", a: "Cash, card or IRIS, at the depot counter." },
+    { q: "Can someone else pay remotely?", a: "Soon, yes. Once we weigh the parcel, we send the payer a link with the final amount, to pay by card, Apple Pay, Google Pay or IRIS. <a href=\"send.html#someone-else-pays\">How it works</a>." },
     { q: "Do you store luggage?", a: "Yes, €2 per item per day, during opening hours." },
     { q: "What are your opening hours?", a: "Monday to Friday 06:30–21:30, Saturday and Sunday 08:00–21:30. Public holidays: Sunday hours. Closed only on Easter Sunday, 25 and 26 December and 15 August." },
     { q: "Do you deliver to homes?", a: "We are preparing home delivery and pickup from homes or shops within Agrinio. See <a href=\"home-delivery.html\">home delivery</a>." },

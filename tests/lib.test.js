@@ -451,3 +451,29 @@ test("pollSummary: μετρά και βγάζει τον βασικό αριθμ
   assert.equal(pollSummary(null).total, 0);
   assert.equal(pollSummary([]).pct(0), 0);
 });
+
+import { paymentMessage, paymentSummary, looksLikePayLink } from "../src/lib.js";
+test("paymentMessage: ποσό, σκοπός, σύνδεσμος", () => {
+  const t = paymentMessage({ purpose: "fare", fare: 8, service: 0, recipient: "Γ. Παπαδόπουλο", receipt: "228-336-12345", link: "https://demo.vivapayments.com/web/checkout?ref=1" });
+  assert.match(t, /Ναύλος δέματος για Γ\. Παπαδόπουλο \(απόδειξη 228-336-12345\)/);
+  assert.match(t, /Ποσό: 8,00 €/);
+  assert.match(t, /IRIS: https:\/\/demo\.vivapayments\.com/);
+  assert.match(paymentMessage({ purpose: "home", fare: 0, service: 3 }), /Παράδοση στο σπίτι\.\nΠοσό: 3,00 €/);
+});
+test("paymentSummary: ταμείο ημέρας", () => {
+  const s = paymentSummary([
+    { id: 1, status: "paid", fare: 8, service: 0 },
+    { id: 2, status: "paid", fare: 12, service: 3, settled_at: "2026-11-08" },
+    { id: 3, status: "paid", fare: 5.5, service: 3 },
+    { id: 4, status: "pending", fare: 7, service: 0 },
+    { id: 5, status: "cancelled", fare: 7, service: 0 },
+  ]);
+  assert.equal(s.pending, 1); assert.equal(s.paid, 3);
+  assert.equal(s.fareToSettle, 13.5); assert.equal(s.serviceUnsettled, 3);
+  assert.deepEqual(s.unsettledIds, [1, 3]);
+});
+test("looksLikePayLink", () => {
+  assert.ok(looksLikePayLink("https://www.vivapayments.com/web/checkout?ref=123"));
+  assert.ok(looksLikePayLink("https://pay.viva.com/abc"));
+  assert.ok(!looksLikePayLink("http://evil.example/viva.com"));
+});
