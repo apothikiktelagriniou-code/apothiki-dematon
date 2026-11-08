@@ -451,3 +451,6 @@ table.season .m-deps { display: none; }
   .head-photo .photo img { max-height: 400px; }
 }
 @media (max-width: 899px) { .head-photo .photo img { max-height: 60vh; } }
+.access { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; font-size: 15px; }
+.access b { display: inline; font-size: 15px; color: var(--heading); }
+.contact-list .access b { display: inline; color: var(--heading); font-size: 15px; font-weight: 700; }

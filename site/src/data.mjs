@@ -12,7 +12,7 @@ export const BUSINESS = {
   phone: "2641024446", phoneDisplay: "26410 24446",
   mobile: "6979334186", mobileDisplay: "697 933 4186", // και WhatsApp
   email: "apothikiktel@gmail.com",
-  // Διεύθυνση από vrisko.gr — ΕΛΕΓΧΟΣ: ΤΚ και οδηγίες πρόσβασης/στάθμευσης
+  // Διεύθυνση από vrisko.gr. Πρόσβαση: είσοδος από δεξιά του σταθμού, στάθμευση στις θέσεις για ασυνόδευτα (build.mjs {{access}})
   address: { street: "1ο χλμ Ε.Ο. Αγρινίου – Αντιρρίου", place: "Υπεραστικός σταθμός ΚΤΕΛ", city: "Αγρίνιο", postal: "30150", region: "Αιτωλοακαρνανία" },
   mapsUrl: "https://www.google.com/maps/search/?api=1&query=%CE%9A%CE%A4%CE%95%CE%9B+%CE%91%CE%B3%CF%81%CE%B9%CE%BD%CE%AF%CE%BF%CF%85",
   ktelUrl: "https://ktel-aitolnias.gr",

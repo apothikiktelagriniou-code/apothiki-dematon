@@ -112,7 +112,7 @@ function makeLang(lang) {
     "{{phone}}": () => `<a class="num" href="tel:+30${B.phone}">${lang === "en" ? "+30 " : ""}${B.phoneDisplay}</a>`,
     "{{mobile}}": () => `<a class="num" href="tel:+30${B.mobile}">${lang === "en" ? "+30 " : ""}${B.mobileDisplay}</a>`,
     "{{whatsapp}}": () => `https://wa.me/30${B.mobile}`, "{{email}}": () => `<a href="mailto:${B.email}">${B.email}</a>`,
-    "{{maps}}": () => B.mapsUrl, "{{ktel}}": () => B.ktelUrl, "{{name}}": () => esc(L(B.name)), "{{slogan}}": () => esc(L(B.slogan)),
+    "{{maps}}": () => B.mapsUrl, "{{access}}": () => `<ul class="access"><li><b>${t("Είσοδος", "Entrance")}:</b> ${t("από τη δεξιά πλευρά του σταθμού ΚΤΕΛ.", "from the right-hand side of the KTEL station.")}</li><li><b>${t("Στάθμευση", "Parking")}:</b> ${t("στις θέσεις που προβλέπονται για παραλαβή και παράδοση ασυνόδευτων δεμάτων.", "in the spaces reserved for dropping off and collecting unaccompanied parcels.")}</li></ul>`, "{{ktel}}": () => B.ktelUrl, "{{name}}": () => esc(L(B.name)), "{{slogan}}": () => esc(L(B.slogan)),
     "{{nDirect}}": () => counts.direct, "{{nLocal}}": () => counts.local, "{{nTransfer}}": () => counts.transfer,
     "{{athensDaily}}": () => counts.athensDaily, "{{patraDaily}}": () => counts.patraDaily,
     "{{free}}": () => DATA.STORAGE.freeDays, "{{perDay}}": () => DATA.STORAGE.perDay, "{{cap}}": () => DATA.STORAGE.cap,
