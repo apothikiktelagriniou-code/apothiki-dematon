@@ -408,3 +408,26 @@ form[data-poll] { display: grid; gap: 24px; }
   .gallery { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: 80%; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 6px; margin-inline: -16px; padding-inline: 16px; -webkit-overflow-scrolling: touch; }
   .gallery .photo { scroll-snap-align: start; }
 }
+
+/* Ιστορική αναδρομή (κείμενο) */
+.history { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 40px; border-top: 2px solid var(--rule); }
+.era { padding: 18px 0; border-bottom: 1px solid var(--line); }
+.era h3 { font: 700 21px/1.25 var(--f-display); color: var(--heading); }
+.era h3 span { display: block; font: 600 15px/1.3 var(--f-mono); color: var(--teal); margin-bottom: 4px; }
+.era p { margin-top: 8px; color: var(--ink); max-width: 62ch; }
+.era.now h3 span { color: var(--heading); }
+@media (max-width: 760px) { .history { grid-template-columns: minmax(0, 1fr); } }
+
+/* Σελίδα νομοθεσίας */
+.law { max-width: 860px; gap: 16px; }
+.law h2 { padding-top: 10px; border-top: 2px solid var(--rule); margin-top: 26px; }
+.law h3 { margin-top: 8px; }
+.law .table-wrap { margin: 4px 0; }
+.law-table th, .law-table td { white-space: normal !important; text-align: left !important; vertical-align: top; }
+.law-table td:first-child { font-weight: 600; min-width: 9.5rem; position: static !important; box-shadow: none !important; }
+.toc { background: var(--surface); border: 1px solid var(--line); border-left: 6px solid var(--teal); border-radius: var(--r); padding: 14px 18px; }
+.toc ol { margin: 8px 0 0; padding-left: 20px; display: grid; gap: 4px; }
+.terms { margin: 0; display: grid; gap: 0; border-top: 1px solid var(--line); }
+.terms dt { font: 700 18px/1.3 var(--f-display); color: var(--heading); padding-top: 12px; }
+.terms dd { margin: 4px 0 0; padding-bottom: 12px; border-bottom: 1px solid var(--line); color: var(--ink); }
+.law .steps { margin-top: 4px; }

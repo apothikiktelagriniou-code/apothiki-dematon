@@ -54,7 +54,7 @@ const I = {
 const C = DATA.CATEGORIES;
 // Αντιστοίχιση σελίδων ελληνικά ↔ αγγλικά (αγγλικά στο /en/)
 const SLUG = { index: "index", apostoli: "send", paralavi: "receive", anazitisi: "track", proorismoi: "destinations", epixeiriseis: "business",
-  spiti: "home-delivery", klirosi: "giveaway", "syxnes-erotiseis": "faq", epikoinonia: "contact", oroi: "terms", aporrito: "privacy", poll: "poll" };
+  spiti: "home-delivery", klirosi: "giveaway", "syxnes-erotiseis": "faq", epikoinonia: "contact", oroi: "terms", aporrito: "privacy", poll: "poll", nomothesia: "legislation" };
 const GR_OF = Object.fromEntries(Object.entries(SLUG).map(([g, e]) => [e, g]));
 const counts = { direct: DATA.DESTINATIONS.filter(d => d.type === "direct").length, local: DATA.DESTINATIONS.filter(d => d.type === "local").length, transfer: DATA.DESTINATIONS.filter(d => d.type === "transfer").length,
   athensDaily: SCHEDULE_TIMES.filter(r => r.dest === "ΑΘΗΝΑ" && r.days[2] === "1").length, patraDaily: SCHEDULE_TIMES.filter(r => r.dest === "ΠΑΤΡΑ" && r.days[2] === "1").length };
@@ -204,7 +204,7 @@ ${body}
   <div><h3>${t("Υπηρεσίες", "Services")}</h3><ul><li><a href="${link("apostoli")}">${t("Αποστολή δέματος", "Send a parcel")}</a></li><li><a href="${link("paralavi")}">${t("Παραλαβή δέματος", "Collect a parcel")}</a></li><li><a href="${link("anazitisi")}">${t("Αναζήτηση δέματος", "Track a parcel")}</a></li><li><a href="${link("spiti")}">${t("Παράδοση στο σπίτι", "Home delivery")}</a></li><li><a href="${link("epixeiriseis")}">${t("Για επιχειρήσεις", "For businesses")}</a></li></ul></div>
   <div><h3>${t("Ωράριο", "Opening hours")}</h3><ul>${B.hours.map(x => `<li>${esc(L(x.days))}<br><span class="num">${esc(x.time)}</span></li>`).join("")}</ul></div>
   <div><h3>${t("Επικοινωνία", "Contact")}</h3><ul><li><a class="num" href="tel:+30${B.phone}">${lang === "en" ? "+30 " : ""}${B.phoneDisplay}</a></li><li><a class="num" href="https://wa.me/30${B.mobile}">${lang === "en" ? "+30 " : ""}${B.mobileDisplay} (WhatsApp)</a></li><li><a href="mailto:${B.email}">${B.email}</a></li></ul></div>
-  <div class="legal"><span>© ${new Date().getFullYear()} ${esc(L(B.name))}</span><span><a href="${link("oroi")}">${t("Όροι εξυπηρέτησης", "Terms of service")}</a> · <a href="${link("aporrito")}">${t("Απόρρητο", "Privacy")}</a> · ${t("Χωρίς cookies", "No cookies")}</span></div>
+  <div class="legal"><span>© ${new Date().getFullYear()} ${esc(L(B.name))}</span><span><a href="${link("oroi")}">${t("Όροι εξυπηρέτησης", "Terms of service")}</a> · <a href="${link("aporrito")}">${t("Απόρρητο", "Privacy")}</a> · <a href="${link("nomothesia")}">${t("Νομοθεσία", "Legislation")}</a> · ${t("Χωρίς cookies", "No cookies")}</span></div>
 </div></footer>
 <nav class="quickbar" aria-label="${t("Γρήγορες ενέργειες", "Quick actions")}">
   <a href="tel:+30${B.phone}">${I.phone}<span>${t("Κλήση", "Call")}</span></a>
