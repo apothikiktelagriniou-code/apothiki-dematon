@@ -46,11 +46,11 @@
     const OW = SITE.OVERWEIGHT;
     const owHint = OW && OW.enabled ? T(`Πάνω από ${OW.fromKg} κιλά υπάρχει επιβάρυνση ανά κιλό, ανάλογα με τον προορισμό.`, `Over ${OW.fromKg} kg there is a per-kg surcharge that depends on the destination.`) : "";
     const KINDS = [
-      { id: "fakelos", name: T("Φάκελος", "Envelope"), sub: T("έγγραφα, έως 1 kg", "documents, up to 1 kg") },
-      { id: "box", name: T("Κούτα / δέμα", "Box / parcel"), sub: T("βάλτε διαστάσεις και βάρος", "enter size and weight") },
-      { id: "tenekes", name: T("Τενεκές λαδιού", "Olive oil tin"), sub: T("ελαιόλαδο", "olive oil") },
-      { id: "tsouvali", name: T("Τσουβάλι", "Sack"), sub: T("έως 30 kg", "up to 30 kg") },
-      { id: "arni", name: T("Αρνί", "Lamb"), sub: T("σφαγμένο, συσκευασμένο", "slaughtered, packed") },
+      { id: "fakelos", name: T("Φάκελος", "Envelope"), sub: T("Έγγραφα, έως 1 kg", "Documents, up to 1 kg") },
+      { id: "box", name: T("Κούτα / δέμα", "Box / parcel"), sub: T("Βάλτε διαστάσεις και βάρος", "Enter size and weight") },
+      { id: "tenekes", name: T("Τενεκές λαδιού", "Olive oil tin"), sub: T("Ελαιόλαδο", "Olive oil") },
+      { id: "tsouvali", name: T("Τσουβάλι", "Sack"), sub: T("Έως 30 kg", "Up to 30 kg") },
+      { id: "arni", name: T("Αρνί", "Lamb"), sub: T("Σφαγμένο, συσκευασμένο", "Slaughtered, packed") },
     ];
     const groups = [["direct", T("Απευθείας δρομολόγια", "Direct buses")], ["local", T("Εντός Νομού Αιτωλοακαρνανίας", "Within Aetolia-Acarnania")], ["transfer", T("Με ανταπόκριση", "With connection")], ["ask", T("Ρωτήστε μας", "Ask us")], ["none", T("Δεν εξυπηρετούνται", "Not served")]];
     const sel = h("select", { id: "c-dest", required: true }, h("option", { value: "" }, T("Διαλέξτε προορισμό…", "Choose destination…")),
@@ -68,7 +68,7 @@
       h("div", { class: "grid g2" },
         h("div", { class: "field" }, h("label", { for: "c-dest" }, T("3. Προορισμός", "3. Destination")), sel),
         h("div", { class: "field" }, h("label", { for: "c-n" }, T("Τεμάχια", "Items")), h("input", { id: "c-n", type: "number", inputmode: "numeric", min: "1", max: "99", value: "1" }))),
-      h("div", { class: "field" }, h("label", { for: "c-desc" }, T("Περιγραφή (προαιρετικά)", "Contents (optional)")), h("input", { id: "c-desc", type: "text", placeholder: T("π.χ. ανταλλακτικά, ρούχα, έγγραφα", "e.g. spare parts, clothes, documents"), autocomplete: "off" }),
+      h("div", { class: "field" }, h("label", { for: "c-desc" }, T("Περιγραφή (προαιρετικά)", "Contents (optional)")), h("input", { id: "c-desc", type: "text", placeholder: T("Π.χ. ανταλλακτικά, ρούχα, έγγραφα", "E.g. spare parts, clothes, documents"), autocomplete: "off" }),
         h("div", { class: "hint" }, T("Δεν αλλάζει την τιμή. Μας βοηθά να σας πούμε αν κάτι δεν μπορεί να ταξιδέψει.", "Does not change the price. It helps us tell you if something cannot travel."))));
     const out = h("div", { class: "result", "aria-live": "polite" });
     calcEl.append(h("div", { class: "calc" }, form, out));

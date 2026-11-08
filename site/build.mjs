@@ -184,7 +184,15 @@ function makeLang(lang) {
   });
   const faqLd = () => ({ "@context": "https://schema.org", "@type": "FAQPage", mainEntity: faqData.flatMap(c => c.items).map(i => ({ "@type": "Question", name: i.q, acceptedAnswer: { "@type": "Answer", text: i.a.replace(/<[^>]+>/g, "") } })) });
 
-  function page(gr, meta, body) {
+  // Κάθε πρόταση/μπλοκ ξεκινά με κεφαλαίο: αρχή στοιχείων κειμένου, μετά από «<b>Ετικέτα:</b>», και placeholders.
+  const LOW = "a-zα-ωάέήίόύώϊϋΐΰ";
+  const capFirst = html => html
+    .replace(new RegExp(`(<(?:p|li|td|th|dd|dt|small|figcaption|summary|option|label|legend|h[1-6]|div class="a"|span class="(?:hint|caption|yr|m-deps|more|p)")(?:\\s[^>]*)?>\\s*(?:<(?!/)[^>]+>\\s*)*)([${LOW}])(?![${LOW}]*[@.:/][a-z])`, "g"), (m, pre, ch) => pre + ch.toUpperCase())
+    .replace(new RegExp(`(<b>[^<]{1,40}:</b>\\s*)([${LOW}])`, "g"), (m, pre, ch) => pre + ch.toUpperCase())
+    .replace(new RegExp(`(</b><span>)([${LOW}])`, "g"), (m, pre, ch) => pre + ch.toUpperCase())
+    .replace(new RegExp(`(placeholder=")([${LOW}])`, "g"), (m, pre, ch) => pre + ch.toUpperCase())
+    .replace(/(<(?:li|td|th|span class="(?:hint|m-deps)")[^>]*>)(Kg|Cm)\b/g, (m, a, u) => a + u.toLowerCase());
+  function page(gr, meta, body) { body = capFirst(body);
     const pre = lang === "en" ? "../" : "";
     const urlOf = (lg, g) => B.domain + "/" + (lg === "en" ? "en/" : "") + (g === "index" ? "" : (lg === "en" ? SLUG[g] : g) + ".html");
     const url = urlOf(lang, gr);
