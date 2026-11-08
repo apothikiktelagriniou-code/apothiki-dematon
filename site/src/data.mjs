@@ -178,3 +178,13 @@ export const PROHIBITED = [
   "σφαιρ", "μπαρουτ", "οξυ", "χλωρ", "φυτοφαρμακ", "δηλητηρ", "διαλυτ", "αραιωτικ", "σπρει",
   "ζωντανο", "κατοικιδ", "μαχαιρ",
 ];
+
+// Επιχειρήσεις που στέλνουν μαζί μας (λωρίδα «Στέλνουν μαζί μας»).
+// approved: true ΜΟΝΟ με γραπτή άδεια (email / μήνυμα). Λογότυπο: src/assets/partners/<file>.svg|png|webp|jpg
+// url: ο ιστότοπος της επιχείρησης (κενό αν δεν θέλει σύνδεσμο). Στη δημόσια έκδοση φαίνονται μόνο τα approved.
+export const PARTNERS = [
+  { name: "Πρέζας Α.Ε. · Ιαπωνική", file: "prezas", url: "", approved: false },
+  { name: "Master Parts", file: "master-parts", url: "", approved: false },
+  { name: "ΣΕΦΑΡ", file: "sefar", url: "", approved: false },
+  { name: "Φαρμανέτ", file: "farmanet", url: "", approved: false },
+];
