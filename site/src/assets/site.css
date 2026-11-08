@@ -455,3 +455,19 @@ table.season .m-deps { display: none; }
 .access b { display: inline; font-size: 15px; color: var(--heading); }
 .contact-list .access b { display: inline; color: var(--heading); font-size: 15px; font-weight: 700; }
 
+
+/* Διαχείριση δρομολογίων */
+.adm-bar { display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; align-items: center; margin-bottom: 16px; position: sticky; top: 72px; z-index: 5; background: var(--paper); padding: 10px 0; border-bottom: 1px solid var(--line); }
+.adm-dest { border-bottom: 1px solid var(--line); padding: 10px 0; }
+.adm-dest summary { cursor: pointer; font-size: 18px; padding: 6px 0; }
+.adm-row { display: grid; grid-template-columns: 76px repeat(7, 34px) 64px 34px; gap: 4px; align-items: center; padding: 4px 0; }
+.adm-head span { font-size: 12px; color: var(--muted); text-align: center; }
+.adm-head span:first-child { text-align: left; }
+.adm-time { min-height: 40px !important; padding: 6px 8px !important; font-size: 16px !important; }
+.adm-cb { display: grid; place-items: center; min-height: 40px; }
+.adm-cb input { width: 22px; height: 22px; accent-color: var(--teal); }
+.adm-row.off .adm-time, .adm-row.off .adm-cb:not(.adm-show) { opacity: .45; }
+.adm-row.changed { background: var(--teal-soft); border-radius: var(--r); }
+.adm-del { background: none; border: 0; font-size: 18px; color: var(--muted); cursor: pointer; min-height: 40px; }
+.adm-del:hover { color: var(--bad); }
+@media (max-width: 420px) { .adm-row { grid-template-columns: 64px repeat(7, 1fr) 48px 28px; gap: 2px; } }

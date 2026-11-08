@@ -504,7 +504,7 @@ export const weekdayIdx = d => (new Date(d).getDay() + 6) % 7; // Δευ=0 … �
 /** Τα λεωφορεία μιας ημέρας: ίδια ώρα + ίδια «γραμμή» = ένα λεωφορείο. → [{hhmm, line, end, stops, members, notes}] */
 export function busesFor(times, lines, date) {
   const wd = weekdayIdx(date);
-  const act = times.filter(t => t.active !== false && t.parcels !== false && String(t.days || "")[wd] === "1");
+  const act = times.filter(t => t.active !== false && String(t.days || "")[wd] === "1");
   const byT = new Map(); for (const t of act) { const a = byT.get(t.time) || []; a.push(t); byT.set(t.time, a); }
   const out = [];
   for (const [hhmm, ts] of [...byT.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {

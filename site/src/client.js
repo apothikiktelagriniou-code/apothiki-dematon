@@ -22,14 +22,14 @@
   const mb = $(".menu-btn"), nav = $(".nav");
   if (mb && nav) mb.addEventListener("click", () => { const o = nav.classList.toggle("open"); mb.setAttribute("aria-expanded", o); });
 
-  // ---------- Δρομολόγια με δέματα από την εφαρμογή (ζωντανά) ----------
-  // Η εφαρμογή κρατά ποια λεωφορεία παίρνουν δέματα· αν δεν απαντήσει, μένει η λίστα της ιστοσελίδας.
+  // ---------- Δρομολόγια με δέματα (ζωντανά, από τη διαχείριση) ----------
+  // Η λίστα ορίζεται στη σελίδα διαχείρισης (site_schedule)· αν δεν απαντήσει, μένει η λίστα της ιστοσελίδας.
   const live = new Set();
   const onSchedule = fn => { live.add(fn); };
   (async () => {
     try {
       const ctl = new AbortController(); setTimeout(() => ctl.abort(), 6000);
-      const r = await fetch(SITE.SUPABASE.url + "/rest/v1/rpc/public_departures", { method: "POST", headers: { apikey: SITE.SUPABASE.key, "content-type": "application/json" }, body: "{}", signal: ctl.signal });
+      const r = await fetch(SITE.SUPABASE.url + "/rest/v1/rpc/site_departures", { method: "POST", headers: { apikey: SITE.SUPABASE.key, "content-type": "application/json" }, body: "{}", signal: ctl.signal });
       if (!r.ok) return;
       const rows = await r.json();
       if (!Array.isArray(rows) || rows.length < 5) return;
@@ -308,5 +308,114 @@
         out.append(h("div", { class: "notice warn" }, h("b", {}, T("Δεν στάλθηκε", "Not sent")), T("Κάτι πήγε στραβά με τη σύνδεση. Δοκιμάστε ξανά σε λίγο ή πείτε μας την απάντησή σας στην αποθήκη.", "Something went wrong with the connection. Try again shortly or tell us at the depot.")));
       }
     });
+  }
+
+  // ---------- 🗓 Διαχείριση δρομολογίων (μόνο με σύνδεση· λογαριασμός της εφαρμογής) ----------
+  const adm = $("[data-admin]");
+  if (adm) {
+    const U = SITE.SUPABASE.url, K = SITE.SUPABASE.key, TK = "adm-session";
+    const DAYS = ["Δε", "Τρ", "Τε", "Πε", "Πα", "Σα", "Κυ"];
+    let sess = null, rows = [], dirty = new Set(), removed = new Set(), seq = -1, msg = null, openDest = new Set();
+    try { sess = JSON.parse(sessionStorage.getItem(TK) || "null"); } catch {}
+    const save = () => { try { sess ? sessionStorage.setItem(TK, JSON.stringify(sess)) : sessionStorage.removeItem(TK); } catch {} };
+    const api = async (path, opt = {}) => {
+      if (sess && sess.exp && Date.now() / 1000 > sess.exp - 60) await refresh();
+      const r = await fetch(U + path, { ...opt, headers: { apikey: K, Authorization: "Bearer " + (sess ? sess.at : K), "content-type": "application/json", ...(opt.headers || {}) } });
+      if (r.status === 401) { sess = null; save(); throw new Error("Η σύνδεση έληξε. Συνδεθείτε ξανά."); }
+      if (!r.ok) { const t = await r.text(); throw new Error(/does not exist|schema cache|42P01|PGRST205/.test(t) ? "Τρέξτε πρώτα το 0026_parcel_departures.sql στο Supabase." : t.slice(0, 200)); }
+      return r.status === 204 ? null : r.json().catch(() => null);
+    };
+    const setSess = j => { sess = { at: j.access_token, rt: j.refresh_token, exp: j.expires_at || Math.floor(Date.now() / 1000) + (j.expires_in || 3600), email: j.user && j.user.email }; save(); };
+    async function refresh() {
+      const r = await fetch(U + "/auth/v1/token?grant_type=refresh_token", { method: "POST", headers: { apikey: K, "content-type": "application/json" }, body: JSON.stringify({ refresh_token: sess.rt }) });
+      if (!r.ok) { sess = null; save(); throw new Error("Η σύνδεση έληξε. Συνδεθείτε ξανά."); }
+      setSess(await r.json());
+    }
+    const say = (cls, text) => { msg = text ? h("div", { class: "notice " + cls, style: "margin-bottom:14px" }, text) : null; };
+
+    function loginView() {
+      adm.textContent = "";
+      const email = h("input", { type: "email", id: "a-email", autocomplete: "username", required: true });
+      const pw = h("input", { type: "password", id: "a-pw", autocomplete: "current-password", required: true });
+      const btn = h("button", { class: "btn btn-primary", type: "submit" }, "Σύνδεση");
+      const f = h("form", { class: "form panel", style: "max-width:460px" }, h("h2", { style: "font-size:24px" }, "Σύνδεση"),
+        h("p", { class: "muted" }, "Με τον ίδιο λογαριασμό που μπαίνετε στην εφαρμογή της αποθήκης."),
+        h("div", { class: "field" }, h("label", { for: "a-email" }, "Email"), email),
+        h("div", { class: "field" }, h("label", { for: "a-pw" }, "Κωδικός"), pw), btn);
+      f.addEventListener("submit", async e => {
+        e.preventDefault(); btn.disabled = true;
+        try {
+          const r = await fetch(U + "/auth/v1/token?grant_type=password", { method: "POST", headers: { apikey: K, "content-type": "application/json" }, body: JSON.stringify({ email: email.value.trim(), password: pw.value }) });
+          if (!r.ok) throw new Error("Λάθος email ή κωδικός.");
+          setSess(await r.json()); await load();
+        } catch (err) { btn.disabled = false; say("bad", err.message === "Failed to fetch" ? "Δεν υπάρχει σύνδεση με τον διακομιστή." : err.message); loginView(); }
+      });
+      if (msg) adm.append(msg); adm.append(f);
+    }
+
+    async function load() {
+      try { rows = await api("/rest/v1/site_schedule?select=*&order=dest.asc,time.asc") || []; dirty.clear(); removed.clear(); render(); }
+      catch (e) { say("bad", e.message); sess ? render() : loginView(); }
+    }
+
+    function render() {
+      adm.textContent = "";
+      const dests = [...new Set(rows.map(r => r.dest))].sort((a, b) => a.localeCompare(b, "el"));
+      const changes = dirty.size + removed.size;
+      const saveBtn = h("button", { class: "btn btn-primary", type: "button", disabled: !changes }, changes ? `Αποθήκευση (${changes})` : "Αποθηκευμένα");
+      saveBtn.addEventListener("click", saveAll);
+      const out = h("button", { class: "btn btn-ghost", type: "button" }, "Αποσύνδεση");
+      out.addEventListener("click", () => { sess = null; save(); say(null, ""); loginView(); });
+      const shownN = rows.filter(r => r.shown).length;
+      adm.append(h("div", { class: "adm-bar" }, h("div", {}, h("b", {}, sess && sess.email ? sess.email : ""), h("div", { class: "muted", style: "font-size:14px" }, `${shownN} από ${rows.length} δρομολόγια στη σελίδα`)), h("div", { style: "display:flex;gap:10px;flex-wrap:wrap" }, saveBtn, out)));
+      if (msg) adm.append(msg);
+      for (const d of dests) {
+        const list = rows.filter(r => r.dest === d).sort((a, b) => (a.time || "99") .localeCompare(b.time || "99"));
+        const on = list.filter(r => r.shown).length;
+        const det = h("details", { class: "adm-dest" }); if (openDest.has(d)) det.open = true;
+        det.addEventListener("toggle", () => { det.open ? openDest.add(d) : openDest.delete(d); });
+        det.append(h("summary", {}, h("b", {}, d), h("span", { class: "muted" }, ` · ${on}/${list.length} στη σελίδα`)));
+        const head = h("div", { class: "adm-row adm-head" }, h("span", {}, "Ώρα"), ...DAYS.map(x => h("span", {}, x)), h("span", {}, "Στη σελίδα"), h("span", {}, ""));
+        det.append(head);
+        for (const r of list) det.append(rowEl(r));
+        const add = h("button", { class: "btn btn-ghost", type: "button", style: "min-height:40px;margin-top:8px" }, "+ Ώρα");
+        add.addEventListener("click", () => { const r = { id: seq--, dest: d, time: "", days: "1111111", express: false, conn: false, notes: null, shown: true }; rows.push(r); dirty.add(r.id); openDest.add(d); render(); });
+        det.append(add);
+        adm.append(det);
+      }
+      const nd = h("input", { placeholder: "Νέος προορισμός (π.χ. ΚΑΛΑΜΑΤΑ)", style: "max-width:320px" });
+      const nb = h("button", { class: "btn btn-ghost", type: "button" }, "+ Προορισμός");
+      nb.addEventListener("click", () => { const d = nd.value.trim().toUpperCase(); if (d.length < 2) return; const r = { id: seq--, dest: d, time: "", days: "1111111", express: false, conn: false, notes: null, shown: true }; rows.push(r); dirty.add(r.id); openDest.add(d); render(); });
+      adm.append(h("div", { style: "display:flex;gap:10px;flex-wrap:wrap;margin-top:18px" }, nd, nb));
+    }
+
+    function rowEl(r) {
+      const mark = () => { dirty.add(r.id); render(); };
+      const t = h("input", { value: r.time, inputmode: "numeric", placeholder: "09:30", class: "mono adm-time", "aria-label": "Ώρα" });
+      t.addEventListener("change", () => { let v = t.value.replace(/[.,]/g, ":").replace(/\s/g, ""); if (/^\d{3,4}$/.test(v)) v = v.padStart(4, "0").replace(/(\d\d)(\d\d)/, "$1:$2"); if (/^\d:\d\d$/.test(v)) v = "0" + v; r.time = v; mark(); });
+      const days = DAYS.map((x, i) => { const c = h("input", { type: "checkbox", "aria-label": x, checked: r.days[i] === "1" });
+        c.addEventListener("change", () => { const a = r.days.split(""); a[i] = c.checked ? "1" : "0"; r.days = a.join(""); mark(); }); return h("label", { class: "adm-cb" }, c); });
+      const sh = h("input", { type: "checkbox", "aria-label": "Στη σελίδα", checked: !!r.shown }); sh.addEventListener("change", () => { r.shown = sh.checked; mark(); });
+      const del = h("button", { class: "adm-del", type: "button", "aria-label": "Διαγραφή", title: "Διαγραφή" }, "✕");
+      del.addEventListener("click", () => { rows = rows.filter(x => x !== r); dirty.delete(r.id); if (r.id > 0) removed.add(r.id); render(); });
+      return h("div", { class: "adm-row" + (r.shown ? "" : " off") + (dirty.has(r.id) ? " changed" : "") }, t, ...days, h("label", { class: "adm-cb adm-show" }, sh), del);
+    }
+
+    async function saveAll() {
+      const bad = rows.filter(r => dirty.has(r.id) && !/^([01]\d|2[0-3]):[0-5]\d$/.test(r.time));
+      if (bad.length) { say("warn", `Ελέγξτε την ώρα στο ${bad[0].dest}: γράψτε τη σαν 09:30.`); return render(); }
+      const keys = new Set(); for (const r of rows) { const k = r.dest + " " + r.time; if (keys.has(k)) { say("warn", `Η ώρα ${r.time} υπάρχει δύο φορές στο ${r.dest}.`); return render(); } keys.add(k); }
+      try {
+        for (const id of removed) await api("/rest/v1/site_schedule?id=eq." + id, { method: "DELETE" });
+        for (const r of rows.filter(x => dirty.has(x.id))) {
+          const body = { dest: r.dest, time: r.time, days: r.days, express: !!r.express, conn: !!r.conn, notes: r.notes || null, shown: !!r.shown, updated_at: new Date().toISOString() };
+          if (r.id > 0) await api("/rest/v1/site_schedule?id=eq." + r.id, { method: "PATCH", body: JSON.stringify(body) });
+          else await api("/rest/v1/site_schedule", { method: "POST", body: JSON.stringify(body) });
+        }
+        say("ok", "Αποθηκεύτηκαν. Η σελίδα δείχνει ήδη τα νέα δρομολόγια.");
+        await load();
+      } catch (e) { say("bad", "Δεν αποθηκεύτηκαν όλα: " + e.message); render(); }
+    }
+    sess ? load() : loginView();
   }
 })();

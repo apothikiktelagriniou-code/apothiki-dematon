@@ -189,21 +189,19 @@ function timeRow(t) {
   const nI = el("input", "schednote"); nI.value = t.notes || ""; nI.placeholder = "Σημείωση (π.χ. αλλαγή στη Βόνιτσα)"; nI.setAttribute("aria-label", "Σημείωση");
   const ex = el("label", "dp"); const exC = el("input"); exC.type = "checkbox"; exC.checked = !!t.express; ex.append(exC, " Express");
   const on = btn(t.active === false ? "▶ Ενεργοποίηση" : "⏸ Δεν εκτελείται", "", async () => upd({ active: t.active === false }));
-  const pc = btn(t.parcels === false ? "📦 Χωρίς δέματα" : "📦 Παίρνει δέματα", t.parcels === false ? "danger" : "", async () => upd({ parcels: t.parcels === false }));
-  pc.title = "Αν το λεωφορείο παίρνει δέματα. Η ιστοσελίδα δείχνει μόνο όσα παίρνουν.";
   const del = btn("🗑", "danger", async () => { if (!del.dataset.sure) { del.dataset.sure = "1"; del.textContent = "Σίγουρα;"; return; }
     const { error } = await D.sb.from("route_times").delete().eq("id", t.id); if (error) return schedSay("Δεν διαγράφηκε: " + error.message, "bad"); await schedChanged("✓ Διαγράφηκε " + t.dest + " " + t.time + "."); renderTimesEditor(); });
   del.setAttribute("aria-label", "Διαγραφή");
   async function upd(p) {
     const { error } = await D.sb.from("route_times").update({ ...p, updated_at: new Date().toISOString() }).eq("id", t.id);
     if (error) return schedSay("Δεν αποθηκεύτηκε: " + error.message, "bad");
-    await schedChanged("✓ " + t.dest + " " + (p.time || t.time) + " αποθηκεύτηκε."); if ("active" in p || "parcels" in p) renderTimesEditor();
+    await schedChanged("✓ " + t.dest + " " + (p.time || t.time) + " αποθηκεύτηκε."); if ("active" in p) renderTimesEditor();
   }
   tI.onchange = () => { const v = normTime(tI.value); if (!okTime(v)) { tI.value = t.time; return schedSay("Η ώρα σαν 09:30.", "warn"); } tI.value = v; upd({ time: v }); };
   dp.cbs.forEach(c => c.onchange = () => upd({ days: dp.value() }));
   nI.onchange = () => upd({ notes: nI.value.trim() || null });
   exC.onchange = () => upd({ express: exC.checked });
-  row.append(tI, dp.el, ex, nI, pc, on, del); return row;
+  row.append(tI, dp.el, ex, nI, on, del); return row;
 }
 /** ✎ Λεωφορεία: ποιοι προορισμοί πάνε μαζί και με ποια σειρά στάσεων. */
 function renderLinesEditor() {
