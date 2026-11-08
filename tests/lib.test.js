@@ -431,3 +431,23 @@ test("κλήρωση: αρχικά και τυχαία σειρά χωρίς α�
   const out = drawOrder(["a", "b", "c", "d", "e", "f"], n => seq[k++ % seq.length] % n);
   assert.deepEqual(out.slice().sort(), ["a", "b", "c", "d", "e", "f"]);
 });
+
+import { pollSummary } from "../src/lib.js";
+test("pollSummary: μετρά και βγάζει τον βασικό αριθμό", () => {
+  const s = pollSummary([
+    { would_use: "yes", price: "3", frequency: "weekly", wants: ["home", "work"], source: "sms", comment: "τέλειο" },
+    { would_use: "yes", price: "2", frequency: "monthly", wants: ["home"], source: "web" },
+    { would_use: "maybe", price: "5plus", wants: [], source: "web" },
+    { would_use: "yes", price: "4", frequency: "rarely", wants: ["pickup"], source: "qr" },
+    { would_use: "no", price: "none", wants: [] },
+  ]);
+  assert.equal(s.total, 5);
+  assert.deepEqual(s.would_use, { yes: 3, maybe: 1, no: 1 });
+  assert.equal(s.key, 2);            // yes + ≥3 €
+  assert.equal(s.keyFrequent, 1);    // + εβδομάδα/μήνα
+  assert.equal(s.wants.home, 2);
+  assert.equal(s.pct(s.key), 40);
+  assert.equal(s.comments.length, 1);
+  assert.equal(pollSummary(null).total, 0);
+  assert.equal(pollSummary([]).pct(0), 0);
+});

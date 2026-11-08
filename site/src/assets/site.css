@@ -288,3 +288,5 @@ details.how li { font-variant-numeric: tabular-nums; }
 .dest-table td.wrap-cell { white-space: normal; min-width: 220px; max-width: 320px; text-align: left; font-size: 14px; color: var(--muted); }
 .dest-table td { text-align: left; }
 .dest-table tr.off th, .dest-table tr.off td { color: var(--muted); }
+fieldset.field legend { font: inherit; margin-bottom: 10px; padding: 0; }
+form[data-poll] { display: grid; gap: 22px; }

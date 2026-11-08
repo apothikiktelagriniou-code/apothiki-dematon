@@ -704,3 +704,21 @@ export function drawOrder(ids, rnd) {
   return a;
 }
 export const cryptoRnd = n => { const b = new Uint32Array(1); const lim = Math.floor(0x100000000 / n) * n; let x; do { crypto.getRandomValues(b); x = b[0]; } while (x >= lim); return x % n; };
+
+// 📊 Σύνοψη δημοσκόπησης «Παράδοση στο σπίτι».
+// key = «Ναι, σίγουρα» ΚΑΙ πληρώνει ≥3 € — ο πιο αξιόπιστος αριθμός (οι δημοσκοπήσεις υπερεκτιμούν την πρόθεση).
+export function pollSummary(rows) {
+  const list = Array.isArray(rows) ? rows : [];
+  const count = field => { const c = {}; for (const r of list) { const vs = Array.isArray(r[field]) ? r[field] : [r[field]]; for (const v of vs) if (v) c[v] = (c[v] || 0) + 1; } return c; };
+  const paying = r => ["3", "4", "5plus"].includes(r.price);
+  const key = list.filter(r => r.would_use === "yes" && paying(r));
+  const frequent = key.filter(r => r.frequency === "weekly" || r.frequency === "monthly");
+  return {
+    total: list.length,
+    would_use: count("would_use"), frequency: count("frequency"), price: count("price"),
+    wants: count("wants"), who: count("who"), area: count("area"), source: count("source"),
+    key: key.length, keyFrequent: frequent.length,
+    pct: n => (list.length ? Math.round((n / list.length) * 100) : 0),
+    comments: list.filter(r => r.comment).map(r => ({ at: r.created_at, text: r.comment })).slice(0, 20),
+  };
+}

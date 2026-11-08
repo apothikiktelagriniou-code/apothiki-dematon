@@ -2,7 +2,7 @@
 //  • Συμμετοχές: επικόλληση του μηνύματος της φόρμας της ιστοσελίδας, ή χειροκίνητα από τον πάγκο.
 //  • Μία συμμετοχή ανά κινητό. Η κλήρωση (τυχαία, κρυπτογραφικά) γίνεται μία φορά, μετά τη λήξη.
 //  • Αποτελέσματα: νικητές + αναπληρωματικοί, κουμπί κλήσης, κείμενο ανακοίνωσης μόνο με αρχικά.
-import { cleanPhone, fmtPhone, parseContestMessage, initials, drawOrder, cryptoRnd } from "./lib.js";
+import { cleanPhone, fmtPhone, parseContestMessage, initials, drawOrder, cryptoRnd, pollSummary } from "./lib.js";
 
 export const CONTEST = { id: "spiti-2026", title: "Παράδοση στο σπίτι", end: "2026-12-31", draw: "2027-01-08", winners: 5, keepMonths: 6 };
 
@@ -10,7 +10,7 @@ const $ = id => document.getElementById(id);
 const el = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
 const fmtDate = ymd => new Date(ymd + "T12:00:00").toLocaleDateString("el-GR", { day: "numeric", month: "long", year: "numeric" });
 const today = () => new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Athens" });
-let D = null, entries = [], armed = null;
+let D = null, entries = [], armed = null, poll = null, pollErr = null;
 
 export function initContest(deps) { D = deps; }
 
@@ -18,6 +18,9 @@ async function load() {
   const { data, error } = await D.sb.from("contest_entries").select("*").eq("contest", CONTEST.id).order("created_at", { ascending: false });
   if (error) throw new Error(/does not exist|schema cache|not find/i.test(error.message) ? "Τρέξε πρώτα το 0023_contest.sql στο Supabase." : error.message);
   entries = data || [];
+  const r = await D.sb.from("poll_responses").select("*").eq("poll", CONTEST.id).order("created_at", { ascending: false }).limit(5000);
+  if (r.error) { poll = null; pollErr = /does not exist|schema cache|not find/i.test(r.error.message) ? "Τρέξε το 0024_poll.sql στο Supabase για να ενεργοποιηθεί η δημοσκόπηση." : r.error.message; }
+  else { poll = r.data || []; pollErr = null; }
 }
 
 export async function openContest() {
@@ -36,6 +39,7 @@ function render(msg, cls) {
   body.append(el("div", "hint", `${entries.length} συμμετοχές · δεκτές έως ${fmtDate(CONTEST.end)} · κλήρωση ${fmtDate(CONTEST.draw)} · ${CONTEST.winners} νικητές + ${CONTEST.winners} αναπληρωματικοί`));
   if (msg) { const m = el("div", "msg " + (cls || "ok"), msg); body.append(m); }
 
+  renderPoll(body);
   if (drawn) renderResults(body);
   else {
     // ---- νέα συμμετοχή
@@ -141,4 +145,47 @@ function renderResults(body) {
     await load(); render("✓ Διαγράφηκαν όλες οι συμμετοχές.", "ok");
   };
   body.append(wipe);
+}
+
+// ---- 📊 Δημοσκόπηση (ανώνυμες απαντήσεις από apothikiktelagriniou.gr/poll)
+const LBL = {
+  would_use: { yes: "Ναι, σίγουρα", maybe: "Ίσως", no: "Όχι" },
+  frequency: { weekly: "Κάθε εβδομάδα", monthly: "Κάθε μήνα", yearly: "Λίγες φορές/χρόνο", rarely: "Σπάνια/ποτέ" },
+  price: { "2": "Έως 2 €", "3": "3 €", "4": "4 €", "5plus": "5 €+", none: "Τίποτα" },
+  wants: { home: "Στο σπίτι", work: "Σε δουλειά/κατάστημα", pickup: "Παραλαβή για αποστολή" },
+  who: { private: "Ιδιώτης", business: "Επιχείρηση" },
+  area: { center: "Κέντρο", town: "Αλλού στην πόλη", outside: "Εκτός πόλης" },
+};
+function renderPoll(body) {
+  const det = el("details", "hrow"); det.style.margin = "10px 0";
+  const sum = el("summary"); sum.style.cursor = "pointer"; sum.style.fontWeight = "700";
+  det.append(sum);
+  if (pollErr) { sum.textContent = "📊 Δημοσκόπηση"; det.append(el("div", "msg warn", pollErr)); body.append(det); return; }
+  const S = pollSummary(poll);
+  sum.textContent = `📊 Δημοσκόπηση · ${S.total} απαντήσεις · ${S.key} «σίγουρα + πληρώνει ≥3 €»`;
+  if (!S.total) { det.append(el("div", "hint", "Καμία απάντηση ακόμα. Σύνδεσμος για SMS: apothikiktelagriniou.gr/poll?s=sms · για QR στον πάγκο: ?s=qr · για Facebook: ?s=fb")); body.append(det); return; }
+  const key = el("div", "msg ok");
+  key.append(el("b", null, `Βασικός αριθμός: ${S.key} (${S.pct(S.key)}%)`), ` απάντησαν «Ναι, σίγουρα» ΚΑΙ θα πλήρωναν 3 € ή παραπάνω · από αυτούς ${S.keyFrequent} στέλνουν/παραλαμβάνουν κάθε εβδομάδα ή μήνα.`);
+  det.append(key, el("div", "hint", "Οι δημοσκοπήσεις υπερεκτιμούν: λογάριασε ότι στην πράξη θα το χρησιμοποιήσει περίπου το 1/3 με 1/2 όσων λένε «σίγουρα»."));
+  const block = (title, field, counts) => {
+    det.append(el("h3", "hsec", title));
+    const entries = Object.entries(LBL[field] || {}).map(([k, t]) => [t, counts[k] || 0]);
+    for (const [t, n] of entries) {
+      const row = el("div", "hrow"); const pct = S.pct(n);
+      const bar = el("span"); bar.style.cssText = `display:inline-block;height:10px;border-radius:5px;background:currentColor;opacity:.35;margin-left:8px;vertical-align:middle;width:${Math.max(pct, 1) * 1.6}px`;
+      row.append(el("b", null, t), ` · ${n} (${pct}%)`, bar); det.append(row);
+    }
+  };
+  block("Θα τη χρησιμοποιούσαν", "would_use", S.would_use);
+  block("Πόσα θα πλήρωναν", "price", S.price);
+  block("Συχνότητα δεμάτων ΚΤΕΛ", "frequency", S.frequency);
+  block("Τι θέλουν (πολλαπλή επιλογή)", "wants", S.wants);
+  block("Ποιοι", "who", S.who);
+  block("Περιοχή", "area", S.area);
+  det.append(el("h3", "hsec", "Από πού ήρθαν"), el("div", "hrow", Object.entries(S.source).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k}: ${n}`).join(" · ") || "—"));
+  if (S.comments.length) {
+    det.append(el("h3", "hsec", "Σχόλια (τελευταία " + S.comments.length + ")"));
+    for (const c of S.comments) det.append(el("div", "hrow", new Date(c.at).toLocaleDateString("el-GR") + " · " + c.text));
+  }
+  body.append(det);
 }

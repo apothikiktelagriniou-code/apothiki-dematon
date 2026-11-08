@@ -260,4 +260,35 @@
       out.scrollIntoView({ behavior: "smooth", block: "nearest" });
     });
   }
+
+  // ---------- Δημοσκόπηση (ανώνυμη, αποθηκεύεται στο Supabase μέσω submit_poll) ----------
+  const pollForm = $("form[data-poll]");
+  if (pollForm) {
+    const out = $("[data-poll-out]");
+    const KEY = "poll-spiti-2026";
+    const done = () => { try { return localStorage.getItem(KEY) === "1"; } catch { return false; } };
+    const thanks = again => {
+      out.textContent = "";
+      out.append(h("div", { class: "notice ok" }, h("b", {}, again ? T("Έχετε ήδη απαντήσει — ευχαριστούμε!", "You have already answered — thank you!") : T("Ευχαριστούμε! Η απάντησή σας καταγράφηκε.", "Thank you! Your answer was recorded.")),
+        T("Θέλετε να μπείτε και στην κλήρωση για δωρεάν παραδόσεις; ", "Want to enter the draw for free deliveries too? "), h("a", { href: "spiti.html" }, T("Δηλώστε ενδιαφέρον →", "Register your interest →"))));
+    };
+    if (done()) { pollForm.hidden = true; thanks(true); }
+    const src = (new URLSearchParams(location.search).get("s") || "web").toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, 20) || "web";
+    pollForm.addEventListener("submit", async e => {
+      e.preventDefault();
+      const fd = new FormData(pollForm);
+      if (!fd.get("would_use")) { out.textContent = ""; out.append(h("div", { class: "notice warn" }, h("b", {}, T("Απαντήστε την ερώτηση 1", "Please answer question 1")), T("Είναι η μόνη υποχρεωτική.", "It is the only required one."))); $("input[name=would_use]", pollForm).focus(); return; }
+      const p = { would_use: fd.get("would_use"), frequency: fd.get("frequency") || "", price: fd.get("price") || "", wants: fd.getAll("wants"), who: fd.get("who") || "", area: fd.get("area") || "", comment: (fd.get("comment") || "").trim().slice(0, 500), lang: LANG, source: src };
+      const btn = $("button[type=submit]", pollForm); btn.disabled = true;
+      try {
+        const r = await fetch(SITE.SUPABASE.url + "/rest/v1/rpc/submit_poll", { method: "POST", headers: { "Content-Type": "application/json", apikey: SITE.SUPABASE.key, Authorization: "Bearer " + SITE.SUPABASE.key }, body: JSON.stringify({ p }) });
+        if (!r.ok) { const t = await r.text(); if (/too_many/.test(t)) { out.textContent = ""; out.append(h("div", { class: "notice warn" }, h("b", {}, T("Πολλές απαντήσεις από αυτή τη σύνδεση", "Too many answers from this connection")), T("Δοκιμάστε ξανά σε μία ώρα.", "Please try again in an hour."))); btn.disabled = false; return; } throw new Error(t); }
+        try { localStorage.setItem(KEY, "1"); } catch {}
+        pollForm.hidden = true; thanks(false); out.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      } catch {
+        btn.disabled = false; out.textContent = "";
+        out.append(h("div", { class: "notice warn" }, h("b", {}, T("Δεν στάλθηκε", "Not sent")), T("Κάτι πήγε στραβά με τη σύνδεση. Δοκιμάστε ξανά σε λίγο ή πείτε μας την απάντησή σας στην αποθήκη.", "Something went wrong with the connection. Try again shortly or tell us at the depot.")));
+      }
+    });
+  }
 })();
