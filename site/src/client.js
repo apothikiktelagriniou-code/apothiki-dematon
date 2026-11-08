@@ -22,6 +22,23 @@
   const mb = $(".menu-btn"), nav = $(".nav");
   if (mb && nav) mb.addEventListener("click", () => { const o = nav.classList.toggle("open"); mb.setAttribute("aria-expanded", o); });
 
+  // ---------- Δρομολόγια με δέματα από την εφαρμογή (ζωντανά) ----------
+  // Η εφαρμογή κρατά ποια λεωφορεία παίρνουν δέματα· αν δεν απαντήσει, μένει η λίστα της ιστοσελίδας.
+  const live = new Set();
+  const onSchedule = fn => { live.add(fn); };
+  (async () => {
+    try {
+      const ctl = new AbortController(); setTimeout(() => ctl.abort(), 6000);
+      const r = await fetch(SITE.SUPABASE.url + "/rest/v1/rpc/public_departures", { method: "POST", headers: { apikey: SITE.SUPABASE.key, "content-type": "application/json" }, body: "{}", signal: ctl.signal });
+      if (!r.ok) return;
+      const rows = await r.json();
+      if (!Array.isArray(rows) || rows.length < 5) return;
+      SITE.SCHEDULE = rows.map(x => ({ dest: x.dest, time: x.time, days: x.days, express: !!x.express, conn: !!x.conn, notes: x.notes }));
+      for (const el of $$("[data-daily]")) el.textContent = SITE.SCHEDULE.filter(x => x.dest === el.dataset.daily && x.days[2] === "1").length;
+      for (const fn of live) fn();
+    } catch {}
+  })();
+
   // ---------- Πίνακας αναχωρήσεων (αρχική) ----------
   const board = $("[data-board]");
   if (board) {
@@ -37,7 +54,7 @@
       for (const r of rows.slice(0, 7)) tb.append(h("tr", {}, h("td", { class: "t" }, r.time), h("td", { class: "d" }, pretty(r.k)), h("td", { class: "x" }, r.rel === 0 ? (r.express ? "Express" : "") : r.day)));
       $("time", board).textContent = new Intl.DateTimeFormat(LOCALE, { timeZone: "Europe/Athens", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date());
     };
-    draw(); setInterval(draw, 30000);
+    draw(); setInterval(draw, 30000); onSchedule(draw);
   }
 
   // ---------- Υπολογιστής κόστους αποστολής ----------
@@ -169,7 +186,7 @@
     form.addEventListener("submit", e => e.preventDefault());
     const pre = new URLSearchParams(location.search).get("to");
     if (pre && findDest(SITE.DESTINATIONS, pre)) sel.value = findDest(SITE.DESTINATIONS, pre).name;
-    render();
+    render(); onSchedule(render);
   }
 
   // ---------- Αναζήτηση δέματος ----------

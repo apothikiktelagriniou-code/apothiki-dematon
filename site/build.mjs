@@ -114,7 +114,7 @@ function makeLang(lang) {
     "{{whatsapp}}": () => `https://wa.me/30${B.mobile}`, "{{email}}": () => `<a href="mailto:${B.email}">${B.email}</a>`,
     "{{maps}}": () => B.mapsUrl, "{{access}}": () => `<ul class="access"><li><b>${t("Είσοδος", "Entrance")}:</b> ${t("μπαίνετε από την Εθνική Οδό Αγρινίου – Αντιρρίου. Η αποθήκη είναι δεξιά από την είσοδο του σταθμού ΚΤΕΛ.", "turn in from the Agrinio – Antirrio national road. The depot is to the right of the KTEL station entrance.")}</li><li><b>${t("Στάθμευση", "Parking")}:</b> ${t("στις θέσεις με την ταμπέλα για παραλαβή και παράδοση ασυνόδευτων δεμάτων.", "in the signposted spaces for dropping off and collecting unaccompanied parcels.")}</li></ul>`, "{{ktel}}": () => B.ktelUrl, "{{name}}": () => esc(L(B.name)), "{{slogan}}": () => esc(L(B.slogan)),
     "{{nDirect}}": () => counts.direct, "{{nLocal}}": () => counts.local, "{{nTransfer}}": () => counts.transfer,
-    "{{athensDaily}}": () => counts.athensDaily, "{{patraDaily}}": () => counts.patraDaily,
+    "{{athensDaily}}": () => `<span data-daily="ΑΘΗΝΑ">${counts.athensDaily}</span>`, "{{patraDaily}}": () => `<span data-daily="ΠΑΤΡΑ">${counts.patraDaily}</span>`,
     "{{free}}": () => DATA.STORAGE.freeDays, "{{perDay}}": () => DATA.STORAGE.perDay, "{{cap}}": () => DATA.STORAGE.cap,
     "{{homePrice}}": () => DATA.HOME.zones[0].price, "{{homeHours}}": () => DATA.HOME.hours, "{{homeVehicles}}": () => esc(L(DATA.HOME.vehicles)),
     "{{homeZones}}": () => DATA.HOME.zones.map(z => `<option value="${z.id}">${esc(L(z.name))}</option>`).join(""),
