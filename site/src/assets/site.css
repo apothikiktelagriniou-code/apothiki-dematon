@@ -386,15 +386,15 @@ form[data-poll] { display: grid; gap: 24px; }
   .menu-btn { padding: 0 10px; margin-left: 6px; }
 }
 
-/* Ενότητα «παλιό λεωφορείο» */
-.heritage { background: #F4EEDF; }
-.heritage .wrap { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr); gap: 32px; align-items: center; }
-.heritage-art { margin: 0; }
-.heritage-art img { display: block; width: 100%; height: auto; }
-.heritage h2 { color: #0C3456; }
-.heritage-text { display: grid; gap: 14px; max-width: 46ch; }
-.heritage-text p { color: #3E4F61; font-size: 17px; }
-.heritage .heritage-line { font: 700 20px/1.3 var(--f-display); color: #017F98; border-left: 4px solid #017F98; padding-left: 12px; }
-.heritage .photo { grid-column: 1 / -1; max-width: 720px; }
-@media (max-width: 760px) { .heritage .wrap { grid-template-columns: minmax(0, 1fr); gap: 16px; } .heritage-art { margin-inline: -8px; } }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .heritage { background: #142536; } :root:not([data-theme="light"]) .heritage h2 { color: #EEF3F8; } :root:not([data-theme="light"]) .heritage-text p { color: #C2D0DD; } :root:not([data-theme="light"]) .heritage .heritage-line { color: #6FCFE0; border-color: #6FCFE0; } }
+/* Χρονολόγιο (ιστορία δεμάτων ΚΤΕΛ) */
+.timeline { list-style: none; margin: 0; padding: 0; border-top: 2px solid var(--rule); }
+.timeline li { display: grid; grid-template-columns: 9.5rem minmax(0, 1fr); gap: 4px 20px; padding: 16px 0; border-bottom: 1px solid var(--line); }
+.timeline .yr { font: 700 22px/1.15 var(--f-display); color: var(--teal); }
+.timeline b { display: block; font: 700 20px/1.25 var(--f-display); color: var(--heading); }
+.timeline p { color: var(--muted); max-width: 64ch; margin-top: 2px; }
+.timeline li.now .yr { color: var(--heading); }
+.timeline li.next { border-bottom: 0; }
+.timeline li.next .yr { color: var(--muted); }
+.heritage .photo { margin-top: 20px; max-width: 720px; }
+.heritage .caption { margin-top: 14px; }
+@media (max-width: 600px) { .timeline li { grid-template-columns: minmax(0, 1fr); } .timeline .yr { font-size: 18px; } }
