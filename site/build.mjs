@@ -2,7 +2,7 @@
 //                         node site/build.mjs --artifact → site/artifact (πρωτότυπο για προβολή στο Claude)
 // Χωρίς εξαρτήσεις. Σελίδες: site/src/pages/*.html (ελληνικά) και site/src/pages-en/*.html (αγγλικά, στο /en/).
 // Η πρώτη γραμμή κάθε σελίδας είναι <!--meta {...}-->.
-import { readFileSync, writeFileSync, mkdirSync, readdirSync, copyFileSync, rmSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, readdirSync, copyFileSync, rmSync, existsSync, statSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import * as DATA from "./src/data.mjs";
@@ -24,7 +24,13 @@ rmSync(OUT, { recursive: true, force: true });
 mkdirSync(join(OUT, "assets"), { recursive: true });
 
 // ---------- assets ----------
-for (const f of readdirSync(join(ROOT, "src/assets"))) copyFileSync(join(ROOT, "src/assets", f), join(OUT, "assets", f));
+for (const f of readdirSync(join(ROOT, "src/assets"))) {
+  const src = join(ROOT, "src/assets", f);
+  if (statSync(src).isDirectory()) { mkdirSync(join(OUT, "assets", f), { recursive: true }); for (const g of readdirSync(src).filter(g => !g.endsWith(".txt"))) copyFileSync(join(src, g), join(OUT, "assets", f, g)); }
+  else copyFileSync(src, join(OUT, "assets", f));
+}
+// Φωτογραφίες: {{photo:όνομα|λεζάντα ελ|λεζάντα en}} → μπαίνει μόνο αν υπάρχει src/assets/photos/όνομα.jpg (αλλιώς τίποτα).
+const PHOTO_DIR = join(ROOT, "src/assets/photos");
 const calcSrc = readFileSync(join(ROOT, "src/calc.mjs"), "utf8").replace(/^export /gm, "");
 const site = { ...DATA, EN, SCHEDULE: SCHEDULE_TIMES.map(({ dest, time, days, express, conn, notes }) => ({ dest, time, days, express, conn, notes })), SUPABASE: { url: SUPABASE_URL, key: SUPABASE_KEY } };
 writeFileSync(join(OUT, "assets/app.js"),
@@ -141,7 +147,14 @@ function makeLang(lang) {
     "{{address}}": () => esc(`${L(B.address.place)}, ${L(B.address.street)}, ${B.address.postal} ${L(B.address.city)}`),
     ...Object.fromEntries(Object.entries(I).map(([k, v]) => [`{{i:${k}}}`, () => v])),
   };
-  const fill = s => s.replace(/\{\{[^}]+\}\}/g, m => TOKENS[m] ? String(TOKENS[m]()) : (console.warn("Άγνωστο:", m), m));
+  const photo = (name, capEl, capEn) => {
+    const f = ["jpg", "jpeg", "webp", "png"].map(x => name + "." + x).find(x => existsSync(join(PHOTO_DIR, x)));
+    if (!f) return "";
+    const cap = t(capEl, capEn || capEl);
+    return `<figure class="photo"><img src="${lang === "en" ? "../" : ""}assets/photos/${f}" alt="${esc(cap)}" loading="lazy" width="1200" height="800"><figcaption>${esc(cap)}</figcaption></figure>`;
+  };
+  const fill = s => s.replace(/\{\{photo:([a-z0-9-]+)\|([^|}]*)(?:\|([^}]*))?\}\}/g, (_, n, a, b) => photo(n, a, b))
+    .replace(/\{\{[^}]+\}\}/g, m => TOKENS[m] ? String(TOKENS[m]()) : (console.warn("Άγνωστο:", m), m));
 
   const NAV = [["apostoli", t("Αποστολή", "Send")], ["paralavi", t("Παραλαβή", "Collect")], ["anazitisi", t("Αναζήτηση", "Track")], ["proorismoi", t("Προορισμοί", "Destinations")],
     ["epixeiriseis", t("Επιχειρήσεις", "Business")], ["syxnes-erotiseis", t("Ερωτήσεις", "FAQ")], ["epikoinonia", t("Επικοινωνία", "Contact")]];
@@ -168,10 +181,10 @@ ${meta.noindex ? '<meta name="robots" content="noindex">\n' : ""}<link rel="cano
 <meta property="og:type" content="website"><meta property="og:locale" content="${t("el_GR", "en_GB")}"><meta property="og:site_name" content="${esc(L(B.name))}">
 <meta property="og:title" content="${esc(meta.title)}"><meta property="og:description" content="${esc(meta.description)}">
 <meta property="og:url" content="${url}"><meta property="og:image" content="${B.domain}/assets/og.jpg">
-<meta name="theme-color" content="#12345A">
+<meta name="theme-color" content="#17191C">
 <link rel="icon" href="${pre}assets/icon-192.png"><link rel="apple-touch-icon" href="${pre}assets/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Commissioner:wght@600;700;800&family=JetBrains+Mono:wght@500;600&family=Noto+Sans:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fira+Sans+Condensed:wght@600;700;800&family=Fira+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap">
 <link rel="stylesheet" href="${pre}assets/site.css">
 ${ld.map(x => `<script type="application/ld+json">${JSON.stringify(x)}</script>`).join("\n")}
 <!-- Στατιστικά χωρίς cookies (Cloudflare Web Analytics): μπαίνει εδώ μετά τη δημοσίευση. -->`;
@@ -193,6 +206,11 @@ ${body}
   <div><h3>${t("Επικοινωνία", "Contact")}</h3><ul><li><a class="num" href="tel:+30${B.phone}">${lang === "en" ? "+30 " : ""}${B.phoneDisplay}</a></li><li><a class="num" href="https://wa.me/30${B.mobile}">${lang === "en" ? "+30 " : ""}${B.mobileDisplay} (WhatsApp)</a></li><li><a href="mailto:${B.email}">${B.email}</a></li></ul></div>
   <div class="legal"><span>© ${new Date().getFullYear()} ${esc(L(B.name))}</span><span><a href="${link("oroi")}">${t("Όροι εξυπηρέτησης", "Terms of service")}</a> · <a href="${link("aporrito")}">${t("Απόρρητο", "Privacy")}</a> · ${t("Χωρίς cookies", "No cookies")}</span></div>
 </div></footer>
+<nav class="quickbar" aria-label="${t("Γρήγορες ενέργειες", "Quick actions")}">
+  <a href="tel:+30${B.phone}">${I.phone}<span>${t("Κλήση", "Call")}</span></a>
+  <a href="${link("anazitisi")}"${gr === "anazitisi" ? ' aria-current="page"' : ""}>${I.search}<span>${t("Πού είναι το δέμα", "Track parcel")}</span></a>
+  <a href="${link("apostoli")}#ypologismos"${gr === "apostoli" ? ' aria-current="page"' : ""}>${I.send}<span>${t("Πόσο κοστίζει", "Price")}</span></a>
+</nav>
 <script src="${pre}assets/app.js"></script>`;
     if (ARTIFACT && lang === "el" && gr === "index") return `${headInner}\n${content}\n`;
     return `<!doctype html>\n<html lang="${lang}">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">\n${headInner}\n</head>\n<body>\n${content}\n</body>\n</html>\n`;

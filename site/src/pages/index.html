@@ -1,61 +1,71 @@
 <!--meta {"title":"Αποθήκη Δεμάτων ΚΤΕΛ Αγρινίου","description":"Αποστολή και παραλαβή δεμάτων με τα λεωφορεία του ΚΤΕΛ από το Αγρίνιο προς Αθήνα, Πάτρα, Θεσσαλονίκη και όλη την Ελλάδα. Τιμές, δρομολόγια, αναζήτηση δέματος.","ld":"business"}-->
 <section class="hero"><div class="wrap">
   <div>
-    <span class="eyebrow" style="color:var(--amber)">Σταθμός ΚΤΕΛ Αγρινίου</span>
-    <h1 style="margin-top:12px">{{slogan}}</h1>
-    <p class="lead">Στέλνετε και παραλαμβάνετε δέματα με τα λεωφορεία του ΚΤΕΛ, την ίδια μέρα, σε {{nDirect}} πόλεις με απευθείας δρομολόγιο.</p>
+    <h1>{{slogan}}</h1>
+    <p class="lead">Αποθήκη δεμάτων μέσα στον σταθμό ΚΤΕΛ Αγρινίου. Το δέμα φεύγει με το επόμενο λεωφορείο, σε {{nDirect}} πόλεις απευθείας.</p>
+    <form class="quicktrack" action="anazitisi.html" method="get" autocomplete="off">
+      <label for="q-r">Πού είναι το δέμα μου;</label>
+      <div class="row">
+        <input id="q-r" name="r" class="mono" inputmode="numeric" placeholder="Αρ. απόδειξης" required aria-label="Αριθμός απόδειξης">
+        <input id="q-n" name="n" maxlength="20" autocapitalize="characters" placeholder="ΠΑΠ" required aria-label="3 πρώτα γράμματα επωνύμου">
+        <button class="btn" type="submit">{{i:search}} Βρες το</button>
+      </div>
+      <small>Αριθμός απόδειξης και 3 πρώτα γράμματα του επωνύμου.</small>
+    </form>
     <div class="ctas">
-      <a class="btn btn-light" href="apostoli.html">{{i:send}} Θέλω να στείλω δέμα</a>
-      <a class="btn btn-ghost-light" href="anazitisi.html">{{i:receive}} Περιμένω δέμα</a>
+      <a class="btn btn-light" href="apostoli.html#ypologismos">{{i:send}} Στέλνω δέμα · πόσο κοστίζει</a>
     </div>
-    <div class="facts"><span><b>Δευ–Παρ</b> 06:30–21:30 · <b>Σαβ–Κυρ</b> 08:00–21:30</span><span><b>{{athensDaily}}</b> αναχωρήσεις για Αθήνα την ημέρα</span></div>
+    <div class="facts"><span><b>Δευ–Παρ</b> 06:30–21:30 · <b>Σαβ–Κυρ</b> 08:00–21:30</span><span><b>{{athensDaily}}</b> λεωφορεία για Αθήνα την ημέρα</span></div>
   </div>
   <div class="board" data-board aria-label="Επόμενες αναχωρήσεις από Αγρίνιο">
-    <div class="board-head"><span>Αναχωρήσεις · Αγρίνιο</span><time></time></div>
+    <div class="board-head"><span>Αναχωρήσεις</span><time></time></div>
     <table><thead><tr><th>Ώρα</th><th>Προορισμός</th><th></th></tr></thead><tbody><tr><td class="t">—</td><td class="d">Φόρτωση δρομολογίων…</td><td></td></tr></tbody></table>
-    <div class="board-foot">Το δέμα σας φεύγει με το επόμενο λεωφορείο. Φέρτε το το αργότερο {{cutoff}} λεπτά πριν την αναχώρηση.</div>
+    <div class="board-foot">Φέρτε το δέμα το αργότερο {{cutoff}} λεπτά πριν την αναχώρηση.</div>
   </div>
 </div></section>
 
 <section class="section"><div class="wrap">
-  <div class="section-head"><span class="eyebrow">Τι κάνουμε</span><h2>Δέματα με το λεωφορείο, χωρίς ταλαιπωρία</h2></div>
-  <div class="grid g3">
-    <a class="panel service" href="apostoli.html"><h3><span class="ico">{{i:send}}</span>Αποστολή</h3><p>Φέρνετε το δέμα στον σταθμό, πληρώνετε και φεύγει με το επόμενο δρομολόγιο.</p><span class="more">Τιμές και υπολογισμός →</span></a>
-    <a class="panel service" href="paralavi.html"><h3><span class="ico">{{i:receive}}</span>Παραλαβή</h3><p>Σας στέλνουμε SMS όταν φτάσει. Έρχεστε με την ταυτότητα και το παίρνετε.</p><span class="more">Πώς γίνεται →</span></a>
-    <a class="panel service" href="epikoinonia.html"><h3><span class="ico">{{i:bag}}</span>Φύλαξη αποσκευών</h3><p>Αφήστε τις βαλίτσες σας με ασφάλεια όσο κινείστε στην πόλη. {{luggage}} € ανά κομμάτι την ημέρα.</p><span class="more">Επικοινωνία →</span></a>
-    <a class="panel service" href="spiti.html"><h3><span class="ico">{{i:home}}</span>Στο σπίτι <span class="tag">Σύντομα</span></h3><p>Παράδοση και παραλαβή από σπίτι ή κατάστημα, μέσα στο Αγρίνιο.</p><span class="more">Λεπτομέρειες →</span></a>
-    <a class="panel service" href="apostoli.html#syskevasia"><h3><span class="ico">{{i:send}}</span>Συσκευασία <span class="tag">Σύντομα</span></h3><p>Φέρτε το όπως είναι και το πακετάρουμε εμείς, ή αγοράστε μόνο την κούτα.</p><span class="more">Τιμές →</span></a>
-    <a class="panel service" href="epixeiriseis.html"><h3><span class="ico">{{i:shop}}</span>Για επιχειρήσεις</h3><p>Καθημερινές αποστολές από τις 06:30, με ενημέρωση του παραλήπτη με SMS.</p><span class="more">Μιλήστε μαζί μας →</span></a>
-  </div>
+  <div class="section-head"><h2>Τι κάνουμε</h2></div>
+  <ul class="signs">
+    <li><a href="apostoli.html"><b>Αποστολή</b><span>Φέρνετε το δέμα, πληρώνετε, φεύγει με το επόμενο λεωφορείο.</span><i aria-hidden="true">→</i></a></li>
+    <li><a href="paralavi.html"><b>Παραλαβή</b><span>SMS όταν φτάσει. Έρχεστε με ταυτότητα και το παίρνετε.</span><i aria-hidden="true">→</i></a></li>
+    <li><a href="epixeiriseis.html"><b>Για επιχειρήσεις</b><span>Καθημερινές αποστολές από τις 06:30, με SMS στον παραλήπτη.</span><i aria-hidden="true">→</i></a></li>
+    <li><a href="epikoinonia.html"><b>Φύλαξη αποσκευών</b><span>{{luggage}} € ανά κομμάτι την ημέρα, όσο κινείστε στην πόλη.</span><i aria-hidden="true">→</i></a></li>
+    <li><a href="spiti.html"><b>Στο σπίτι <span class="tag">Σύντομα</span></b><span>Παράδοση και παραλαβή μέσα στο Αγρίνιο.</span><i aria-hidden="true">→</i></a></li>
+    <li><a href="apostoli.html#syskevasia"><b>Συσκευασία <span class="tag">Σύντομα</span></b><span>Το πακετάρουμε εμείς ή παίρνετε μόνο την κούτα.</span><i aria-hidden="true">→</i></a></li>
+  </ul>
 </div></section>
 
-<section class="section alt"><div class="wrap">
-  <div class="section-head"><span class="eyebrow">Προορισμοί</span><h2>Από το Αγρίνιο σε όλη την Ελλάδα</h2><p>{{nDirect}} πόλεις με απευθείας δρομολόγιο, όλος ο νομός Αιτωλοακαρνανίας, και {{nTransfer}} ακόμα πόλεις με ανταπόκριση σε Μακεδονία, Θράκη, Θεσσαλία και Πελοπόννησο.</p></div>
-  <div class="grid g3">
-    <div class="panel"><h3>Αθήνα</h3><p class="muted" style="margin-top:4px">{{athensDaily}} αναχωρήσεις την ημέρα · από 5 €</p></div>
-    <div class="panel"><h3>Πάτρα</h3><p class="muted" style="margin-top:4px">{{patraDaily}} αναχωρήσεις την ημέρα · από 5 €</p></div>
-    <div class="panel"><h3>Θεσσαλονίκη</h3><p class="muted" style="margin-top:4px">Καθημερινά 09:30 · από 7 €</p></div>
+<section class="section alt"><div class="wrap grid g2" style="gap:40px;align-items:start">
+  <div>
+    <div class="section-head"><h2>Πού στέλνουμε</h2><p>{{nDirect}} πόλεις απευθείας, όλος ο νομός, και {{nTransfer}} ακόμα με ανταπόκριση.</p></div>
+    <ul class="routes">
+      <li><b>Αθήνα</b><span class="p">από 5 €</span><small>{{athensDaily}} λεωφορεία την ημέρα</small></li>
+      <li><b>Πάτρα</b><span class="p">από 5 €</span><small>{{patraDaily}} λεωφορεία την ημέρα</small></li>
+      <li><b>Θεσσαλονίκη</b><span class="p">από 7 €</span><small>Καθημερινά 09:30</small></li>
+    </ul>
+    <p style="margin-top:18px"><a class="btn btn-ghost" href="proorismoi.html">Όλοι οι προορισμοί και τιμές →</a></p>
   </div>
-  <p style="margin-top:20px"><a class="btn btn-ghost" href="proorismoi.html">Όλοι οι προορισμοί και ο τιμοκατάλογος</a></p>
+  {{photo:pagkos|Ο πάγκος της αποθήκης δεμάτων στον σταθμό ΚΤΕΛ Αγρινίου|The parcel counter at KTEL Agrinio station}}
 </div></section>
 
-<section class="section"><div class="wrap grid g2" style="align-items:center;gap:32px">
-  <div class="section-head" style="margin:0"><span class="eyebrow">Για επιχειρήσεις</span><h2>Στέλνετε κάθε μέρα; Σας εξυπηρετούμε από τις 06:30.</h2><p>Καταστήματα, ανταλλακτικά, φαρμακαποθήκες και ηλεκτρονικά καταστήματα του Αγρινίου στέλνουν μαζί μας καθημερινά. Ο παραλήπτης ενημερώνεται με SMS και μπορεί να ελέγξει το δέμα online.</p>
+<section class="section"><div class="wrap grid g2" style="align-items:start;gap:40px">
+  <div class="section-head" style="margin:0"><h2>Στέλνετε κάθε μέρα;</h2><p>Καταστήματα, ανταλλακτικά, φαρμακαποθήκες και e-shop του Αγρινίου στέλνουν μαζί μας από τις 06:30. Ο παραλήπτης ενημερώνεται με SMS.</p>
     <p style="margin-top:10px"><a class="btn btn-primary" href="epixeiriseis.html">{{i:shop}} Μιλήστε μαζί μας</a></p></div>
-  <div class="panel"><ol class="steps">
-    <li><div><b>Φέρνετε τα δέματα</b><p>Από τις 06:30 το πρωί, για να προλάβουν τα πρώτα δρομολόγια.</p></div></li>
+  <ol class="steps">
+    <li><div><b>Φέρνετε τα δέματα</b><p>Από τις 06:30, για τα πρώτα δρομολόγια.</p></div></li>
     <li><div><b>Φεύγουν με το επόμενο λεωφορείο</b><p>Αυθημερόν στους απευθείας προορισμούς.</p></div></li>
     <li><div><b>Ο πελάτης σας ενημερώνεται</b><p>SMS στην άφιξη και αναζήτηση με τον αριθμό απόδειξης.</p></div></li>
-  </ol></div>
+  </ol>
 </div></section>
 
-<section class="section alt"><div class="wrap" style="max-width:820px">
-  <div class="section-head"><span class="eyebrow">Συχνές ερωτήσεις</span><h2>Τα πιο συχνά που μας ρωτάτε</h2></div>
+<section class="section"><div class="wrap" style="max-width:860px">
+  <div class="section-head"><h2>Συχνές ερωτήσεις</h2></div>
   {{faqTop}}
   <p style="margin-top:18px"><a href="syxnes-erotiseis.html">Όλες οι ερωτήσεις →</a></p>
 </div></section>
 
 <section class="cta-band"><div class="wrap">
-  <div><h2>Έχετε απορία για ένα δέμα;</h2><p>Καλέστε μας ή στείλτε μήνυμα στο WhatsApp.</p></div>
+  <div><h2>Απορία για ένα δέμα;</h2><p>Καλέστε μας ή γράψτε μας στο WhatsApp.</p></div>
   <div style="display:flex;flex-wrap:wrap;gap:10px"><a class="btn btn-light" href="tel:+302641024446">{{i:phone}} 26410 24446</a><a class="btn btn-ghost-light" href="{{whatsapp}}">WhatsApp 697 933 4186</a></div>
 </div></section>

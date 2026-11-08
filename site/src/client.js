@@ -102,7 +102,7 @@
       const dest = val("c-dest");
       const cat = SITE.CATEGORIES.find(c => c.id === catId);
       const byKg = classed && classed.by === "kg" ? h("span", { class: "muted", style: "font-weight:400" }, T(" (λόγω βάρους)", " (by weight)")) : null;
-      if (!dest) { card.append(h("span", { class: "eyebrow" }, T("Ενδεικτική τιμή", "Estimated price")), h("p", { class: "muted", style: "margin-top:8px" }, T("Διαλέξτε προορισμό για να δείτε τιμή και επόμενες αναχωρήσεις.", "Choose a destination to see the price and next departures.")), h("dl", { class: "kv" }, h("dt", {}, T("Κατηγορία", "Category")), h("dd", {}, cat ? L(cat.name) : "—", byKg))); if (warnHit) out.append(warnHit); return; }
+      if (!dest) { card.append(h("h3", {}, T("Ενδεικτική τιμή", "Estimated price")), h("p", { class: "muted", style: "margin-top:8px" }, T("Διαλέξτε προορισμό για να δείτε τιμή και επόμενες αναχωρήσεις.", "Choose a destination to see the price and next departures.")), h("dl", { class: "kv" }, h("dt", {}, T("Κατηγορία", "Category")), h("dd", {}, cat ? L(cat.name) : "—", byKg))); if (warnHit) out.append(warnHit); return; }
 
       const dn = L(dest);
       const q = quote(SITE, { dest, catId, pieces: val("c-n"), kg });
@@ -182,6 +182,7 @@
     const show = (cls, title, ...lines) => { out.textContent = ""; out.append(h("div", { class: "notice " + cls }, h("b", {}, title), ...lines.filter(Boolean).map(l => h("div", {}, l)))); };
     const city = c => { const d = c && findDest(SITE.DESTINATIONS, c); return d ? L(d.name) : c; };
     const q = new URLSearchParams(location.search); if (q.get("r")) $("#t-rc").value = q.get("r");
+    if (q.get("n")) { $("#t-nm").value = q.get("n"); if (q.get("r")) setTimeout(() => tr.requestSubmit(), 0); }
     tr.addEventListener("submit", async e => {
       e.preventDefault();
       const rc = $("#t-rc").value, nm = $("#t-nm").value.trim();

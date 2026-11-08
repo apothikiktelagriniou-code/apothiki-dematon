@@ -1,61 +1,71 @@
 <!--meta {"title":"KTEL Agrinio Parcel Depot","description":"Send and collect parcels by KTEL bus from Agrinio to Athens, Patras, Thessaloniki and across Greece. Prices, departures and parcel tracking.","ld":"business"}-->
 <section class="hero"><div class="wrap">
   <div>
-    <span class="eyebrow" style="color:var(--amber)">KTEL Agrinio bus station</span>
-    <h1 style="margin-top:12px">{{slogan}}</h1>
-    <p class="lead">Send and collect parcels on KTEL buses, the same day, to {{nDirect}} towns with a direct bus.</p>
+    <h1>{{slogan}}</h1>
+    <p class="lead">Parcel depot inside the KTEL Agrinio bus station. Your parcel leaves on the next bus, to {{nDirect}} cities direct.</p>
+    <form class="quicktrack" action="track.html" method="get" autocomplete="off">
+      <label for="q-r">Where is my parcel?</label>
+      <div class="row">
+        <input id="q-r" name="r" class="mono" inputmode="numeric" placeholder="Receipt no." required aria-label="Receipt number">
+        <input id="q-n" name="n" maxlength="20" autocapitalize="characters" placeholder="PAP" required aria-label="First 3 letters of surname">
+        <button class="btn" type="submit">{{i:search}} Find it</button>
+      </div>
+      <small>Receipt number and the first 3 letters of the surname.</small>
+    </form>
     <div class="ctas">
-      <a class="btn btn-light" href="send.html">{{i:send}} I want to send a parcel</a>
-      <a class="btn btn-ghost-light" href="track.html">{{i:receive}} I'm expecting a parcel</a>
+      <a class="btn btn-light" href="send.html#ypologismos">{{i:send}} Send a parcel · price</a>
     </div>
-    <div class="facts"><span><b>Mon–Fri</b> 06:30–21:30 · <b>Sat–Sun</b> 08:00–21:30</span><span><b>{{athensDaily}}</b> departures to Athens a day</span></div>
+    <div class="facts"><span><b>Mon–Fri</b> 06:30–21:30 · <b>Sat–Sun</b> 08:00–21:30</span><span><b>{{athensDaily}}</b> buses to Athens a day</span></div>
   </div>
   <div class="board" data-board aria-label="Next departures from Agrinio">
-    <div class="board-head"><span>Departures · Agrinio</span><time></time></div>
+    <div class="board-head"><span>Departures</span><time></time></div>
     <table><thead><tr><th>Time</th><th>Destination</th><th></th></tr></thead><tbody><tr><td class="t">—</td><td class="d">Loading timetable…</td><td></td></tr></tbody></table>
-    <div class="board-foot">Your parcel leaves on the next bus. Bring it at least {{cutoff}} minutes before departure.</div>
+    <div class="board-foot">Bring your parcel at least {{cutoff}} minutes before departure.</div>
   </div>
 </div></section>
 
 <section class="section"><div class="wrap">
-  <div class="section-head"><span class="eyebrow">What we do</span><h2>Parcels by bus, without the hassle</h2></div>
-  <div class="grid g3">
-    <a class="panel service" href="send.html"><h3><span class="ico">{{i:send}}</span>Send</h3><p>Bring the parcel to the station, pay, and it leaves on the next bus.</p><span class="more">Prices and calculator →</span></a>
-    <a class="panel service" href="receive.html"><h3><span class="ico">{{i:receive}}</span>Collect</h3><p>We text you when it arrives. Come with your ID and pick it up.</p><span class="more">How it works →</span></a>
-    <a class="panel service" href="contact.html"><h3><span class="ico">{{i:bag}}</span>Luggage storage</h3><p>Leave your bags safely while you explore the town. €{{luggage}} per item per day.</p><span class="more">Contact →</span></a>
-    <a class="panel service" href="home-delivery.html"><h3><span class="ico">{{i:home}}</span>To your door <span class="tag">Soon</span></h3><p>Delivery to and pickup from homes or shops within Agrinio.</p><span class="more">Details →</span></a>
-    <a class="panel service" href="send.html#syskevasia"><h3><span class="ico">{{i:send}}</span>Packing <span class="tag">Soon</span></h3><p>Bring it as it is and we pack it, or buy just the box.</p><span class="more">Prices →</span></a>
-    <a class="panel service" href="business.html"><h3><span class="ico">{{i:shop}}</span>For businesses</h3><p>Daily shipping from 06:30, with SMS to the recipient.</p><span class="more">Talk to us →</span></a>
-  </div>
+  <div class="section-head"><h2>What we do</h2></div>
+  <ul class="signs">
+    <li><a href="send.html"><b>Send</b><span>Bring the parcel, pay, and it leaves on the next bus.</span><i aria-hidden="true">→</i></a></li>
+    <li><a href="receive.html"><b>Collect</b><span>We text you when it arrives. Bring your ID and pick it up.</span><i aria-hidden="true">→</i></a></li>
+    <li><a href="business.html"><b>For businesses</b><span>Daily shipments from 06:30, with a text to the recipient.</span><i aria-hidden="true">→</i></a></li>
+    <li><a href="contact.html"><b>Luggage storage</b><span>€{{luggage}} per item per day while you explore town.</span><i aria-hidden="true">→</i></a></li>
+    <li><a href="home-delivery.html"><b>To your door <span class="tag">Soon</span></b><span>Delivery and pickup within Agrinio.</span><i aria-hidden="true">→</i></a></li>
+    <li><a href="send.html#syskevasia"><b>Packing <span class="tag">Soon</span></b><span>We pack it for you, or buy just the box.</span><i aria-hidden="true">→</i></a></li>
+  </ul>
 </div></section>
 
-<section class="section alt"><div class="wrap">
-  <div class="section-head"><span class="eyebrow">Destinations</span><h2>From Agrinio to all of Greece</h2><p>{{nDirect}} towns with a direct bus, the whole of Aetolia-Acarnania, and {{nTransfer}} more towns by connection in Macedonia, Thrace, Thessaly, the Peloponnese and Crete.</p></div>
-  <div class="grid g3">
-    <div class="panel"><h3>Athens</h3><p class="muted" style="margin-top:4px">{{athensDaily}} departures a day · from €5</p></div>
-    <div class="panel"><h3>Patras</h3><p class="muted" style="margin-top:4px">{{patraDaily}} departures a day · from €5</p></div>
-    <div class="panel"><h3>Thessaloniki</h3><p class="muted" style="margin-top:4px">Daily at 09:30 · from €7</p></div>
+<section class="section alt"><div class="wrap grid g2" style="gap:40px;align-items:start">
+  <div>
+    <div class="section-head"><h2>Where we send</h2><p>{{nDirect}} cities direct, the whole prefecture, and {{nTransfer}} more with a connection.</p></div>
+    <ul class="routes">
+      <li><b>Athens</b><span class="p">from €5</span><small>{{athensDaily}} buses a day</small></li>
+      <li><b>Patras</b><span class="p">from €5</span><small>{{patraDaily}} buses a day</small></li>
+      <li><b>Thessaloniki</b><span class="p">from €7</span><small>Daily at 09:30</small></li>
+    </ul>
+    <p style="margin-top:18px"><a class="btn btn-ghost" href="destinations.html">All destinations and prices →</a></p>
   </div>
-  <p style="margin-top:20px"><a class="btn btn-ghost" href="destinations.html">All destinations and prices</a></p>
+  {{photo:pagkos|Ο πάγκος της αποθήκης δεμάτων στον σταθμό ΚΤΕΛ Αγρινίου|The parcel counter at KTEL Agrinio station}}
 </div></section>
 
-<section class="section"><div class="wrap grid g2" style="align-items:center;gap:32px">
-  <div class="section-head" style="margin:0"><span class="eyebrow">For businesses</span><h2>Shipping every day? We open at 06:30.</h2><p>Shops, spare-parts dealers, pharmaceutical wholesalers and online stores in Agrinio ship with us daily. Recipients get an SMS and can track the parcel online.</p>
+<section class="section"><div class="wrap grid g2" style="align-items:start;gap:40px">
+  <div class="section-head" style="margin:0"><h2>Shipping every day?</h2><p>Shops, spare-parts dealers, pharmacy wholesalers and online stores in Agrinio ship with us from 06:30. The recipient gets a text.</p>
     <p style="margin-top:10px"><a class="btn btn-primary" href="business.html">{{i:shop}} Talk to us</a></p></div>
-  <div class="panel"><ol class="steps">
-    <li><div><b>Bring your parcels</b><p>From 06:30, in time for the first buses.</p></div></li>
+  <ol class="steps">
+    <li><div><b>You bring the parcels</b><p>From 06:30, in time for the first buses.</p></div></li>
     <li><div><b>They leave on the next bus</b><p>Same day to direct destinations.</p></div></li>
-    <li><div><b>Your customer is notified</b><p>SMS on arrival and tracking with the receipt number.</p></div></li>
-  </ol></div>
+    <li><div><b>Your customer is notified</b><p>A text on arrival and tracking by receipt number.</p></div></li>
+  </ol>
 </div></section>
 
-<section class="section alt"><div class="wrap" style="max-width:820px">
-  <div class="section-head"><span class="eyebrow">FAQ</span><h2>What people ask us most</h2></div>
+<section class="section"><div class="wrap" style="max-width:860px">
+  <div class="section-head"><h2>Frequently asked</h2></div>
   {{faqTop}}
   <p style="margin-top:18px"><a href="faq.html">All questions →</a></p>
 </div></section>
 
 <section class="cta-band"><div class="wrap">
-  <div><h2>A question about a parcel?</h2><p>Call us or send a WhatsApp message. We speak English.</p></div>
+  <div><h2>A question about a parcel?</h2><p>Call us or message us on WhatsApp.</p></div>
   <div style="display:flex;flex-wrap:wrap;gap:10px"><a class="btn btn-light" href="tel:+302641024446">{{i:phone}} +30 26410 24446</a><a class="btn btn-ghost-light" href="{{whatsapp}}">WhatsApp +30 697 933 4186</a></div>
 </div></section>
