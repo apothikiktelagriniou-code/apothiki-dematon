@@ -431,3 +431,15 @@ form[data-poll] { display: grid; gap: 24px; }
 .terms dt { font: 700 18px/1.3 var(--f-display); color: var(--heading); padding-top: 12px; }
 .terms dd { margin: 4px 0 0; padding-bottom: 12px; border-bottom: 1px solid var(--line); color: var(--ink); }
 .law .steps { margin-top: 4px; }
+
+/* Σελίδες εποχής (λάδι, φοιτητές) */
+.oil-facts .fact { border-top: 3px solid var(--rule); padding-top: 12px; }
+.oil-facts .fact b { display: block; font: 800 44px/1 var(--f-display); color: var(--heading); }
+.oil-facts .fact span { display: block; margin-top: 6px; color: var(--muted); font-size: 16px; }
+@media (max-width: 600px) { .oil-facts .fact b { font-size: 36px; } }
+table.season th[scope=row] { font-weight: 600; }
+table.season td.deps-cell { text-align: left; white-space: normal; min-width: 7.5rem; color: var(--muted); font-size: 14px; }
+.hero .season-link { color: var(--teal-light); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+@media (max-width: 600px) { table.season th, table.season td { padding: 10px 8px; font-size: 14px; } table.season td.deps-cell { font-size: 13px; } }
+table.season .m-deps { display: none; }
+@media (max-width: 600px) { table.season .deps-col, table.season td.deps-cell { display: none; } table.season .m-deps { display: block; font-weight: 400; font-size: 12px; color: var(--muted); white-space: normal; } table.season th[scope=row] { white-space: normal; } }
