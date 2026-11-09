@@ -509,7 +509,7 @@
       const hb = h("button", { class: "btn btn-ghost", type: "button" }, "Αποθήκευση συνδέσμου");
       hb.addEventListener("click", async () => {
         const v = hk.value.trim();
-        if (v && !/^https:\/\/api\.cloudflare\.com\/client\/v4\/pages\/webhooks\/deploy_hooks\/[A-Za-z0-9-]+$/.test(v)) { say("warn", "Ο σύνδεσμος πρέπει να είναι το «Deploy hook» του Cloudflare Pages."); return renderDest(); }
+        if (v && !/^https:\/\/api\.cloudflare\.com\/client\/v4\/(pages\/webhooks|workers\/builds)\/deploy_hooks\/[A-Za-z0-9-]+$/.test(v)) { say("warn", "Ο σύνδεσμος πρέπει να είναι το «Deploy hook» του Cloudflare (ξεκινά με https://api.cloudflare.com/…/deploy_hooks/)."); return renderDest(); }
         try { await api("/rest/v1/site_settings", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify({ key: "deploy_hook", value: v }) }); hook = v; say("ok", v ? "Ο σύνδεσμος αποθηκεύτηκε. Από εδώ και πέρα κάθε αποθήκευση ανανεώνει το σάιτ." : "Ο σύνδεσμος σβήστηκε."); }
         catch (e) { say("bad", e.message); }
         renderDest();
@@ -517,7 +517,7 @@
       const nowB = h("button", { class: "btn btn-ghost", type: "button", disabled: !hook }, "Ανανέωση τώρα");
       nowB.addEventListener("click", async () => { say("ok", (await publish()).trim()); renderDest(); });
       adm.append(h("details", { class: "adm-dest", style: "margin-top:24px" }, h("summary", {}, h("b", {}, "Ανανέωση σάιτ"), h("span", { class: "muted" }, hook ? " · ενεργή" : " · δεν έχει ρυθμιστεί")),
-        h("p", { class: "muted", style: "font-size:14px" }, "Cloudflare → το project → Settings → Builds → Deploy hooks → Add (όνομα «diaxeirisi», branch main) → αντιγράψτε τον σύνδεσμο εδώ."),
+        h("p", { class: "muted", style: "font-size:14px" }, "Cloudflare → το project → Settings → Build → Deploy hooks → Add (όνομα «diaxeirisi», branch main) → αντιγράψτε τον σύνδεσμο εδώ."),
         h("div", { style: "display:flex;gap:10px;flex-wrap:wrap;align-items:center" }, hk, hb, nowB)));
     }
 
