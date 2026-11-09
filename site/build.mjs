@@ -5,17 +5,59 @@
 import { readFileSync, writeFileSync, mkdirSync, readdirSync, copyFileSync, rmSync, existsSync, statSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import * as DATA from "./src/data.mjs";
+import * as DATA0 from "./src/data.mjs";
 import { FAQ, FAQ_EN } from "./src/faq.mjs";
 import { EN, tr } from "./src/en.mjs";
 import { SCHEDULE_TIMES } from "../src/schedule-seed.js";
 import { SUPABASE_URL, SUPABASE_KEY } from "../src/config.js";
-import { daysLabel, kgRate } from "./src/calc.mjs";
+import { daysLabel, destDays, tariffKey, kgRate } from "./src/calc.mjs";
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const ARTIFACT = process.argv.includes("--artifact");
 const PROTOTYPE = true; // false όταν εγκριθεί και δημοσιευτεί
 const OUT = join(ROOT, ARTIFACT ? "artifact" : "dist");
+
+// ---------- δεδομένα: από τη διαχείριση (Supabase) αν υπάρχουν, αλλιώς από data.mjs / schedule-seed ----------
+// Προορισμοί, τιμοκατάλογος και δρομολόγια αλλάζουν από τις σελίδες διαχείρισης· εδώ τα διαβάζουμε την ώρα του χτισίματος.
+// Αν η βάση δεν απαντήσει (ή --offline / --artifact), το σάιτ χτίζεται με τα αρχικά δεδομένα και ΔΕΝ αποτυγχάνει.
+const DATA = { ...DATA0 };
+let SCHED = SCHEDULE_TIMES;
+async function rpc(name) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${name}`, { method: "POST", headers: { apikey: SUPABASE_KEY, Authorization: "Bearer " + SUPABASE_KEY, "content-type": "application/json" }, body: "{}", signal: AbortSignal.timeout(8000) });
+  if (!r.ok) throw new Error(`${name}: HTTP ${r.status}`);
+  return r.json();
+}
+if (!ARTIFACT && !process.argv.includes("--offline")) {
+  try {
+    const cat = await rpc("site_catalog");
+    const cats = new Set(DATA0.CATEGORIES.map(c => c.id));
+    const T = {};
+    for (const t of cat.tariffs || []) {
+      if (!t || !/^[a-z0-9_]{1,24}$/.test(t.key) || !t.label) continue;
+      const p = {}; for (const id of cats) { const v = t.p && t.p[id]; p[id] = v == null || v === "" || !isFinite(+v) ? null : +v; }
+      T[t.key] = { label: t.label, p };
+    }
+    const TYPES = new Set(["direct", "local", "transfer", "ask", "none"]);
+    const dests = (cat.destinations || []).filter(d => d && d.name && TYPES.has(d.type)).map(d => {
+      const o = { name: d.name, region: d.region || "", type: d.type, tariff: d.tariff && T[d.tariff] ? d.tariff : null };
+      if (d.type === "transfer") { if (!DATA0.HUBS[d.hub]) return null; o.hub = d.hub; }
+      if ((d.type === "direct" || d.type === "local") && !o.tariff) { console.warn(`⚠ ${d.name}: χωρίς τιμοκατάλογο → «ρωτήστε»`); o.type = "ask"; }
+      if (d.sched && d.sched.length) o.sched = d.sched;
+      if (d.days && /^[01]{7}$/.test(d.days)) o.days = d.days;
+      if (d.eta) o.eta = d.eta;
+      if (d.note) o.note = d.note;
+      return o;
+    }).filter(Boolean);
+    const hubsOk = Object.values(DATA0.HUBS).every(h => T[h.tariff]);
+    if (Object.keys(T).length && dests.length && hubsOk) { DATA.TARIFFS = T; DATA.DESTINATIONS = dests; console.log(`Προορισμοί/τιμές από τη διαχείριση: ${dests.length} προορισμοί, ${Object.keys(T).length} στήλες τιμών.`); }
+    else console.warn("⚠ Η διαχείριση προορισμών είναι κενή ή ελλιπής — χρησιμοποιούνται τα αρχικά δεδομένα.");
+  } catch (e) { console.warn("⚠ Προορισμοί/τιμές: αρχικά δεδομένα (" + e.message + ")"); }
+  try {
+    const rows = await rpc("site_departures");
+    const ok = (rows || []).filter(r => r && r.dest && /^([01]\d|2[0-3]):[0-5]\d$/.test(r.time) && /^[01]{7}$/.test(r.days));
+    if (ok.length) { SCHED = ok.map(r => ({ dest: r.dest, time: r.time, days: r.days, express: !!r.express, conn: !!r.conn, notes: r.notes || null })); console.log(`Δρομολόγια από τη διαχείριση: ${ok.length}.`); }
+  } catch (e) { console.warn("⚠ Δρομολόγια: αρχικά δεδομένα (" + e.message + ")"); }
+}
 const B = DATA.BUSINESS;
 const esc = s => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const eur = n => n == null ? "—" : `${n} €`;
@@ -32,7 +74,7 @@ for (const f of readdirSync(join(ROOT, "src/assets"))) {
 // Φωτογραφίες: {{photo:όνομα|λεζάντα ελ|λεζάντα en}} → μπαίνει μόνο αν υπάρχει src/assets/photos/όνομα.jpg (αλλιώς τίποτα).
 const PHOTO_DIR = join(ROOT, "src/assets/photos");
 const calcSrc = readFileSync(join(ROOT, "src/calc.mjs"), "utf8").replace(/^export /gm, "");
-const site = { ...DATA, EN, SCHEDULE: SCHEDULE_TIMES.map(({ dest, time, days, express, conn, notes }) => ({ dest, time, days, express, conn, notes })), SUPABASE: { url: SUPABASE_URL, key: SUPABASE_KEY } };
+const site = { ...DATA, EN, SCHEDULE: SCHED.map(({ dest, time, days, express, conn, notes }) => ({ dest, time, days, express, conn, notes })), SUPABASE: { url: SUPABASE_URL, key: SUPABASE_KEY } };
 writeFileSync(join(OUT, "assets/app.js"),
   `// Παράγεται από site/build.mjs — μην το αλλάζετε με το χέρι.\n"use strict";\nconst SITE = ${JSON.stringify(site)};\n${calcSrc}\n${readFileSync(join(ROOT, "src/client.js"), "utf8")}`);
 
@@ -54,10 +96,10 @@ const I = {
 const C = DATA.CATEGORIES;
 // Αντιστοίχιση σελίδων ελληνικά ↔ αγγλικά (αγγλικά στο /en/)
 const SLUG = { index: "index", apostoli: "send", paralavi: "receive", anazitisi: "track", proorismoi: "destinations", epixeiriseis: "business",
-  spiti: "home-delivery", klirosi: "giveaway", "syxnes-erotiseis": "faq", epikoinonia: "contact", oroi: "terms", aporrito: "privacy", poll: "poll", nomothesia: "legislation", ladi: "olive-oil", foitites: "students", diaxeirisi: "admin" };
+  spiti: "home-delivery", klirosi: "giveaway", "syxnes-erotiseis": "faq", epikoinonia: "contact", oroi: "terms", aporrito: "privacy", poll: "poll", nomothesia: "legislation", ladi: "olive-oil", foitites: "students", diaxeirisi: "admin", "diaxeirisi-proorismon": "admin-destinations" };
 const GR_OF = Object.fromEntries(Object.entries(SLUG).map(([g, e]) => [e, g]));
 const counts = { direct: DATA.DESTINATIONS.filter(d => d.type === "direct").length, local: DATA.DESTINATIONS.filter(d => d.type === "local").length, transfer: DATA.DESTINATIONS.filter(d => d.type === "transfer").length,
-  athensDaily: SCHEDULE_TIMES.filter(r => r.dest === "ΑΘΗΝΑ" && r.days[2] === "1").length, patraDaily: SCHEDULE_TIMES.filter(r => r.dest === "ΠΑΤΡΑ" && r.days[2] === "1").length };
+  athensDaily: SCHED.filter(r => r.dest === "ΑΘΗΝΑ" && r.days[2] === "1").length, patraDaily: SCHED.filter(r => r.dest === "ΠΑΤΡΑ" && r.days[2] === "1").length };
 
 function makeLang(lang) {
   const t = (el, en) => (lang === "en" ? en : el);
@@ -85,7 +127,7 @@ function makeLang(lang) {
     const by = ty => DATA.DESTINATIONS.filter(d => d.type === ty).sort(sortL);
     const daily = t("Καθημερινά", "Daily");
     const chip = d => {
-      const lbl = d.sched ? daysLabel(SCHEDULE_TIMES, d.sched, lang) : "";
+      const lbl = destDays(DATA, SCHED, d, lang, { viaHub: false });
       return `<li><a href="${link("apostoli")}?to=${encodeURIComponent(d.name)}#ypologismos" style="color:inherit;text-decoration:none">${esc(L(d.name))}</a>${lbl && lbl !== daily ? ` <small>· ${esc(lbl)}</small>` : ""}</li>`;
     };
     const hubs = Object.entries(DATA.HUBS).map(([k, h]) => {
@@ -124,9 +166,8 @@ function makeLang(lang) {
         : d.type === "transfer" ? `${t("Μέσω", "Via")} ${L(DATA.HUBS[d.hub].label)}` : d.type === "ask" ? t("Ρωτήστε μας", "Ask us") : t("Δεν εξυπηρετείται", "Not served");
       const tag = d => d.type === "none" ? "" : d.type === "transfer" ? "info" : "ok";
       const rows = DATA.DESTINATIONS.slice().sort(sortL).map(d => {
-        const tf = d.type === "transfer" ? DATA.TARIFFS[DATA.HUBS[d.hub].tariff] : DATA.TARIFFS[d.tariff];
-        const keys = d.type === "transfer" ? DATA.HUBS[d.hub].sched : d.sched;
-        const days = keys ? daysLabel(SCHEDULE_TIMES, keys, lang) : "";
+        const tf = DATA.TARIFFS[tariffKey(DATA, d)];
+        const days = destDays(DATA, SCHED, d, lang);
         const eta = d.type === "transfer" ? (d.eta || DATA.HUBS[d.hub].eta) : d.eta;
         const from = tf && tf.p.fakelos != null ? `${t("από", "from")} ${eur(tf.p.fakelos)}` : "—";
         const calc = d.type === "none" || d.type === "ask" ? "" : `<a href="${link("apostoli")}?to=${encodeURIComponent(d.name)}#ypologismos">${t("Υπολογισμός", "Calculate")}</a>`;
@@ -157,18 +198,18 @@ function makeLang(lang) {
   const SHORT = { tenekes: ["Τενεκές", "Tin"], tenekes_syn: ["Ταξιδεύετε μαζί", "You travel too"], mikro: ["Μικρή", "Small"], mesaio: ["Μεσαία", "Medium"], megalo: ["Μεγάλη", "Large"] };
   const seasonTable = (catIds, names) => {
     const cats = catIds.map(id => C.find(c => c.id === id)).filter(Boolean);
-    const rows = names.map(n => DATA.DESTINATIONS.find(d => d.name === n)).filter(d => d && DATA.TARIFFS[d.tariff]);
+    const rows = names.map(n => DATA.DESTINATIONS.find(d => d.name === n)).filter(d => d && DATA.TARIFFS[tariffKey(DATA, d)]);
     const deps = d => {
-      if (!d.sched) return "";
-      const days = daysLabel(SCHEDULE_TIMES, d.sched, lang);
-      const wk = SCHEDULE_TIMES.filter(r => d.sched.includes(r.dest) && r.days[2] === "1").length;
+      const days = destDays(DATA, SCHED, d, lang, { viaHub: false });
+      if (!days) return "";
+      const wk = d.sched ? SCHED.filter(r => d.sched.includes(r.dest) && r.days[2] === "1").length : 0;
       return days + (wk > 1 ? t(` · ${wk} την ημέρα`, ` · ${wk} a day`) : "");
     };
     return `<div class="table-wrap"><table class="data season"><thead><tr><th scope="col">${t("Προορισμός", "Destination")}</th>${cats.map(c => `<th scope="col">${SHORT[c.id] ? t(...SHORT[c.id]) : esc(L(c.name))}</th>`).join("")}<th scope="col" class="deps-col">${t("Αναχωρήσεις", "Departures")}</th></tr></thead><tbody>${
-      rows.map(d => `<tr><th scope="row">${esc(L(d.name))}<small class="m-deps">${esc(deps(d))}</small></th>${cats.map(c => { const v = DATA.TARIFFS[d.tariff].p[c.id]; return `<td class="num">${v == null ? t("ρωτήστε", "ask") : eur(v)}</td>`; }).join("")}<td class="deps-cell">${esc(deps(d))}</td></tr>`).join("")
+      rows.map(d => `<tr><th scope="row">${esc(L(d.name))}<small class="m-deps">${esc(deps(d))}</small></th>${cats.map(c => { const v = DATA.TARIFFS[tariffKey(DATA, d)].p[c.id]; return `<td class="num">${v == null ? t("ρωτήστε", "ask") : eur(v)}</td>`; }).join("")}<td class="deps-cell">${esc(deps(d))}</td></tr>`).join("")
     }</tbody></table></div>`;
   };
-  const fill = s => s.replace(/\{\{eur:([a-z]+):([a-z_]+)\}\}/g, (m, k, c) => { const v = DATA.TARIFFS[k] && DATA.TARIFFS[k].p[c]; if (v == null) throw new Error("Άγνωστη τιμή: " + m); return eur(v); })
+  const fill = s => s.replace(/\{\{eur:([a-z]+):([a-z_]+)\}\}/g, (m, k, c) => { const v = DATA.TARIFFS[k] ? DATA.TARIFFS[k].p[c] : DATA0.TARIFFS[k] && DATA0.TARIFFS[k].p[c]; if (v == null) { if (DATA0.TARIFFS[k] && DATA0.TARIFFS[k].p[c] != null) return t("ρωτήστε", "ask"); throw new Error("Άγνωστη τιμή: " + m); } return eur(v); })
     .replace(/\{\{seasonTable:([a-z_,]+)\|([^}]+)\}\}/g, (_, c, n) => seasonTable(c.split(","), n.split(",").map(x => x.trim())))
     .replace(/\{\{photo:([a-z0-9-]+)\|([^|}]*)(?:\|([^}]*))?\}\}/g, (_, n, a, b) => photo(n, a, b))
     .replace(/\{\{[^}]+\}\}/g, m => TOKENS[m] ? String(TOKENS[m]()) : (console.warn("Άγνωστο:", m), m));

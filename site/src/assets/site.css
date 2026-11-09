@@ -470,4 +470,27 @@ table.season .m-deps { display: none; }
 .adm-row.changed { background: var(--teal-soft); border-radius: var(--r); }
 .adm-del { background: none; border: 0; font-size: 18px; color: var(--muted); cursor: pointer; min-height: 40px; }
 .adm-del:hover { color: var(--bad); }
+.adm-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 18px; }
+.adm-tabs a { padding: 10px 16px; border: 1px solid var(--line); border-radius: 999px; text-decoration: none; color: inherit; font-weight: 600; }
+.adm-tabs a[aria-current] { background: var(--band); color: #fff; border-color: transparent; }
+.adm-tf { border-collapse: collapse; font-size: 14px; }
+.adm-tf th { font-size: 12px; color: var(--muted); font-weight: 600; text-align: left; padding: 4px; white-space: nowrap; }
+.adm-tf td { padding: 3px; }
+.adm-tf td input { min-height: 40px; padding: 6px 8px; font-size: 16px; width: 64px; }
+.adm-tf td:first-child input { width: 230px; }
+.adm-tf tr.changed td { background: var(--teal-soft); }
+.adm-card { border: 1px solid var(--line); border-radius: var(--r); padding: 12px; margin: 10px 0; background: var(--paper); }
+.adm-card.changed { background: var(--teal-soft); }
+.adm-card.off { opacity: .6; }
+.adm-card-top { display: grid; grid-template-columns: 1fr 1fr auto auto; gap: 10px; align-items: end; }
+.adm-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 10px; }
+.adm-f { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
+.adm-f.wide { grid-column: 1 / -1; }
+.adm-f input, .adm-f select { min-height: 42px; padding: 6px 10px; font-size: 16px; color: var(--ink, inherit); }
+.adm-days { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.adm-days .adm-cb { min-height: 0; gap: 2px; }
+.adm-days small, .adm-card-top small { font-size: 11px; color: var(--muted); }
+.adm-auto { display: flex; gap: 6px; align-items: center; margin-right: 10px; color: inherit; font-size: 14px; }
+.adm-auto input { width: 20px; height: 20px; accent-color: var(--teal); }
+@media (max-width: 720px) { .adm-grid { grid-template-columns: 1fr; } .adm-card-top { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 420px) { .adm-row { grid-template-columns: 64px repeat(7, 1fr) 48px 28px; gap: 2px; } }

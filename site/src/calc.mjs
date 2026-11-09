@@ -36,7 +36,7 @@ export function quote(site, { dest, catId, pieces = 1, kg = 0 }) {
   if (d.type === "none") return { status: "none", dest: d };
   if (d.type === "ask") return { status: "ask", dest: d };
   const hub = d.type === "transfer" ? site.HUBS[d.hub] : null;
-  const t = site.TARIFFS[hub ? hub.tariff : d.tariff];
+  const t = site.TARIFFS[tariffKey(site, d)];
   const p = t && t.p[catId];
   if (p == null) return { status: "noprice", dest: d };
   const extra = overweightExtra(site.OVERWEIGHT, catId, kg, t);
@@ -92,9 +92,24 @@ export function nextDepartures(schedule, keys, now, count = 3, lang = "el") {
   return out;
 }
 
+// Ποια στήλη τιμοκαταλόγου ισχύει: του προορισμού· στις ανταποκρίσεις, αν δεν έχει δική του, του σταθμού ανταπόκρισης.
+export function tariffKey(site, d) {
+  if (d.tariff && site.TARIFFS[d.tariff]) return d.tariff;
+  const hub = d.type === "transfer" ? site.HUBS[d.hub] : null;
+  return hub ? hub.tariff : d.tariff;
+}
+
 // Ημέρες που φεύγει λεωφορείο (για την καρτέλα προορισμού): «Καθημερινά», «Δευ–Παρ», «Παρ, Κυρ» κ.λπ.
 export function daysLabel(schedule, keys, lang = "el") {
-  const mask = [0, 1, 2, 3, 4, 5, 6].map(i => schedule.some(r => keys.includes(r.dest) && r.days[i] === "1"));
+  return maskLabel([0, 1, 2, 3, 4, 5, 6].map(i => schedule.some(r => keys.includes(r.dest) && r.days[i] === "1")), lang);
+}
+// Μέρες προορισμού: αν έχουν οριστεί με το χέρι (days "1111100") αυτές, αλλιώς από τα δρομολόγια (sched ή του σταθμού ανταπόκρισης).
+export function destDays(site, schedule, d, lang = "el", { viaHub = true } = {}) {
+  if (d.days && /^[01]{7}$/.test(d.days)) return maskLabel(d.days.split("").map(x => x === "1"), lang);
+  const keys = d.sched && d.sched.length ? d.sched : (viaHub && d.type === "transfer" && site.HUBS[d.hub] ? site.HUBS[d.hub].sched : null);
+  return keys ? daysLabel(schedule, keys, lang) : "";
+}
+function maskLabel(mask, lang) {
   if (mask.every(Boolean)) return lang === "en" ? "Daily" : "Καθημερινά";
   const S = lang === "en" ? ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] : ["Δευ", "Τρι", "Τετ", "Πεμ", "Παρ", "Σαβ", "Κυρ"];
   if (mask.slice(0, 5).every(Boolean) && !mask[5] && !mask[6]) return lang === "en" ? "Monday – Friday" : "Δευτέρα – Παρασκευή";

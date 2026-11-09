@@ -136,7 +136,7 @@
         q.extra ? [h("dt", {}, T("Επιβάρυνση βάρους", "Weight surcharge")), h("dd", {}, T(`+${eur(q.extra)} ανά τεμάχιο (βασική ${eur(q.base)}, ${String(q.rate.toFixed(2)).replace(".", ",")} €/kg πάνω από ${OW.fromKg} kg)`, `+${eur(q.extra)} per item (base ${eur(q.base)}, €${q.rate.toFixed(2)}/kg over ${OW.fromKg} kg)`))] : null,
         q.hub ? [h("dt", {}, T("Μέσω", "Via")), h("dd", {}, L(q.hub.label))] : null,
         h("dt", {}, T("Παράδοση", "Delivery")), h("dd", {}, L(q.eta) || "")));
-      const keys = q.hub ? q.hub.sched : q.dest.sched;
+      const keys = q.dest.sched && q.dest.sched.length ? q.dest.sched : q.hub ? q.hub.sched : null;
       if (keys) {
         const cut = B.cutoffMin || 0, now = athensNow();
         const deps = nextDepartures(SITE.SCHEDULE, keys, { ...now, minutes: now.minutes + cut }, 3, LANG);
@@ -157,7 +157,7 @@
     const kgS = v => (LANG === "en" ? String(v) : String(v).replace(".", ",")) + " kg";
     const breakdown = ({ q, cat, classed, kg, kind }) => {
       const steps = [];
-      const tLabel = L(SITE.TARIFFS[q.hub ? q.hub.tariff : q.dest.tariff].label);
+      const tLabel = L(SITE.TARIFFS[tariffKey(SITE, q.dest)].label);
       const catName = L(cat.name);
       if (classed) {
         const d = classed.sorted;
@@ -322,9 +322,19 @@
       if (sess && sess.exp && Date.now() / 1000 > sess.exp - 60) await refresh();
       const r = await fetch(U + path, { ...opt, headers: { apikey: K, Authorization: "Bearer " + (sess ? sess.at : K), "content-type": "application/json", ...(opt.headers || {}) } });
       if (r.status === 401) { sess = null; save(); throw new Error("Η σύνδεση έληξε. Συνδεθείτε ξανά."); }
-      if (!r.ok) { const t = await r.text(); throw new Error(/does not exist|schema cache|42P01|PGRST205/.test(t) ? "Τρέξτε πρώτα το 0026_parcel_departures.sql στο Supabase." : t.slice(0, 200)); }
+      if (!r.ok) { const t = await r.text(); throw new Error(/does not exist|schema cache|42P01|PGRST205/.test(t) ? (/site_(tariffs|destinations|settings)/.test(path) ? "Τρέξτε πρώτα το 0027_site_catalog.sql στο Supabase." : "Τρέξτε πρώτα το 0026_parcel_departures.sql στο Supabase.") : t.slice(0, 200)); }
       return r.status === 204 ? null : r.json().catch(() => null);
     };
+    // Ανανέωση σάιτ: οι τιμές, οι προορισμοί και οι μέρες μπαίνουν στις σελίδες όταν χτίζεται το σάιτ.
+    // Με τον σύνδεσμο «Deploy hook» του Cloudflare (αποθηκευμένο μόνο στη βάση), η αποθήκευση το ξαναχτίζει αμέσως.
+    let hook = "";
+    const loadHook = async () => { try { const s = await api("/rest/v1/site_settings?key=eq.deploy_hook&select=value"); hook = (s && s[0] && s[0].value) || ""; } catch { hook = ""; } };
+    const publish = async () => {
+      if (!hook) return " Θα φανούν στις σελίδες στην επόμενη ανανέωση του σάιτ (βάλτε τον σύνδεσμο ανανέωσης στο τέλος της σελίδας για να γίνεται μόνο του).";
+      try { await fetch(hook, { method: "POST", mode: "no-cors" }); return " Το σάιτ ανανεώνεται: οι αλλαγές φαίνονται σε 2–3 λεπτά."; }
+      catch { return " Η αυτόματη ανανέωση δεν ξεκίνησε· δοκιμάστε ξανά ή ανανεώστε από το Cloudflare."; }
+    };
+    const MODE = adm.dataset.admin || "sched";
     const setSess = j => { sess = { at: j.access_token, rt: j.refresh_token, exp: j.expires_at || Math.floor(Date.now() / 1000) + (j.expires_in || 3600), email: j.user && j.user.email }; save(); };
     async function refresh() {
       const r = await fetch(U + "/auth/v1/token?grant_type=refresh_token", { method: "POST", headers: { apikey: K, "content-type": "application/json" }, body: JSON.stringify({ refresh_token: sess.rt }) });
@@ -354,11 +364,13 @@
     }
 
     async function load() {
-      try { rows = await api("/rest/v1/site_schedule?select=*&order=dest.asc,time.asc") || []; dirty.clear(); removed.clear(); render(); }
+      if (MODE === "dest") return loadDest();
+      try { rows = await api("/rest/v1/site_schedule?select=*&order=dest.asc,time.asc") || []; dirty.clear(); removed.clear(); await loadHook(); render(); }
       catch (e) { say("bad", e.message); sess ? render() : loginView(); }
     }
 
     function render() {
+      if (MODE === "dest") return renderDest();
       adm.textContent = "";
       const dests = [...new Set(rows.map(r => r.dest))].sort((a, b) => a.localeCompare(b, "el"));
       const changes = dirty.size + removed.size;
@@ -412,9 +424,150 @@
           if (r.id > 0) await api("/rest/v1/site_schedule?id=eq." + r.id, { method: "PATCH", body: JSON.stringify(body) });
           else await api("/rest/v1/site_schedule", { method: "POST", body: JSON.stringify(body) });
         }
-        say("ok", "Αποθηκεύτηκαν. Η σελίδα δείχνει ήδη τα νέα δρομολόγια.");
+        say("ok", "Αποθηκεύτηκαν. Ο πίνακας «Επόμενες αναχωρήσεις» τα δείχνει ήδη." + await publish());
         await load();
       } catch (e) { say("bad", "Δεν αποθηκεύτηκαν όλα: " + e.message); render(); }
+    }
+
+    // ---------- 🗺 Προορισμοί & τιμοκατάλογος ----------
+    let TF = [], DS = [], schedKeys = [], dT = new Set(), rT = new Set(), dD = new Set(), rD = new Set(), q = "", openG = new Set(), tfOpen = false;
+    const CATS = SITE.CATEGORIES;
+    const SHORTC = { fakelos: "Φάκελος", mikro: "Μικρό", mesaio: "Μεσαίο", megalo: "Μεγάλο", tenekes: "Τενεκές", tenekes_syn: "Συνοδ. τεν.", tsouvali: "Τσουβάλι", arni: "Αρνί" };
+    const HUBT = new Set(Object.values(SITE.HUBS).map(x => x.tariff));
+    const HOW = [["direct", "Απευθείας"], ["local", "Εντός νομού"], ...Object.entries(SITE.HUBS).map(([k, x]) => ["transfer:" + k, "Ανταπόκριση μέσω " + x.label]), ["ask", "Ρωτήστε μας"], ["none", "Δεν εξυπηρετείται"]];
+    const GROUPS = [["direct", "Απευθείας"], ["local", "Εντός νομού"], ["transfer", "Με ανταπόκριση"], ["ask", "Ρωτήστε μας"], ["none", "Δεν εξυπηρετούνται"]];
+    const howOf = d => d.type === "transfer" ? "transfer:" + d.hub : d.type;
+    const price = v => { const x = String(v ?? "").replace(",", ".").trim(); return x === "" ? null : (isFinite(+x) && +x >= 0 ? Math.round(+x * 100) / 100 : NaN); };
+
+    async function loadDest() {
+      try {
+        TF = await api("/rest/v1/site_tariffs?select=*&order=sort.asc,key.asc") || [];
+        DS = await api("/rest/v1/site_destinations?select=*&order=name.asc") || [];
+        try { schedKeys = [...new Set((await api("/rest/v1/site_schedule?select=dest") || []).map(r => r.dest))].sort((a, b) => a.localeCompare(b, "el")); } catch { schedKeys = []; }
+        await loadHook(); dT.clear(); rT.clear(); dD.clear(); rD.clear(); renderDest();
+      } catch (e) { say("bad", e.message); sess ? renderDest() : loginView(); }
+    }
+
+    function field(label, el, wide) { return h("label", { class: "adm-f" + (wide ? " wide" : "") }, h("span", {}, label), el); }
+
+    function renderDest() {
+      adm.textContent = "";
+      const changes = dT.size + rT.size + dD.size + rD.size;
+      const saveBtn = h("button", { class: "btn btn-primary", type: "button", disabled: !changes }, changes ? `Αποθήκευση (${changes})` : "Αποθηκευμένα");
+      saveBtn.addEventListener("click", saveDest);
+      const out = h("button", { class: "btn btn-ghost", type: "button" }, "Αποσύνδεση");
+      out.addEventListener("click", () => { sess = null; save(); say(null, ""); loginView(); });
+      adm.append(h("div", { class: "adm-bar" }, h("div", {}, h("b", {}, sess && sess.email ? sess.email : ""), h("div", { class: "muted", style: "font-size:14px" }, `${DS.filter(d => d.shown).length} προορισμοί στη σελίδα · ${TF.length} στήλες τιμών`)), h("div", { style: "display:flex;gap:10px;flex-wrap:wrap" }, saveBtn, out)));
+      if (msg) adm.append(msg);
+
+      // Τιμοκατάλογος
+      const tdet = h("details", { class: "adm-dest" }); tdet.open = tfOpen; tdet.addEventListener("toggle", () => { tfOpen = tdet.open; });
+      tdet.append(h("summary", {}, h("b", {}, "Τιμοκατάλογος"), h("span", { class: "muted" }, " · € με ΦΠΑ, ανά τεμάχιο · κενό = «ρωτήστε»")));
+      const tbl = h("table", { class: "adm-tf" }, h("thead", {}, h("tr", {}, h("th", {}, "Στήλη"), ...CATS.map(c => h("th", {}, SHORTC[c.id] || c.name)), h("th", {}, ""))));
+      const tb = h("tbody");
+      for (const t of TF) {
+        const mark = () => { dT.add(t.key); renderDest(); };
+        const lab = h("input", { value: t.label, "aria-label": "Όνομα στήλης" }); lab.addEventListener("change", () => { t.label = lab.value.trim(); mark(); });
+        const cells = CATS.map(c => { const v = t.p ? t.p[c.id] : null; const i = h("input", { value: v == null ? "" : String(v).replace(".", ","), inputmode: "decimal", class: "num", "aria-label": `${t.label} · ${c.name}` });
+          i.addEventListener("change", () => { const n = price(i.value); if (Number.isNaN(n)) { i.value = ""; say("warn", "Γράψτε την τιμή σε ευρώ, π.χ. 7 ή 7,50."); return renderDest(); } t.p = { ...(t.p || {}), [c.id]: n }; mark(); }); return h("td", {}, i); });
+        const del = h("button", { class: "adm-del", type: "button", title: "Διαγραφή στήλης", "aria-label": "Διαγραφή στήλης" }, "✕");
+        del.addEventListener("click", () => {
+          if (HUBT.has(t.key)) { say("warn", `Η στήλη «${t.label}» χρησιμοποιείται από σταθμό ανταπόκρισης και δεν σβήνεται.`); return renderDest(); }
+          const used = DS.filter(d => d.tariff === t.key); if (used.length) { say("warn", `Η στήλη «${t.label}» χρησιμοποιείται από: ${used.slice(0, 5).map(d => d.name).join(", ")}${used.length > 5 ? "…" : ""}. Αλλάξτε τους πρώτα.`); return renderDest(); }
+          TF = TF.filter(x => x !== t); dT.delete(t.key); if (!t._new) rT.add(t.key); renderDest(); });
+        tb.append(h("tr", { class: dT.has(t.key) ? "changed" : "" }, h("td", {}, lab), ...cells, h("td", {}, del)));
+      }
+      tbl.append(tb);
+      const addT = h("button", { class: "btn btn-ghost", type: "button", style: "min-height:40px;margin-top:8px" }, "+ Στήλη τιμών");
+      addT.addEventListener("click", () => { const t = { key: "t" + Date.now().toString(36), label: "Νέα στήλη", p: {}, sort: TF.length, _new: true }; TF.push(t); dT.add(t.key); tfOpen = true; renderDest(); });
+      tdet.append(h("div", { class: "table-wrap" }, tbl), addT);
+      adm.append(tdet);
+
+      // Προορισμοί
+      const sIn = h("input", { type: "search", value: q, placeholder: "Βρείτε προορισμό…", style: "max-width:360px;margin:16px 0 4px" });
+      sIn.addEventListener("input", () => { q = sIn.value; const pos = sIn.selectionStart; renderDest(); const n = $("[data-admin] input[type=search]"); if (n) { n.focus(); n.setSelectionRange(pos, pos); } });
+      adm.append(sIn);
+      if (schedKeys.length) adm.append(h("datalist", { id: "adm-keys" }, schedKeys.map(k => h("option", { value: k }))));
+      const match = d => !q || norm(d.name + " " + d.region).includes(norm(q));
+      for (const [ty, label] of GROUPS) {
+        const list = DS.filter(d => d.type === ty && match(d));
+        if (!list.length && q) continue;
+        const det = h("details", { class: "adm-dest" }); if (openG.has(ty) || q) det.open = true;
+        det.addEventListener("toggle", () => { det.open ? openG.add(ty) : openG.delete(ty); });
+        det.append(h("summary", {}, h("b", {}, label), h("span", { class: "muted" }, ` · ${list.length}`)));
+        for (const d of list) det.append(destCard(d));
+        adm.append(det);
+      }
+      const nd = h("input", { placeholder: "Νέος προορισμός (π.χ. Τρίπολη)", style: "max-width:320px" });
+      const nb = h("button", { class: "btn btn-ghost", type: "button" }, "+ Προορισμός");
+      nb.addEventListener("click", () => { const n = nd.value.trim(); if (n.length < 2) return; if (DS.some(d => norm(d.name) === norm(n))) { say("warn", `Ο προορισμός «${n}» υπάρχει ήδη.`); return renderDest(); }
+        const d = { id: seq--, name: n, region: "", type: "direct", tariff: null, hub: null, sched: [], days: null, eta: "", note: "", shown: true }; DS.push(d); dD.add(d.id); openG.add("direct"); q = ""; renderDest(); });
+      adm.append(h("div", { style: "display:flex;gap:10px;flex-wrap:wrap;margin-top:18px" }, nd, nb));
+
+      // Ανανέωση σάιτ
+      const hk = h("input", { value: hook, placeholder: "https://api.cloudflare.com/client/v4/pages/webhooks/deploy_hooks/…", style: "font-size:14px" });
+      const hb = h("button", { class: "btn btn-ghost", type: "button" }, "Αποθήκευση συνδέσμου");
+      hb.addEventListener("click", async () => {
+        const v = hk.value.trim();
+        if (v && !/^https:\/\/api\.cloudflare\.com\/client\/v4\/pages\/webhooks\/deploy_hooks\/[A-Za-z0-9-]+$/.test(v)) { say("warn", "Ο σύνδεσμος πρέπει να είναι το «Deploy hook» του Cloudflare Pages."); return renderDest(); }
+        try { await api("/rest/v1/site_settings", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify({ key: "deploy_hook", value: v }) }); hook = v; say("ok", v ? "Ο σύνδεσμος αποθηκεύτηκε. Από εδώ και πέρα κάθε αποθήκευση ανανεώνει το σάιτ." : "Ο σύνδεσμος σβήστηκε."); }
+        catch (e) { say("bad", e.message); }
+        renderDest();
+      });
+      const nowB = h("button", { class: "btn btn-ghost", type: "button", disabled: !hook }, "Ανανέωση τώρα");
+      nowB.addEventListener("click", async () => { say("ok", (await publish()).trim()); renderDest(); });
+      adm.append(h("details", { class: "adm-dest", style: "margin-top:24px" }, h("summary", {}, h("b", {}, "Ανανέωση σάιτ"), h("span", { class: "muted" }, hook ? " · ενεργή" : " · δεν έχει ρυθμιστεί")),
+        h("p", { class: "muted", style: "font-size:14px" }, "Cloudflare → το project → Settings → Builds → Deploy hooks → Add (όνομα «diaxeirisi», branch main) → αντιγράψτε τον σύνδεσμο εδώ."),
+        h("div", { style: "display:flex;gap:10px;flex-wrap:wrap;align-items:center" }, hk, hb, nowB)));
+    }
+
+    function destCard(d) {
+      const mark = () => { dD.add(d.id); renderDest(); };
+      const inp = (key, ph, w) => { const i = h("input", { value: d[key] || "", placeholder: ph || "" }); if (w) i.style.maxWidth = w; i.addEventListener("change", () => { d[key] = i.value.trim(); mark(); }); return i; };
+      const how = h("select", {}, HOW.map(([v, l]) => h("option", { value: v, selected: howOf(d) === v }, l)));
+      how.addEventListener("change", () => { const [t, hb] = how.value.split(":"); d.type = t; d.hub = hb || null; openG.add(t); dD.add(d.id); renderDest(); const n = [...adm.querySelectorAll(".adm-card input")].find(x => x.value === d.name); if (n) n.closest(".adm-card").scrollIntoView({ block: "center" }); });
+      const tsel = h("select", {}, h("option", { value: "", selected: !d.tariff }, d.type === "transfer" && SITE.HUBS[d.hub] ? `Όπως ο σταθμός (${(TF.find(t => t.key === SITE.HUBS[d.hub].tariff) || {}).label || ""})` : "— (ρωτήστε)"),
+        TF.map(t => h("option", { value: t.key, selected: d.tariff === t.key }, t.label)));
+      tsel.addEventListener("change", () => { d.tariff = tsel.value || null; mark(); });
+      const sch = h("input", { value: (d.sched || []).join(", "), placeholder: "π.χ. ΑΘΗΝΑ", list: "adm-keys" });
+      sch.addEventListener("change", () => { d.sched = sch.value.split(/[,;]+/).map(x => x.trim().toUpperCase()).filter(Boolean); mark(); });
+      const auto = h("input", { type: "checkbox", checked: !d.days });
+      auto.addEventListener("change", () => { d.days = auto.checked ? null : "1111111"; mark(); });
+      const days = DAYS.map((x, i) => { const c = h("input", { type: "checkbox", "aria-label": x, checked: d.days ? d.days[i] === "1" : false, disabled: !d.days });
+        c.addEventListener("change", () => { const a = (d.days || "0000000").split(""); a[i] = c.checked ? "1" : "0"; d.days = a.join(""); mark(); }); return h("label", { class: "adm-cb" }, h("small", {}, x), c); });
+      const sh = h("input", { type: "checkbox", checked: !!d.shown }); sh.addEventListener("change", () => { d.shown = sh.checked; mark(); });
+      const del = h("button", { class: "adm-del", type: "button", title: "Διαγραφή", "aria-label": "Διαγραφή" }, "✕");
+      del.addEventListener("click", () => { DS = DS.filter(x => x !== d); dD.delete(d.id); if (d.id > 0) rD.add(d.id); renderDest(); });
+      const preview = d.days ? maskLabel(d.days.split("").map(x => x === "1"), "el") : (d.sched && d.sched.length ? daysLabel(SITE.SCHEDULE, d.sched) : "");
+      return h("div", { class: "adm-card" + (d.shown ? "" : " off") + (dD.has(d.id) ? " changed" : "") },
+        h("div", { class: "adm-card-top" }, field("Όνομα", inp("name")), field("Περιοχή", inp("region", "π.χ. Πελοπόννησος")),
+          h("label", { class: "adm-cb adm-show", title: "Στη σελίδα" }, h("small", {}, "Στη σελίδα"), sh), del),
+        h("div", { class: "adm-grid" }, field("Πώς πάει", how), field("Τιμοκατάλογος", tsel),
+          field("Λεωφορεία (δρομολόγια)", sch),
+          h("div", { class: "adm-f wide" }, h("span", {}, "Μέρες δρομολογίου" + (preview ? ` · ${preview}` : "")),
+            h("div", { class: "adm-days" }, h("label", { class: "adm-auto" }, auto, " από τα δρομολόγια"), ...days)),
+          field("Παράδοση", inp("eta", "π.χ. Αυθημερόν, με τα δρομολόγια της ημέρας"), true),
+          field("Σημείωση", inp("note", "προαιρετικό"), true)));
+    }
+
+    async function saveDest() {
+      const names = new Set();
+      for (const d of DS) { const n = norm(d.name || ""); if (n.length < 2) { say("warn", "Υπάρχει προορισμός χωρίς όνομα."); return renderDest(); } if (names.has(n)) { say("warn", `Ο προορισμός «${d.name}» υπάρχει δύο φορές.`); return renderDest(); } names.add(n); }
+      const noT = DS.filter(d => dD.has(d.id) && (d.type === "direct" || d.type === "local") && !d.tariff);
+      if (noT.length) { say("warn", `Διαλέξτε τιμοκατάλογο για: ${noT.map(d => d.name).join(", ")}.`); return renderDest(); }
+      if (TF.some(t => !t.label)) { say("warn", "Κάθε στήλη τιμών χρειάζεται όνομα."); return renderDest(); }
+      try {
+        for (const t of TF.filter(x => dT.has(x.key))) await api("/rest/v1/site_tariffs", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify({ key: t.key, label: t.label, p: t.p || {}, sort: TF.indexOf(t), updated_at: new Date().toISOString() }) });
+        for (const id of rD) await api("/rest/v1/site_destinations?id=eq." + id, { method: "DELETE" });
+        for (const d of DS.filter(x => dD.has(x.id))) {
+          const body = { name: d.name.trim(), region: d.region || "", type: d.type, tariff: d.tariff || null, hub: d.type === "transfer" ? d.hub : null, sched: d.sched || [], days: d.days || null, eta: d.eta || null, note: d.note || null, shown: !!d.shown, updated_at: new Date().toISOString() };
+          if (d.id > 0) await api("/rest/v1/site_destinations?id=eq." + d.id, { method: "PATCH", body: JSON.stringify(body) });
+          else await api("/rest/v1/site_destinations", { method: "POST", body: JSON.stringify(body) });
+        }
+        for (const k of rT) await api("/rest/v1/site_tariffs?key=eq." + encodeURIComponent(k), { method: "DELETE" });
+        say("ok", "Αποθηκεύτηκαν." + await publish());
+        await loadDest();
+      } catch (e) { say("bad", "Δεν αποθηκεύτηκαν όλα: " + e.message); renderDest(); }
     }
     sess ? load() : loginView();
   }
