@@ -494,3 +494,13 @@ table.season .m-deps { display: none; }
 .adm-auto input { width: 20px; height: 20px; accent-color: var(--teal); }
 @media (max-width: 720px) { .adm-grid { grid-template-columns: 1fr; } .adm-card-top { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 420px) { .adm-row { grid-template-columns: 64px repeat(7, 1fr) 48px 28px; gap: 2px; } }
+
+/* Κουμπιά συνομιλίας: χρώματα των εφαρμογών (WhatsApp, Viber) */
+.chat-btns { display: inline-flex; flex-wrap: wrap; gap: 10px; }
+.btn-wa, .btn-vb { color: #fff; border-color: transparent; gap: 8px; }
+.btn-wa { background: #1FAF54; } .btn-wa:hover { background: #17964A; }
+.btn-vb { background: #7360F2; } .btn-vb:hover { background: #5E4BD8; }
+.btn-wa svg, .btn-vb svg { width: 20px; height: 20px; }
+.brand-logo { display: inline-block; vertical-align: middle; }
+.partner .brand-logo { margin: 0 2px; }
+.contact-list .chat-btns a { display: inline-flex; }
