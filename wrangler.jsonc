@@ -1,7 +1,0 @@
-// Cloudflare Workers (στατικό σάιτ): το χτίσιμο είναι «node site/build.mjs», το ανέβασμα «npx wrangler deploy».
-// Το "name" πρέπει να είναι ίδιο με το όνομα του Worker στο Cloudflare.
-{
-  "name": "apothiki-dematon",
-  "compatibility_date": "2025-09-01",
-  "assets": { "directory": "./site/dist", "html_handling": "auto-trailing-slash" }
-}

@@ -96,7 +96,7 @@ const I = {
 const C = DATA.CATEGORIES;
 // Αντιστοίχιση σελίδων ελληνικά ↔ αγγλικά (αγγλικά στο /en/)
 const SLUG = { index: "index", apostoli: "send", paralavi: "receive", anazitisi: "track", proorismoi: "destinations", epixeiriseis: "business",
-  spiti: "home-delivery", klirosi: "giveaway", "syxnes-erotiseis": "faq", epikoinonia: "contact", oroi: "terms", aporrito: "privacy", poll: "poll", nomothesia: "legislation", ladi: "olive-oil", foitites: "students", diaxeirisi: "admin", "diaxeirisi-proorismon": "admin-destinations" };
+  spiti: "home-delivery", klirosi: "giveaway", "syxnes-erotiseis": "faq", epikoinonia: "contact", oroi: "terms", aporrito: "privacy", poll: "poll", nomothesia: "legislation", ladi: "olive-oil", foitites: "students", diaxeirisi: "admin", "diaxeirisi-proorismon": "admin-destinations", "404": "404" };
 const GR_OF = Object.fromEntries(Object.entries(SLUG).map(([g, e]) => [e, g]));
 const counts = { direct: DATA.DESTINATIONS.filter(d => d.type === "direct").length, local: DATA.DESTINATIONS.filter(d => d.type === "local").length, transfer: DATA.DESTINATIONS.filter(d => d.type === "transfer").length,
   athensDaily: SCHED.filter(r => r.dest === "ΑΘΗΝΑ" && r.days[2] === "1").length, patraDaily: SCHED.filter(r => r.dest === "ΠΑΤΡΑ" && r.days[2] === "1").length };
@@ -300,11 +300,26 @@ for (const lang of ["el", "en"]) {
     const m = raw.match(/^<!--meta\s*(\{[\s\S]*?\})\s*-->\s*/);
     if (!m) throw new Error("Λείπει meta: " + f);
     const meta = JSON.parse(m[1]);
-    writeFileSync(join(outDir, f), M.page(gr, meta, M.fill(raw.slice(m[0].length))));
+    let html = M.page(gr, meta, M.fill(raw.slice(m[0].length)));
+    // Η 404 σερβίρεται σε οποιαδήποτε διεύθυνση (και σε υποφακέλους): οι σχετικοί σύνδεσμοι μετρούν από τη ρίζα της γλώσσας.
+    if (gr === "404" && !ARTIFACT) html = html.replace(/<head>/i, `<head>\n<base href="${lang === "en" ? "/en/" : "/"}">`);
+    writeFileSync(join(outDir, f), html);
     if (!meta.noindex) sitemap.push(M.urlOf(gr));
     n++;
   }
 }
 writeFileSync(join(OUT, "sitemap.xml"), `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${sitemap.map(u => `  <url><loc>${u}</loc></url>`).join("\n")}\n</urlset>\n`);
+// Cloudflare Pages: κεφαλίδες ασφαλείας· οι σελίδες διαχείρισης ποτέ στο Google και ποτέ από προσωρινή μνήμη.
+if (!ARTIFACT) writeFileSync(join(OUT, "_headers"), `/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Frame-Options: SAMEORIGIN
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()
+/diaxeirisi*
+  X-Robots-Tag: noindex, nofollow
+  Cache-Control: no-store
+/en/admin*
+  X-Robots-Tag: noindex, nofollow
+`);
 writeFileSync(join(OUT, "robots.txt"), PROTOTYPE ? "User-agent: *\nDisallow: /\n" : `User-agent: *\nAllow: /\nSitemap: ${B.domain}/sitemap.xml\n`);
 console.log(`OK — ${n} σελίδες (ελληνικά + αγγλικά) → ${OUT}`);
