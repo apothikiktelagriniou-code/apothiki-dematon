@@ -649,7 +649,9 @@ table.data.two th:first-child, table.data.two td:first-child { white-space: norm
 .price-board .price .per { color: var(--board-dim); }
 .price-board .deadline { margin: 10px 0 0; font: 700 18px/1.3 var(--f-body); color: #fff; }
 .price-board .deadline small { display: block; font-weight: 400; font-size: 14px; color: var(--board-dim); margin-top: 2px; }
-.result .next-step { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+.result .next-step { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 16px; }
+.result .next-step .btn { justify-content: center; }
+.result .next-step .btn-ghost { grid-column: 1 / -1; }
 [data-calc] { min-height: 640px; }
 @media (max-width: 480px) { .kv { grid-template-columns: 1fr; } .kv dt { margin-top: 8px; } .kv dd { margin-left: 0; } }
 /* Αρχική: «ανοιχτά τώρα» και φωτογραφία εισόδου */
@@ -779,3 +781,9 @@ details.q[open]::details-content { block-size: auto; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .pack-offer { background: #2A3418; } }
 :root[data-theme="dark"] .pack-offer { background: #2A3418; }
 @media (max-width: 700px) { .pack-offer { grid-template-columns: minmax(0, 1fr); } }
+
+/* Κουμπιά συνομιλίας μόνο σε υπολογιστή (στο κινητό τα έχει η κάτω μπάρα) */
+.head-chat { margin-top: 18px; }
+.ctas .desk-only { display: contents; }
+.ctas .chat-btns, .head-chat .chat-btns { display: inline-flex; flex-wrap: wrap; gap: 10px; }
+@media (max-width: 900px) { .desk-only, .ctas .desk-only { display: none !important; } }

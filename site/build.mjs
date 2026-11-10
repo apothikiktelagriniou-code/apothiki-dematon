@@ -68,7 +68,7 @@ if (!ARTIFACT && !process.argv.includes("--offline")) {
   } catch (e) { console.warn("⚠ Δρομολόγια: αρχικά δεδομένα (" + e.message + ")"); }
 }
 const B = DATA.BUSINESS;
-if (B.geo) B.mapsUrl = `https://www.google.com/maps/search/?api=1&query=${B.geo.lat},${B.geo.lng}`;
+if (B.geo) B.mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${B.geo.lat},${B.geo.lng}`;
 const esc = s => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const eur = n => n == null ? "—" : `${n} €`;
 
@@ -226,7 +226,7 @@ function makeLang(lang) {
       return `<div class="panel"><h3>${t("Μέσω", "Via")} ${esc(L(h.label))}</h3><p class="muted" style="margin-top:6px">${esc(L(h.eta))} ${t(`Πληρώνετε εδώ την τιμή ${esc(L(DATA.TARIFFS[h.tariff].label))} και βάζετε περίπου άλλο τόσο σε φάκελο πάνω στο δέμα, για το πρακτορείο που συνεχίζει.`, `You pay the ${esc(L(DATA.TARIFFS[h.tariff].label))} price here and put about the same amount in an envelope on the parcel, for the agency that carries it on.`)}</p><ul class="dest-list">${list.map(chip).join("")}</ul></div>`;
     }).join("");
     return `<div class="dest-groups">
-  <div><h2>${t("Απευθείας δρομολόγια", "Direct buses")}</h2><p class="muted" style="margin-top:6px">${t("Το δέμα φτάνει την ίδια μέρα που φεύγει. Δίπλα σε κάθε πόλη, οι μέρες που υπάρχει δρομολόγιο, αν δεν είναι καθημερινό.", "It arrives the same day it leaves. Next to each town: the days with a bus, if not daily.")}</p><ul class="dest-list">${by("direct").map(chip).join("")}</ul></div>
+  <div><h2>${t("Απευθείας δρομολόγια", "Direct buses")}</h2><p class="muted" style="margin-top:6px">${t("Το δέμα φτάνει την ίδια μέρα, με τα δρομολόγια που αναγράφονται. Δίπλα σε κάθε πόλη, οι μέρες που υπάρχει δρομολόγιο, αν δεν είναι καθημερινό.", "It arrives the same day, on the listed schedules. Next to each town: the days with a bus, if not daily.")}</p><ul class="dest-list">${by("direct").map(chip).join("")}</ul></div>
   <div><h2>${t("Εντός Νομού Αιτωλοακαρνανίας", "Within Aetolia-Acarnania")}</h2><p class="muted" style="margin-top:6px">${t("Ίδια τιμή για όλο τον νομό.", "One price for the whole prefecture.")}</p><ul class="dest-list">${by("local").map(chip).join("")}</ul></div>
   <div><h2>${t("Με ανταπόκριση", "With connection")}</h2><div class="grid g3" style="margin-top:12px">${hubs}</div></div>
   ${by("ask").length ? `<div><h2>${t("Ρωτήστε μας", "Ask us")}</h2><ul class="dest-list">${by("ask").map(d => `<li>${esc(L(d.name))}</li>`).join("")}</ul></div>` : ""}
@@ -289,19 +289,16 @@ function makeLang(lang) {
       return `<div class="journey" data-journey>
   <label class="j-pick"><span>${t("Πού το στέλνετε;", "Where to?")}</span><select data-j-dest>${list.map(d => `<option value="${esc(d.name)}"${d === d0 ? " selected" : ""}>${esc(L(d.name))}</option>`).join("")}</select></label>
   <ol class="j-steps">
-    ${step("drop", I.send, t("Φέρτε το", "Bring it"), t(`Τουλάχιστον ${B.cutoffMin} λεπτά πριν από την αναχώρηση`, `At least ${B.cutoffMin} minutes before departure`), t(`Για τα πρωινά λεωφορεία, από το προηγούμενο βράδυ έως τις ${B.eveningBy}.`, `For morning buses, the evening before, by ${B.eveningBy}.`))}
+    ${step("drop", I.send, t("Φέρτε το", "Bring it"), t(`Τουλάχιστον ${B.cutoffMin} λεπτά πριν από την αναχώρηση`, `At least ${B.cutoffMin} minutes before departure`), t(`Για λεωφορεία πριν ανοίξουμε, από το προηγούμενο βράδυ έως τις ${B.eveningBy}.`, `For buses before we open, the evening before, by ${B.eveningBy}.`))}
     ${step("pay", I.euro, t("Πληρώνετε", "Pay"), [tf.p.fakelos != null ? t(`Φάκελος ${eur(tf.p.fakelos)}`, `Envelope ${eur(tf.p.fakelos)}`) : "", tf.p.mikro != null ? t(`μικρό κουτί ${eur(tf.p.mikro)}`, `small box ${eur(tf.p.mikro)}`) : ""].filter(Boolean).join(" · "), t("Ενδεικτικά. Η τελική τιμή βγαίνει στο ταμείο.", "Indicative. The final price is set at the counter."))}
-    ${step("go", I.bus, t("Φεύγει", "It leaves"), t("Με το επόμενο λεωφορείο", "On the next bus"), esc(L(d0.eta || "")))}
+    ${step("go", I.bus, t("Φεύγει", "It leaves"), t("Με το επόμενο δρομολόγιο", "On the next scheduled bus"), esc(L(d0.eta || "")))}
     ${step("get", I.receive, t("Παραλαβή", "Collection"), esc(d0.terminal || t("Στο ΚΤΕΛ του προορισμού", "At the destination bus station")), [esc(d0.terminalAddr || ""), tel].filter(Boolean).join(" · ") + `<br>${t("Με ταυτότητα. Μπορεί να το πάρει και άλλος, με τη δική του.", "With ID. Someone else can collect it with their own ID.")}`)}
     <span class="j-parcel" aria-hidden="true">${I.send}</span>
   </ol>
   <div class="j-ctas"><a class="btn" data-j-calc href="${link("apostoli")}?to=${encodeURIComponent(d0.name)}#ypologismos">${t("Ακριβής τιμή", "Exact price")} →</a>${chatButtons()}</div>
 </div>`;
     },
-    "{{routesMap}}": () => `<figure class="routes-map" data-routes>${routesSvg(lang, L)}<figcaption class="stats">`
-      + `<span><b data-count="${counts.direct}">${counts.direct}</b>${t("πόλεις απευθείας", "cities direct")}</span>`
-      + `<span><b data-count="${counts.local}">${counts.local}</b>${t("προορισμοί στον νομό", "places in the prefecture")}</span>`
-      + `<span><b data-count="${counts.transfer}">${counts.transfer}</b>${t("με ανταπόκριση", "with a connection")}</span></figcaption></figure>`,
+    "{{routesMap}}": () => `<figure class="routes-map" data-routes>${routesSvg(lang, L)}</figure>`,
     "{{asapLogo}}": () => `<a class="partner-link" href="https://asapcouriers.gr/" rel="noopener" target="_blank">${brandImg("asap", "ASAP Courier", 28) || "<b>ASAP Courier</b>"}</a>`,
     "{{phone}}": () => `<a class="num" href="tel:+30${B.phone}">${lang === "en" ? "+30 " : ""}${B.phoneDisplay}</a>`,
     "{{mobile}}": () => `<a class="num" href="tel:+30${B.mobile}">${lang === "en" ? "+30 " : ""}${B.mobileDisplay}</a>`,
@@ -472,7 +469,7 @@ ${body}
     const others = DEST_PAGES.filter(x => x !== p).map(x => `<li><a href="${link(x.gr)}">${esc(L(x.d.name))}</a></li>`).join("");
     const body = `<section class="page-head"><div class="wrap">
   <span class="crumbs"><a href="${link("index")}">${t("Αρχική", "Home")}</a> / <a href="${link("proorismoi")}">${t("Προορισμοί", "Destinations")}</a> / ${t("Αγρίνιο", "Agrinio")} – ${esc(name)}</span>
-  <h1>${t(`Αποστολή δέματος Αγρίνιο – ${esc(name)}`, `Send a parcel from Agrinio to ${esc(name)}`)}</h1>
+  <h1>${t(`Δέμα από το Αγρίνιο ${esc(p.eis)} με ΚΤΕΛ`, `Send a parcel from Agrinio to ${esc(name)} by KTEL`)}</h1>
   <p>${t(`Με τα λεωφορεία του ΚΤΕΛ, από τον σταθμό του Αγρινίου: ${fromTxt}.`, `On KTEL buses, from the Agrinio bus station: ${fromTxt}.`)}</p>
   <p style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px"><a class="btn btn-primary" href="${calc}">${t("Υπολογίστε το κόστος", "Work out the cost")}</a></p>
 </div></section>
@@ -502,7 +499,7 @@ ${body}
       { "@type": "ListItem", position: 3, name: `${t("Αγρίνιο", "Agrinio")} – ${name}`, item: U(p.gr) }] };
     const meta = {
       ldExtra: [crumbsLd],
-      title: t(`Αποστολή δέματος Αγρίνιο – ${name} · Τιμές & δρομολόγια ΚΤΕΛ`, `Parcel from Agrinio to ${name} · KTEL prices & times`),
+      title: t(`Δέμα Αγρίνιο – ${name} με ΚΤΕΛ · ${pEnv != null ? `Από ${eur(pEnv)}, ` : ""}αυθημερόν`, `Parcel Agrinio – ${name} by KTEL · ${pEnv != null ? `From ${eur(pEnv)}, ` : ""}same day`),
       description: t(`Δέμα από το Αγρίνιο ${p.eis} με το ΚΤΕΛ: ${fromTxt}. Τιμές, ώρες αναχώρησης και σημείο παραλαβής.`,
         `Parcels from Agrinio to ${name} by KTEL bus: ${fromTxt}. Prices, departure times and pickup point.`),
     };
@@ -566,7 +563,7 @@ if (!ARTIFACT) writeFileSync(join(OUT, "_headers"), `/*
   X-Frame-Options: SAMEORIGIN
   Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()
   Strict-Transport-Security: max-age=31536000
-  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' ${SUPABASE_URL} https://api.cloudflare.com; frame-ancestors 'self'; base-uri 'self'; form-action 'self'; object-src 'none'
+  Content-Security-Policy: default-src 'self'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' ${SUPABASE_URL} https://api.cloudflare.com https://cloudflareinsights.com; frame-ancestors 'self'; base-uri 'self'; form-action 'self'; object-src 'none'
 /assets/*
   Cache-Control: public, max-age=604800, stale-while-revalidate=86400
 /diaxeirisi*

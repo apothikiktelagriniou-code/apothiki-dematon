@@ -23,6 +23,25 @@
   const telA = (n, txt) => h("a", { class: "num", href: "tel:+30" + String(n).replace(/\D/g, "") }, txt || n);
   const contactNodes = () => [T("Καλέστε μας στο ", "Call us on "), telA(B.phone, B.phoneDisplay), T(" ή γράψτε μας στο ", " or message us on "), h("a", { href: "https://wa.me/30" + B.mobile }, "WhatsApp"), "."];
 
+  // Μέτρηση κλικ: μόνο «πόσα» ανά μέρα, σελίδα και σημείο. Χωρίς cookies, χωρίς IP, χωρίς στοιχεία επισκέπτη.
+  const PAGE = (location.pathname.replace(/^\/+|\.html$/g, "") || "index").replace(/\/$/, "/index").toLowerCase();
+  const TEST = /^(localhost|127\.|\[?::1)/.test(location.hostname) ? null : /^dokimi\./.test(location.hostname) ? "dokimi/" : "";
+  const SPOTS = [["[data-spot]", el => el.dataset.spot], [".quickbar", "quickbar"], [".price-board, .next-step, [data-calc]", "calc"], [".hero, .page-head, .oil-head", "hero"],
+    [".board", "board"], [".cta-band", "cta"], ["[data-track]", "track"], [".dest-hero, .dest-page", "dest"], ["footer", "footer"], ["main", "page"]];
+  const spotOf = el => { for (const [sel, v] of SPOTS) { const c = el.closest(sel); if (c) return typeof v === "function" ? v(c) : v; } return ""; };
+  const ping = (e, spot = "") => {
+    if (TEST === null || !SITE.SUPABASE || !SITE.SUPABASE.url) return;
+    try { fetch(SITE.SUPABASE.url + "/rest/v1/rpc/track_click", { method: "POST", keepalive: true, headers: { apikey: SITE.SUPABASE.key, "content-type": "application/json" },
+      body: JSON.stringify({ p_e: e, p_p: (TEST + PAGE).slice(0, 60), p_s: String(spot).slice(0, 30) }) }).catch(() => {}); } catch {}
+  };
+  document.addEventListener("click", ev => {
+    const a = ev.target.closest && ev.target.closest("a[href]"); if (!a) return;
+    const u = a.getAttribute("href");
+    const e = /^tel:/.test(u) ? "call" : /wa\.me|whatsapp/.test(u) ? "whatsapp" : /^viber:/.test(u) ? "viber" : /^mailto:/.test(u) ? "email"
+      : /google\.[a-z.]+\/maps|maps\.app\.goo|maps\.google/.test(u) ? "directions" : null;
+    if (e) ping(e, spotOf(a));
+  }, { capture: true });
+
   // Μενού κινητού: κλείνει με Esc και όταν πατηθεί σύνδεσμος
   const mb = $(".menu-btn"), nav = $(".nav");
   if (mb && nav) {
@@ -145,9 +164,9 @@
     const NUMS = new Set(["c-l", "c-w", "c-h", "c-kg", "c-skg", "c-n"]);
     const nv = id => { const v = $("#" + id).value; return NUMS.has(id) && !(Number(v) > 0) ? "" : v; };
     const contactLine = () => h("p", { style: "margin-top:12px" }, T("Τηλέφωνο ", "Phone "), h("a", { href: "tel:+30" + B.phone, class: "num" }, B.phoneDisplay), " · WhatsApp ", h("a", { href: "https://wa.me/30" + B.mobile, class: "num" }, B.mobileDisplay));
-    const nextStep = () => h("div", { class: "next-step" },
+    const nextStep = (msg = "") => h("div", { class: "next-step" },
       h("a", { class: "btn btn-primary", href: "tel:+30" + B.phone }, T("Κλήση ", "Call ") + B.phoneDisplay),
-      h("a", { class: "btn btn-wa", href: "https://wa.me/30" + B.mobile }, "WhatsApp"),
+      h("a", { class: "btn btn-wa", href: "https://wa.me/30" + B.mobile + (msg ? "?text=" + encodeURIComponent(msg) : "") }, "WhatsApp"),
       h("a", { class: "btn btn-ghost", href: B.mapsUrl, rel: "noopener" }, T("Οδηγίες για την αποθήκη", "Directions to the depot")));
     const render = () => {
       const kind = (form.querySelector("input[name=kind]:checked") || {}).value;
@@ -200,6 +219,7 @@
         h("div", { class: "price", style: "margin-top:6px" }, big, h("span", { class: "per" }, q.pieces > 1 ? `${q.pieces} × ${eur(q.perPiece)}` : T("ανά τεμάχιο, με ΦΠΑ", "per item, VAT included"))),
         noDims ? h("p", { class: "deadline" }, T("Για μικρό κουτί", "For a small box"), h("small", {}, T("Βάλτε διαστάσεις και βάρος για ακριβέστερη τιμή.", "Enter size and weight for a closer price."))) : null,
         deadline ? h("p", { class: "deadline" }, deadline, h("small", {}, T(`Για το λεωφορείο των ${d0.time}, στο ταμείο της αποθήκης.`, `For the ${d0.time} bus, at the depot counter.`))) : null));
+      card.append(nextStep(T(`Γεια σας, θέλω να στείλω δέμα για ${dn}. Ο υπολογιστής δείχνει ${noDims ? "από " : ""}${eur(q.total)}.`, `Hello, I'd like to send a parcel to ${dn}. The calculator shows ${noDims ? "from " : ""}${eur(q.total)}.`)));
       if (lastTotal !== null && lastTotal !== q.total && !REDUCED) big.classList.add("bump");
       lastTotal = q.total;
       announce(T(`Ενδεικτική τιμή ${noDims ? "από " : ""}${eur(q.total)} για ${dn}.${deadline ? " " + deadline + "." : ""}`, `Estimated price ${noDims ? "from " : ""}${eur(q.total)} to ${dn}.${deadline ? " " + deadline + "." : ""}`));
@@ -223,11 +243,11 @@
       if (q.dest.note) card.append(h("p", { class: "muted", style: "margin-top:10px;font-size:14px" }, L(q.dest.note)));
       card.append(breakdown({ q, cat, classed, kg, kind }));
       const P = SITE.PACKING, pk = P && P.items.find(i => i.id === cat.id);
-      if (pk && pk.active && !P.active) card.append(h("p", { class: "notice info", style: "margin-top:12px" }, h("b", {}, T("Ο τενεκές ταξιδεύει σε χαρτοκιβώτιο", "The tin travels in a cardboard box")),
+      if (pk && pk.id === "tenekes" && (P.active || pk.active)) card.append(h("p", { class: "notice info", style: "margin-top:12px" }, h("b", {}, T("Ο τενεκές ταξιδεύει σε χαρτοκιβώτιο", "The tin travels in a cardboard box")),
         T(`Δεν έχετε; Το συσκευάζουμε εμείς με ${eur(pk.service)} (κούτα, σακούλα, ταινία, σήμανση), ή παίρνετε μόνο την κούτα με ${eur(pk.material)}.`, `No box? We pack it for ${eur(pk.service)} (box, bag, tape, labels), or buy just the box for ${eur(pk.material)}.`)));
-      else if (pk && !P.active) card.append(h("p", { class: "notice info", style: "margin-top:12px" }, h("b", {}, T("Σύντομα: συσκευασία από εμάς", "Soon: we pack it for you")),
+      else if (pk && P.active) card.append(h("p", { class: "notice info", style: "margin-top:12px" }, h("b", {}, T("Δεν έχετε κούτα; Το πακετάρουμε εμείς", "No box? We pack it for you")),
         T(`Για ${L(cat.name).toLowerCase()}: ${eur(pk.service)} με υλικό και δουλειά, ή ${eur(pk.material)} μόνο η κούτα.`, `For a ${L(cat.name).toLowerCase()}: ${eur(pk.service)} including materials, or ${eur(pk.material)} for the box only.`)));
-      card.append(h("p", { class: "muted", style: "margin-top:12px;font-size:14px" }, T("Ενδεικτική τιμή. Η τελική βγαίνει στον πάγκο, μετά από ζύγισμα και μέτρηση. Τιμές ΚΤΕΛ Αιτωλοακαρνανίας με ΦΠΑ.", "Indicative price. The final price is set at the counter after weighing and measuring. KTEL Aetolia-Acarnania prices, VAT included.")), nextStep());
+      card.append(h("p", { class: "muted", style: "margin-top:12px;font-size:14px" }, T("Ενδεικτική τιμή. Η τελική βγαίνει στον πάγκο, μετά από ζύγισμα και μέτρηση. Τιμές ΚΤΕΛ Αιτωλοακαρνανίας με ΦΠΑ.", "Indicative price. The final price is set at the counter after weighing and measuring. KTEL Aetolia-Acarnania prices, VAT included.")));
       if (warnHit) out.append(warnHit);
     };
     // «Πώς υπολογίστηκε»: τα ίδια βήματα με το ταμείο, με τα νούμερα αυτού του δέματος
@@ -264,6 +284,8 @@
 
     form.addEventListener("input", render); form.addEventListener("change", render);
     // Στο κινητό, μόλις διαλέξει προορισμό ή είδος, δείχνουμε την τιμή (αλλιώς μένει κάτω από την κάτω μπάρα).
+    let calcPinged = false; const calcPing = () => { if (!calcPinged) { calcPinged = true; ping("calc", "calc"); } };
+    form.addEventListener("input", calcPing); form.addEventListener("change", calcPing);
     form.addEventListener("change", e => { if (e.target.tagName === "SELECT" && matchMedia("(max-width: 900px)").matches) { const p = $(".price-board", out) || out; p.scrollIntoView({ behavior: SMOOTH, block: "start" }); } });
     form.addEventListener("submit", e => e.preventDefault());
     const pre = new URLSearchParams(location.search).get("to");
@@ -293,7 +315,7 @@
       bad($("#t-rc"), false); bad($("#t-nm"), false);
       if (rc.replace(/\D/g, "").length < 10) { setTimeout(() => bad($("#t-rc"), true), 0); return show("warn", T("Ελέγξτε τον αριθμό απόδειξης", "Check the receipt number"), T("Γράψτε όλο τον αριθμό της απόδειξης, π.χ. 228-336-12345. Στις χειρόγραφες αποδείξεις: τον κόκκινο αριθμό.", "Enter the full receipt number, e.g. 228-336-12345. On handwritten receipts: the red number.")); }
       if (nm.replace(/\s/g, "").length < 3) { setTimeout(() => bad($("#t-nm"), true), 0); return show("warn", T("Γράψτε 3 γράμματα", "Enter 3 letters"), T("Τα 3 πρώτα γράμματα του επωνύμου του παραλήπτη.", "The first 3 letters of the recipient's surname, as written on the receipt.")); }
-      const btn = $("button", tr); btn.disabled = true; show("info", T("Αναζήτηση…", "Searching…"));
+      const btn = $("button", tr); btn.disabled = true; show("info", T("Αναζήτηση…", "Searching…")); ping("track", "track");
       try {
         const r = await fetch(URL_ + "/rest/v1/rpc/track_parcel", { method: "POST", headers: { apikey: KEY, "content-type": "application/json" }, body: JSON.stringify({ p_receipt: rc, p_name: nm }) });
         if (r.status === 429 || r.status === 400) { const t = await r.text(); if (r.status === 429 || /too_many/.test(t)) return show("warn", T("Πολλές αναζητήσεις", "Too many searches"), T("Για την προστασία των δεδομένων, οι αναζητήσεις είναι περιορισμένες. Δοκιμάστε ξανά σε 15 λεπτά ή καλέστε μας.", "To protect personal data, searches are limited. Try again in 15 minutes or call us."), h("span", {}, ...contactNodes())); throw new Error(t); }
@@ -623,6 +645,39 @@
       adm.append(h("details", { class: "adm-dest", style: "margin-top:24px" }, h("summary", {}, h("b", {}, "Ανανέωση σάιτ"), h("span", { class: "muted" }, hook ? " · ενεργή" : " · δεν έχει ρυθμιστεί")),
         h("p", { class: "muted", style: "font-size:14px" }, "Cloudflare → το project → Settings → Build → Deploy hooks → Add (όνομα «diaxeirisi», branch main) → αντιγράψτε τον σύνδεσμο εδώ."),
         h("div", { style: "display:flex;gap:10px;flex-wrap:wrap;align-items:center" }, hk, hb, nowB)));
+      adm.append(statsBlock());
+    }
+
+    // Μετρήσεις κλικ (0031): σύνολα ανά ενέργεια, σελίδα και σημείο. Φορτώνει μόνο όταν ανοίξει.
+    let statDays = 30, statOpen = false;
+    function statsBlock() {
+      const EV = { call: "Κλήσεις", whatsapp: "WhatsApp", viber: "Viber", directions: "Οδηγίες χάρτη", calc: "Υπολογισμοί τιμής", track: "Αναζητήσεις δέματος", email: "Email" };
+      const body = h("div", {}, h("p", { class: "muted" }, "Φόρτωση…"));
+      const det = h("details", { class: "adm-dest", style: "margin-top:24px" }, h("summary", {}, h("b", {}, "Μετρήσεις"), h("span", { class: "muted" }, " · κλικ σε κλήση, WhatsApp, Viber, οδηγίες, υπολογισμό")), body);
+      det.open = statOpen;
+      const load = async () => {
+        body.textContent = "";
+        const from = new Date(Date.now() - (statDays - 1) * 864e5).toISOString().slice(0, 10);
+        let rows;
+        try { rows = await api(`/rest/v1/site_clicks?day=gte.${from}&select=day,event,page,spot,n&order=day.desc&limit=5000`); }
+        catch (e) { body.append(h("p", { class: "notice warn" }, /0031|site_clicks|does not exist|PGRST205|42P01/.test(e.message) ? "Τρέξτε πρώτα το 0031_site_clicks.sql στο Supabase." : e.message)); return; }
+        const sel = h("select", {}, [7, 30, 90, 365].map(d => h("option", { value: d, selected: d === statDays }, `Τελευταίες ${d} μέρες`)));
+        sel.addEventListener("change", () => { statDays = +sel.value; load(); });
+        const live = rows.filter(r => !r.page.startsWith("dokimi/")), test = rows.length - live.length;
+        const sum = (arr, key) => { const m = new Map(); arr.forEach(r => m.set(key(r), (m.get(key(r)) || 0) + r.n)); return [...m].sort((a, b) => b[1] - a[1]); };
+        const tbl = (title, pairs) => h("div", { class: "panel", style: "padding:14px" }, h("b", {}, title),
+          pairs.length ? h("table", { class: "data two", style: "margin-top:8px" }, h("tbody", {}, pairs.slice(0, 15).map(([k, n]) => h("tr", {}, h("td", {}, k), h("td", { class: "num", style: "text-align:right" }, String(n))))))
+            : h("p", { class: "muted", style: "margin-top:6px" }, "Καμία μέτρηση ακόμα."));
+        body.append(h("div", { style: "display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px" }, sel,
+            h("span", { class: "muted", style: "font-size:14px" }, test ? `(${test} κλικ από τη δοκιμαστική έκδοση δεν μετράνε εδώ)` : "")),
+          h("div", { class: "grid g3", style: "gap:12px" },
+            tbl("Ανά ενέργεια", sum(live, r => EV[r.event] || r.event)),
+            tbl("Ανά σελίδα", sum(live, r => r.page || "index")),
+            tbl("Ανά σημείο", sum(live, r => `${EV[r.event] || r.event} · ${r.spot || "—"}`))));
+      };
+      det.addEventListener("toggle", () => { statOpen = det.open; if (det.open) load(); });
+      if (det.open) load();
+      return det;
     }
 
     function destCard(d) {
@@ -697,7 +752,7 @@
         set("go", T(`${cap(dayTxt)} στις ${dep.time}`, `${cap(dayTxt)} at ${dep.time}`), L(d.eta || ""));
       } else {
         set("drop", T("Ρωτήστε μας για την επόμενη αναχώρηση", "Ask us about the next departure"), "");
-        set("go", T("Με το επόμενο λεωφορείο", "On the next bus"), L(d.eta || ""));
+        set("go", T("Με το επόμενο δρομολόγιο", "On the next scheduled bus"), L(d.eta || ""));
       }
       const tf = SITE.TARIFFS[tariffKey(SITE, d)] || { p: {} };
       set("pay", [tf.p.fakelos != null ? T("Φάκελος ", "Envelope ") + eur(tf.p.fakelos) : "", tf.p.mikro != null ? T("μικρό κουτί ", "small box ") + eur(tf.p.mikro) : ""].filter(Boolean).join(" · ") || T("Ρωτήστε μας", "Ask us"),

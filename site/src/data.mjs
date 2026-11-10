@@ -145,10 +145,10 @@ export const OVERWEIGHT = { enabled: true, fromKg: 10, share: 0.05, refCat: "tso
 // Κανόνας κατηγορίας: true = το βάρος μπορεί να ανεβάσει την κατηγορία (μικρό έως 5 kg, μεσαίο έως 15 kg κ.λπ.)
 // false = η κατηγορία βγαίνει μόνο από τις διαστάσεις και το βάρος χρεώνεται μόνο με την επιβάρυνση (χωρίς διπλή χρέωση).
 export const SIZE_RULE = { weightBumpsCategory: true };
-
+// Συσκευασία από εμάς + πώληση υλικών (ξεκινά με το λανσάρισμα). active:false → «Σύντομα». Τιμές με ΦΠΑ.
 // Συσκευασία από εμάς + πώληση υλικών. active:false → «Σύντομα» (μέχρι να μπει ο ΚΑΔ). Τιμές: πρόταση, με ΦΠΑ.
 export const PACKING = {
-  active: false,
+  active: true,
   items: [
     { id: "fakelos", name: "Φάκελος με φυσαλίδα", material: 1, service: 1.5 },
     { id: "mikro", name: "Μικρό κουτί", material: 1.5, service: 3 },

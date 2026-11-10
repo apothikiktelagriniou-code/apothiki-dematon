@@ -5,10 +5,10 @@ export const FAQ = [
     { top: true, q: "Πόσο κοστίζει να στείλω ένα δέμα;",
       a: "Εξαρτάται από το είδος του δέματος (φάκελος, μικρό, μεσαίο ή μεγάλο κουτί, τενεκές, τσουβάλι) και τον προορισμό. Για παράδειγμα, ένα μεσαίο κουτί για Αθήνα κοστίζει 8 €. Δείτε ενδεικτική τιμή στον <a href=\"apostoli.html#ypologismos\">υπολογιστή κόστους</a>. Οι τιμές ορίζονται από το ΚΤΕΛ Αιτωλοακαρνανίας και περιλαμβάνουν ΦΠΑ." },
     { top: true, q: "Πότε φτάνει το δέμα;",
-      a: "Στις περισσότερες πόλεις με απευθείας δρομολόγιο φτάνει την ίδια ημέρα. Κάποιες πόλεις, όπως Λάρισα, Βόλος, Καλαμάτα, Κέρκυρα και Χανιά, έχουν λεωφορείο μόνο ορισμένες ημέρες· τις βλέπετε στους προορισμούς. Φέρτε το δέμα τουλάχιστον 20 λεπτά πριν από την αναχώρηση· για τα πρωινά λεωφορεία, από το προηγούμενο βράδυ. Με ανταπόκριση μέσω άλλου ΚΤΕΛ μπορεί να χρειαστεί και την επόμενη ημέρα. Ο υπολογιστής δείχνει τις επόμενες αναχωρήσεις από το Αγρίνιο." },
+      a: "Με απευθείας δρομολόγιο φτάνει την ίδια ημέρα, με τα δρομολόγια που αναγράφονται στους προορισμούς. Κάποιες πόλεις, όπως Λάρισα, Βόλος, Καλαμάτα, Κέρκυρα και Χανιά, έχουν λεωφορείο μόνο ορισμένες ημέρες· τις βλέπετε στους προορισμούς. Φέρτε το δέμα τουλάχιστον 20 λεπτά πριν από την αναχώρηση· για λεωφορεία που φεύγουν πριν ανοίξουμε, από το προηγούμενο βράδυ έως τις 21:00. Με ανταπόκριση μέσω άλλου ΚΤΕΛ μπορεί να χρειαστεί και την επόμενη ημέρα. Ο υπολογιστής δείχνει τις επόμενες αναχωρήσεις από το Αγρίνιο." },
     { q: "Υπάρχει επιβάρυνση για βαριά δέματα;",
       a: "Ναι, για κουτιά, φακέλους και τσουβάλια πάνω από 10 κιλά. Κάθε επιπλέον κιλό κοστίζει όσο το 5% της τιμής τσουβαλιού του προορισμού, ανά τεμάχιο, στρογγυλεμένο στο επόμενο ευρώ: 0,40 €/kg εντός νομού, 0,50 € Πάτρα, 0,60 € Αθήνα, 0,75 € Θεσσαλονίκη, 1 € Κρήτη. Π.χ. τσουβάλι 30 κιλών για Πάτρα: 10 € + 10 € = 20 €. Τενεκέδες και αρνί έχουν σταθερή τιμή." },
-    { q: "Μπορείτε να μου συσκευάσετε το δέμα;", a: "Σύντομα, ναι. Θα μπορείτε να φέρνετε το αντικείμενο όπως είναι και να το πακετάρουμε εμείς, ή να αγοράζετε μόνο την κούτα. Δείτε τις <a href=\"apostoli.html#syskevasia\">τιμές συσκευασίας</a>." },
+    { q: "Μπορείτε να μου συσκευάσετε το δέμα;", a: "Ναι. Φέρτε το αντικείμενο όπως είναι και το πακετάρουμε εμείς, ή αγοράστε μόνο την κούτα. Δείτε τις <a href=\"apostoli.html#syskevasia\">τιμές συσκευασίας</a>." },
     { q: "Πώς πρέπει να συσκευάσω το δέμα;",
       a: "Σε κλειστή, γερή κούτα, κολλημένη με ταινία σε όλες τις ενώσεις. Τα εύθραυστα τυλίγονται χωριστά με αφρώδες υλικό ή χαρτί. Γράψτε καθαρά ονοματεπώνυμο και κινητό του παραλήπτη. Τα υγρά (π.χ. λάδι) πρέπει να είναι σε δοχείο που κλείνει ερμητικά." },
     { q: "Τι δεν μπορώ να στείλω;",
@@ -37,7 +37,7 @@ export const FAQ = [
     { q: "Είστε το ΚΤΕΛ; Πού βγάζω εισιτήριο;", a: "Είμαστε η αποθήκη δεμάτων μέσα στον σταθμό ΚΤΕΛ Αγρινίου και εξυπηρετούμε μόνο δέματα. Για εισιτήρια και δρομολόγια επιβατών, δείτε την ιστοσελίδα του ΚΤΕΛ Αιτωλοακαρνανίας." },
   ]},
   { cat: "Επιχειρήσεις", items: [
-    { q: "Στέλνετε καθημερινά για επιχειρήσεις;", a: "Ναι. Καταστήματα, ανταλλακτικά, φαρμακαποθήκες και ηλεκτρονικά καταστήματα στέλνουν μαζί μας καθημερινά, με πολλά δρομολόγια την ημέρα προς Αθήνα και Πάτρα. Δείτε τη σελίδα <a href=\"epixeiriseis.html\">για επιχειρήσεις</a>." },
+    { q: "Στέλνετε καθημερινά για επιχειρήσεις;", a: "Ναι. Καταστήματα, ανταλλακτικά, ελαιοτριβεία και ηλεκτρονικά καταστήματα στέλνουν μαζί μας καθημερινά, με πολλά δρομολόγια την ημέρα προς Αθήνα και Πάτρα. Δείτε τη σελίδα <a href=\"epixeiriseis.html\">για επιχειρήσεις</a>." },
   ]},
 ];
 
@@ -46,10 +46,10 @@ export const FAQ_EN = [
     { top: true, q: "How much does it cost to send a parcel?",
       a: "It depends on the item (envelope, small, medium or large box, olive oil tin, sack) and the destination. For example, a medium box to Athens costs €8. Get an estimate with the <a href=\"send.html#ypologismos\">price calculator</a>. Prices are set by KTEL Aetolia-Acarnania and include VAT." },
     { top: true, q: "When will the parcel arrive?",
-      a: "Most towns with a direct bus get it the same day. Some, such as Larissa, Volos, Kalamata, Corfu and Chania, only have buses on certain days; see the destinations page. With a connection through another KTEL it may take until the next day. Bring the parcel at least 20 minutes before departure; for early-morning buses, the evening before. The calculator shows the next departures from Agrinio." },
+      a: "With a direct bus it arrives the same day, on the schedules listed on the destinations page. Some, such as Larissa, Volos, Kalamata, Corfu and Chania, only have buses on certain days; see the destinations page. With a connection through another KTEL it may take until the next day. Bring the parcel at least 20 minutes before departure; for buses that leave before we open, the evening before, by 21:00. The calculator shows the next departures from Agrinio." },
     { q: "Is there a charge for heavy parcels?",
       a: "Yes, for boxes, envelopes and sacks over 10 kg. Each extra kg costs 5% of the destination's sack price, per item, rounded up to the next euro: €0.40/kg within the prefecture, €0.50 Patras, €0.60 Athens, €0.75 Thessaloniki, €1 Crete. E.g. a 30 kg sack to Patras: €10 + €10 = €20. Tins and lamb have a fixed price." },
-    { q: "Can you pack my parcel for me?", a: "Soon, yes. You'll be able to bring the item as it is and we'll pack it, or buy just the box. See the <a href=\"send.html#syskevasia\">packing prices</a>." },
+    { q: "Can you pack my parcel for me?", a: "Yes. Bring the item as it is and we'll pack it, or buy just the box. See the <a href=\"send.html#syskevasia\">packing prices</a>." },
     { q: "How should I pack my parcel?",
       a: "Use a closed, sturdy box taped on every seam. Wrap fragile items separately. Write the recipient's full name and mobile number clearly. Liquids such as oil must be in a container that seals tightly." },
     { q: "What can't I send?",
@@ -76,6 +76,6 @@ export const FAQ_EN = [
     { q: "Are you KTEL? Where do I buy a ticket?", a: "We are the parcel depot inside the KTEL Agrinio bus station and handle parcels only. For passenger tickets and timetables, see the KTEL Aetolia-Acarnania website." },
   ]},
   { cat: "Businesses", items: [
-    { q: "Do you handle daily business shipments?", a: "Yes. Shops, spare-parts dealers, pharmaceutical wholesalers and online stores ship with us every day, with many daily buses to Athens and Patras. See <a href=\"business.html\">for businesses</a>." },
+    { q: "Do you handle daily business shipments?", a: "Yes. Shops, spare-parts dealers, olive mills and online stores ship with us every day, with many daily buses to Athens and Patras. See <a href=\"business.html\">for businesses</a>." },
   ]},
 ];
