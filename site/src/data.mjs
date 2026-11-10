@@ -12,6 +12,7 @@ export const BUSINESS = {
   phone: "2641024446", phoneDisplay: "26410 24446",
   mobile: "6979334186", mobileDisplay: "697 933 4186", // και WhatsApp
   email: "apothikiktelagriniou@gmail.com",
+  legalName: "Γκόλφης Αγησίλαος", afm: "145187995", gemi: "121490712000", // στοιχεία επιχείρησης (footer + δομημένα δεδομένα)
   viber: true, // ίδιο κινητό με το WhatsApp· το Viber πρέπει να είναι ενεργό στο κινητό
   // Διεύθυνση από vrisko.gr. Πρόσβαση: είσοδος από δεξιά του σταθμού, στάθμευση στις θέσεις για ασυνόδευτα (build.mjs {{access}})
   address: { street: "1ο χλμ Ε.Ο. Αγρινίου – Αντιρρίου", place: "Υπεραστικός σταθμός ΚΤΕΛ", city: "Αγρίνιο", postal: "30150", region: "Αιτωλοακαρνανία" },
