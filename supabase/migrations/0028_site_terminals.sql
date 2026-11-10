@@ -32,8 +32,8 @@ update public.site_destinations set terminal = 'Υπεραστικό ΚΤΕΛ Ά
 update public.site_destinations set terminal = 'ΚΤΕΛ Λευκάδας', terminal_addr = 'Φιλοσόφων & Τζεβελέκη, Λευκάδα', terminal_phone = '26450 22364' where name = 'Λευκάδα' and terminal is null;
 update public.site_destinations set terminal = 'Υπεραστικός σταθμός ΚΤΕΛ Μεσσηνίας', terminal_addr = 'Τέρμα Αρτέμιδος, Καλαμάτα', terminal_phone = '27210 28581' where name = 'Καλαμάτα' and terminal is null;
 update public.site_destinations set terminal = 'Σταθμός ΚΤΕΛ Λαμίας', terminal_addr = null, terminal_phone = '22310 22802' where name = 'Λαμία' and terminal is null;
-update public.site_destinations set terminal = 'Πρακτορείο ΚΤΕΛ Αιτωλοακαρνανίας Βέροιας', terminal_addr = null, terminal_phone = '23310 75170, 23310 75172' where name = 'Βέροια' and terminal is null;
-update public.site_destinations set terminal = 'Πρακτορείο ΚΤΕΛ Αιτωλοακαρνανίας, κατάστημα «Πίνδος»', terminal_addr = null, terminal_phone = '24620 81511' where name = 'Γρεβενά' and terminal is null;
+update public.site_destinations set terminal = 'Πρακτορείο ΚΤΕΛ Κοζάνης (Βέροια)', terminal_addr = null, terminal_phone = '23310 75170, 23310 75172' where name = 'Βέροια' and terminal is null;
+update public.site_destinations set terminal = 'Ζαχαροπλαστείο «Πίνδος» (πρακτορείο ΚΤΕΛ Αιτωλοακαρνανίας)', terminal_addr = null, terminal_phone = '24620 81511' where name = 'Γρεβενά' and terminal is null;
 update public.site_destinations set terminal = 'Υπεραστικός σταθμός ΚΤΕΛ Κοζάνης', terminal_addr = 'Ε. Γιάνναρη 22, Κοζάνη', terminal_phone = '24610 34454' where name = 'Κοζάνη' and terminal is null;
 update public.site_destinations set terminal = 'Σταθμός ΚΤΕΛ Ισθμού', terminal_addr = null, terminal_phone = '27410 73987' where name = 'Ισθμός' and terminal is null;
 update public.site_destinations set terminal = 'Υπεραστικός σταθμός ΚΤΕΛ Εύβοιας', terminal_addr = 'Φαβιέρου 28, Χαλκίδα', terminal_phone = '22210 22640' where name = 'Χαλκίδα' and terminal is null;
