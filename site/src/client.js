@@ -223,7 +223,9 @@
       if (q.dest.note) card.append(h("p", { class: "muted", style: "margin-top:10px;font-size:14px" }, L(q.dest.note)));
       card.append(breakdown({ q, cat, classed, kg, kind }));
       const P = SITE.PACKING, pk = P && P.items.find(i => i.id === cat.id);
-      if (pk && !P.active) card.append(h("p", { class: "notice info", style: "margin-top:12px" }, h("b", {}, T("Σύντομα: συσκευασία από εμάς", "Soon: we pack it for you")),
+      if (pk && pk.active && !P.active) card.append(h("p", { class: "notice info", style: "margin-top:12px" }, h("b", {}, T("Ο τενεκές ταξιδεύει σε χαρτοκιβώτιο", "The tin travels in a cardboard box")),
+        T(`Δεν έχετε; Το συσκευάζουμε εμείς με ${eur(pk.service)} (κούτα, σακούλα, ταινία, σήμανση), ή παίρνετε μόνο την κούτα με ${eur(pk.material)}.`, `No box? We pack it for ${eur(pk.service)} (box, bag, tape, labels), or buy just the box for ${eur(pk.material)}.`)));
+      else if (pk && !P.active) card.append(h("p", { class: "notice info", style: "margin-top:12px" }, h("b", {}, T("Σύντομα: συσκευασία από εμάς", "Soon: we pack it for you")),
         T(`Για ${L(cat.name).toLowerCase()}: ${eur(pk.service)} με υλικό και δουλειά, ή ${eur(pk.material)} μόνο η κούτα.`, `For a ${L(cat.name).toLowerCase()}: ${eur(pk.service)} including materials, or ${eur(pk.material)} for the box only.`)));
       card.append(h("p", { class: "muted", style: "margin-top:12px;font-size:14px" }, T("Ενδεικτική τιμή. Η τελική βγαίνει στον πάγκο, μετά από ζύγισμα και μέτρηση. Τιμές ΚΤΕΛ Αιτωλοακαρνανίας με ΦΠΑ.", "Indicative price. The final price is set at the counter after weighing and measuring. KTEL Aetolia-Acarnania prices, VAT included.")), nextStep());
       if (warnHit) out.append(warnHit);

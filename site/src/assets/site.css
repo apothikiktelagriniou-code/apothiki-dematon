@@ -761,3 +761,21 @@ details.q[open]::details-content { block-size: auto; }
 .pack-n { position: absolute; top: 14px; right: 16px; font: 800 28px/1 var(--f-display); color: var(--olive-line); font-variant-numeric: tabular-nums; }
 @media (max-width: 900px) { .pack-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 560px) { .pack-grid { grid-template-columns: minmax(0, 1fr); } .pack-card { display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: 4px 14px; } .pack-card .pack-ico { grid-row: 1 / span 2; } .pack-card h3 { margin-top: 2px; } .pack-n { top: 12px; } }
+/* Τενεκές: «το συσκευάζουμε εμείς» και νέα εικονογράφηση */
+.oil-art .oa-disc, .oil-head-art .oa-disc { fill: #ECE7C8; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .oa-disc { fill: #2A3418; } }
+:root[data-theme="dark"] .oa-disc { fill: #2A3418; }
+.oil-band .wrap { grid-template-columns: 230px minmax(0, 1fr); }
+.page-head.oil-head .wrap { grid-template-columns: minmax(0, 1fr) 260px; }
+@media (max-width: 700px) { .oil-band .wrap { grid-template-columns: 116px minmax(0, 1fr); } .page-head.oil-head .wrap { grid-template-columns: minmax(0, 1fr) 120px; } }
+.pack-offer { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px 32px; align-items: center; margin-top: 16px; max-width: 980px; background: var(--olive-ink); color: #fff; border-radius: var(--r); padding: 20px 22px; }
+.pack-offer h3 { margin: 10px 0 6px; font: 800 24px/1.15 var(--f-display); color: #fff; }
+.pack-offer p { margin: 0; color: rgb(255 255 255 / .85); max-width: 60ch; }
+.pack-offer .oil-kicker { background: rgb(255 255 255 / .14); color: #E9F0C8; }
+.pack-offer-prices { list-style: none; margin: 0; padding: 0; display: flex; gap: 24px; }
+.pack-offer-prices li { display: flex; flex-direction: column; }
+.pack-offer-prices b { font: 800 34px/1 var(--f-display); color: var(--sign); font-variant-numeric: tabular-nums; }
+.pack-offer-prices span { font-size: 14px; color: rgb(255 255 255 / .8); margin-top: 4px; max-width: 12rem; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .pack-offer { background: #2A3418; } }
+:root[data-theme="dark"] .pack-offer { background: #2A3418; }
+@media (max-width: 700px) { .pack-offer { grid-template-columns: minmax(0, 1fr); } }

@@ -130,16 +130,7 @@ function imgSize(file) {
   return null;
 }
 // Εικονογράφηση τενεκέ με κλαδί ελιάς (δική μας, σε SVG) και εικονίδια για τον οδηγό συσκευασίας.
-const OIL_ART = `<svg viewBox="0 0 200 200" role="presentation"><ellipse cx="100" cy="182" rx="66" ry="8" class="sh"/>
-<path class="hd" d="M70 46 C70 22 130 22 130 46" fill="none" stroke-width="7" stroke-linecap="round"/>
-<rect class="tin" x="48" y="44" width="104" height="134" rx="8"/>
-<path class="rib" d="M48 74h104M48 150h104" stroke-width="3"/>
-<rect class="cap" x="110" y="34" width="24" height="14" rx="3"/>
-<rect class="lbl" x="62" y="88" width="76" height="48" rx="4"/>
-<path class="drop" d="M100 96c-7 9-11 15-11 20a11 11 0 0 0 22 0c0-5-4-11-11-20z"/>
-<path class="st" d="M150 150 C 168 120 172 92 160 62" fill="none" stroke-width="3" stroke-linecap="round"/>
-<g class="lf"><ellipse cx="166" cy="134" rx="13" ry="5" transform="rotate(-50 166 134)"/><ellipse cx="152" cy="118" rx="13" ry="5" transform="rotate(30 152 118)"/><ellipse cx="172" cy="104" rx="13" ry="5" transform="rotate(-60 172 104)"/><ellipse cx="156" cy="88" rx="12" ry="5" transform="rotate(35 156 88)"/><ellipse cx="166" cy="70" rx="11" ry="4.5" transform="rotate(-70 166 70)"/></g>
-<g class="ol"><circle cx="160" cy="124" r="6"/><circle cx="170" cy="92" r="5.5"/><circle cx="150" cy="102" r="5"/></g></svg>`;
+const OIL_ART = `<svg viewBox="0 0 260 220" role="presentation"><defs><linearGradient id="oaTin" x1="0" x2="1"><stop offset="0" stop-color="#F2CC5C"/><stop offset=".55" stop-color="#E3B23E"/><stop offset="1" stop-color="#C9962A"/></linearGradient><linearGradient id="oaLeaf" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stop-color="#93AE45"/><stop offset="1" stop-color="#5A7224"/></linearGradient><linearGradient id="oaBox" x1="0" x2="1"><stop offset="0" stop-color="#D2A66A"/><stop offset="1" stop-color="#C3955A"/></linearGradient><radialGradient id="oaOl" cx=".35" cy=".35" r=".7"><stop offset="0" stop-color="#6F7F35"/><stop offset="1" stop-color="#2F3911"/></radialGradient></defs><circle class="oa-disc" cx="138" cy="112" r="98" fill="#ECE7C8"/><ellipse cx="132" cy="198" rx="104" ry="9" fill="#000" opacity=".13"/><polygon points="138,94 156,80 228,80 210,94" fill="#E0BC86"/><polygon points="210,94 228,80 228,176 210,192" fill="#A97C45"/><rect x="138" y="94" width="72" height="98" fill="url(#oaBox)"/><polygon points="171,94 189,80 197,80 179,94" fill="#EAD7AE" opacity=".9"/><rect x="171" y="94" width="8" height="30" fill="#EAD7AE" opacity=".9"/><rect x="148" y="134" width="52" height="40" rx="3" fill="#F8F2E2"/><path d="M163 165v-21m-5 6 5-6 5 6M185 165v-21m-5 6 5-6 5 6" fill="none" stroke="#7A5A2A" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M210 94 228 80" stroke="#8E6634" stroke-width="1" opacity=".5"/><polygon points="40,74 56,62 132,62 116,74" fill="#F6D877"/><polygon points="116,74 132,62 132,180 116,194" fill="#B4842A"/><rect x="40" y="74" width="76" height="120" rx="3" fill="url(#oaTin)"/><rect x="46" y="80" width="6" height="108" rx="3" fill="#fff" opacity=".28"/><path d="M40 98h76l16-12M40 172h76l16-12" fill="none" stroke="#A97A22" stroke-width="2.4" opacity=".75"/><path d="M60 70C58 44 96 40 98 66" fill="none" stroke="#8E6420" stroke-width="5" stroke-linecap="round"/><rect x="100" y="56" width="18" height="9" rx="2" fill="#8E6420"/><ellipse cx="109" cy="56" rx="9" ry="3.2" fill="#B78A35"/><rect x="50" y="110" width="56" height="52" rx="3" fill="#FFF8E5" stroke="#C99B30" stroke-width="1.5"/><path d="M66 140c6-6 14-10 24-12" fill="none" stroke="#6B5A2E" stroke-width="1.6" stroke-linecap="round"/><ellipse cx="72" cy="133" rx="6" ry="2.4" transform="rotate(-40 72 133)" fill="url(#oaLeaf)"/><ellipse cx="81" cy="127" rx="6" ry="2.4" transform="rotate(-25 81 127)" fill="url(#oaLeaf)"/><ellipse cx="80" cy="137" rx="6" ry="2.4" transform="rotate(10 80 137)" fill="url(#oaLeaf)"/><circle cx="88" cy="132" r="3" fill="url(#oaOl)"/><circle cx="69" cy="141" r="2.6" fill="url(#oaOl)"/><rect x="60" y="148" width="36" height="4" rx="2" fill="#8A6A1E"/><rect x="66" y="155" width="24" height="3" rx="1.5" fill="#C9A64E"/><path d="M14 206C40 196 70 186 104 178" fill="none" stroke="#6B5A2E" stroke-width="3" stroke-linecap="round"/><g fill="url(#oaLeaf)"><ellipse cx="30" cy="193" rx="15" ry="5.2" transform="rotate(-38 30 193)"/><ellipse cx="36" cy="207" rx="15" ry="5.2" transform="rotate(22 36 207)"/><ellipse cx="56" cy="183" rx="15" ry="5.2" transform="rotate(-48 56 183)"/><ellipse cx="64" cy="199" rx="14" ry="5" transform="rotate(18 64 199)"/><ellipse cx="84" cy="176" rx="13" ry="4.8" transform="rotate(-42 84 176)"/><ellipse cx="90" cy="190" rx="13" ry="4.8" transform="rotate(14 90 190)"/></g><g><circle cx="46" cy="196" r="6.5" fill="url(#oaOl)"/><circle cx="74" cy="188" r="6" fill="url(#oaOl)"/><circle cx="98" cy="184" r="5" fill="url(#oaOl)"/><circle cx="44" cy="194" r="1.6" fill="#fff" opacity=".45"/><circle cx="72" cy="186" r="1.5" fill="#fff" opacity=".45"/><circle cx="96.5" cy="182.5" r="1.3" fill="#fff" opacity=".45"/></g></svg>`;
 const OI = {
   need: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4h6v3H9z"/><path d="M7 6H5v15h14V6h-2"/><path d="m9 13 2 2 4-4"/></svg>',
   fill: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="6" width="14" height="15" rx="2"/><path d="M5 10h14"/><path d="M9 8h6" stroke-dasharray="2 2"/></svg>',
@@ -205,6 +196,7 @@ function makeLang(lang) {
   const eur = n => n == null ? "—" : (lang === "en" ? `€${n}` : `${n} €`);
   const dateTxt = ymd => new Intl.DateTimeFormat(lang === "en" ? "en-GB" : "el-GR", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(ymd + "T00:00:00Z"));
   const money2 = n => (lang === "en" ? `€${n.toFixed(2)}` : `${n.toFixed(2).replace(".", ",")} €`);
+  const money = n => (Number.isInteger(n) ? (lang === "en" ? `€${n}` : `${n} €`) : money2(n)).replace(" €", "\u00a0€");
   const ow = DATA.OVERWEIGHT;
   const pre0 = lang === "en" ? "../" : "";
   const brandImg = (n, alt, hgt) => { const f = brandFile(n); return f ? `<img class="brand-logo" src="${pre0}assets/brands/${f}" alt="${esc(alt)}" height="${hgt}" style="height:${hgt}px;width:auto">` : ""; };
@@ -264,22 +256,25 @@ function makeLang(lang) {
     "{{chatButtons}}": () => chatButtons(),
     // Κάρτα «Εποχή λαδιού» στην αρχική: μόνο μέσα στην εποχή (ημερομηνία του build, ώρα Ελλάδας).
     "{{oilArt}}": () => OIL_ART,
+    "{{tinPack}}": () => { const k = DATA.PACKING.items.find(i => i.id === "tenekes"); return k ? money(k.service) : "—"; },
+    "{{tinBox}}": () => { const k = DATA.PACKING.items.find(i => i.id === "tenekes"); return k ? money(k.material) : "—"; },
     "{{oilBanner}}": () => {
       const md = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Athens", month: "2-digit", day: "2-digit" }).format(new Date()).replace("/", "-");
       const { from, to } = DATA.OIL_SEASON || { from: "10-01", to: "02-28" }, inSeason = from <= to ? md >= from && md <= to : md >= from || md <= to;
       if (!inSeason) return "";
       const tf = DATA.TARIFFS[tariffKey(DATA, DATA.DESTINATIONS.find(d => d.name === "Αθήνα"))];
       const tfP = DATA.TARIFFS[tariffKey(DATA, DATA.DESTINATIONS.find(d => d.name === "Πάτρα"))];
+      const PK_TIN = DATA.PACKING.items.find(i => i.id === "tenekes") || { service: 4 };
       return `<section class="oil-band" aria-labelledby="oil-h"><div class="wrap">
   <div class="oil-art" aria-hidden="true">${OIL_ART}</div>
   <div class="oil-copy">
     <span class="oil-kicker">${t("Εποχή λαδιού", "Olive oil season")}</span>
     <h2 id="oil-h">${t("Το λάδι της χρονιάς, στους δικούς σας", "This year's oil, to your family")}</h2>
-    <p>${t("Φέρτε τον τενεκέ στον σταθμό και φεύγει με το επόμενο λεωφορείο. Σας δείχνουμε πώς να τον συσκευάσετε για να φτάσει χωρίς σταγόνα.", "Bring the tin to the station and it leaves on the next bus. We show you how to pack it so it arrives without a drop.")}</p>
+    <p>${t(`Ο τενεκές ταξιδεύει μέσα σε χαρτοκιβώτιο. Φέρτε τον έτοιμο, ή αφήστε τη συσκευασία σε εμάς με ${money(PK_TIN.service)}: κούτα, σακούλα, ταινία και σήμανση.`, `The tin travels inside a cardboard box. Bring it packed, or let us pack it for ${money(PK_TIN.service)}: box, bag, tape and labels.`)}</p>
     <ul class="oil-prices">
       <li><b>${eur(tf.p.tenekes)}</b><span>${t("τενεκές για Αθήνα", "a tin to Athens")}</span></li>
       <li><b>${eur(tfP.p.tenekes)}</b><span>${t("τενεκές για Πάτρα", "a tin to Patras")}</span></li>
-      <li><b>${eur(tf.p.tenekes_syn)}</b><span>${t("αν ταξιδεύετε κι εσείς", "if you travel too")}</span></li>
+      <li><b>+${money(PK_TIN.service)}</b><span>${t("αν το συσκευάσουμε εμείς", "if we pack it")}</span></li>
     </ul>
     <p class="oil-ctas"><a class="btn btn-primary" href="${link("ladi")}#syskevasia">${t("Πώς τον συσκευάζω", "How to pack it")} →</a><a class="btn btn-ghost" href="${link("ladi")}#times">${t("Τιμές για όλες τις πόλεις", "Prices for all cities")}</a></p>
   </div>
@@ -337,7 +332,7 @@ function makeLang(lang) {
     },
     "{{packingTable}}": () => { const P = DATA.PACKING, m = n => (lang === "en" ? `€${Number.isInteger(n) ? n : n.toFixed(2)}` : `${Number.isInteger(n) ? n : n.toFixed(2).replace(".", ",")} €`);
       return `<div class="table-wrap"><table class="data stack"><thead><tr><th scope="col">${t("Είδος", "Item")}</th><th scope="col">${t("Μόνο υλικό", "Material only")}</th><th scope="col">${t("Το πακετάρουμε εμείς", "We pack it")}</th></tr></thead><tbody>${
-        P.items.map(i => `<tr><th scope="row" style="font-weight:600">${esc(L(i.name))}</th><td data-label="${t("Μόνο υλικό", "Material only")}">${m(i.material)}</td><td data-label="${t("Το πακετάρουμε εμείς", "We pack it")}">${m(i.service)}</td></tr>`).join("")
+        P.items.map(i => `<tr><th scope="row" style="font-weight:600">${esc(L(i.name))}${i.active && !P.active ? ` <span class="tag ok">${t("Διαθέσιμο", "Available")}</span>` : ""}</th><td data-label="${t("Μόνο υλικό", "Material only")}">${m(i.material)}</td><td data-label="${t("Το πακετάρουμε εμείς", "We pack it")}">${m(i.service)}</td></tr>`).join("")
       }<tr><th scope="row" style="font-weight:600">${t("Εύθραυστο (γέμισμα, σήμανση)", "Fragile (padding, labels)")}</th><td data-label="${t("Μόνο υλικό", "Material only")}">—</td><td data-label="${t("Το πακετάρουμε εμείς", "We pack it")}">+${m(P.fragile)}</td></tr></tbody></table></div><p class="caption">${t("Με ΦΠΑ. Ταινία και stretch film δωρεάν με την αγορά κούτας. Η συσκευασία χρεώνεται χωριστά από τον ναύλο του ΚΤΕΛ.", "VAT included. Tape and stretch film free with any box. Packing is charged separately from the KTEL fare.")}</p>`; },
     "{{cEnd}}": () => dateTxt(DATA.CONTEST.end), "{{cDraw}}": () => dateTxt(DATA.CONTEST.draw), "{{cWinners}}": () => DATA.CONTEST.winners,
     "{{cDeliveries}}": () => DATA.CONTEST.prizeDeliveries, "{{cFallback}}": () => DATA.CONTEST.fallbackShipments, "{{cFallbackUntil}}": () => dateTxt(DATA.CONTEST.fallbackUntil),
