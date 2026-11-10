@@ -1,17 +1,18 @@
-<!--meta {"title":"Business parcel shipping in Agrinio","description":"Daily KTEL parcel shipping for shops, spare-parts dealers, pharmaceutical wholesalers and online stores in Agrinio. Departures from 04:00, SMS to recipients."}-->
+<!--meta {"title":"Business parcel shipping in Agrinio","description":"Daily KTEL parcel shipping for shops, spare-parts dealers, pharmaceutical wholesalers and online stores in Agrinio. Open from {{openWk}}, text message to the recipient."}-->
 <section class="page-head"><div class="wrap">
   <span class="crumbs"><a href="index.html">Home</a> / For businesses</span>
   <h1>For businesses</h1>
   <p>Shipping to customers or branches every day? KTEL buses leave from early morning until evening, and recipients are notified without you having to call them.</p>
-  <div class="head-photo">{{photo:fortosi|Φόρτωση δεμάτων στο λεωφορείο|Loading parcels onto the bus}}</div>
+  <p class="head-ctas"><a class="btn btn-light" href="tel:+30{{tel}}">{{i:phone}} Call us</a> {{chatButtons}}</p>
+  <div class="head-photo">{{photo:!fortosi|Φόρτωση δεμάτων στο λεωφορείο|Loading parcels onto the bus}}</div>
 </div></section>
 
 <section class="section"><div class="wrap">
   <div class="grid g4">
     <div class="panel"><span class="eyebrow">Athens</span><p class="num" style="font-size:32px;font-weight:600;color:var(--heading);margin-top:6px">{{athensDaily}}</p><p class="muted">departures a day</p></div>
     <div class="panel"><span class="eyebrow">Patras</span><p class="num" style="font-size:32px;font-weight:600;color:var(--heading);margin-top:6px">{{patraDaily}}</p><p class="muted">departures a day</p></div>
-    <div class="panel"><span class="eyebrow">Direct</span><p class="num" style="font-size:32px;font-weight:600;color:var(--heading);margin-top:6px">{{nDirect}}</p><p class="muted">towns, same day</p></div>
-    <div class="panel"><span class="eyebrow">Open</span><p class="num" style="font-size:32px;font-weight:600;color:var(--heading);margin-top:6px">06:30</p><p class="muted">Monday to Friday</p></div>
+    <div class="panel"><span class="eyebrow">Direct</span><p class="num" style="font-size:32px;font-weight:600;color:var(--heading);margin-top:6px">{{nDirect}}</p><p class="muted">towns direct</p></div>
+    <div class="panel"><span class="eyebrow">Open</span><p class="num" style="font-size:32px;font-weight:600;color:var(--heading);margin-top:6px">{{openWk}}</p><p class="muted">Monday to Friday</p></div>
   </div>
 </div></section>
 
@@ -46,7 +47,7 @@
       </div>
       <div class="field"><label for="b-msg">Message</label><textarea id="b-msg" data-label="Message"></textarea></div>
       <label class="check"><input type="checkbox" id="b-consent" data-label="Agrees to informational emails"><span>I'd like to receive informational emails about timetables and price changes. I can stop at any time.</span></label>
-      <button class="btn btn-primary" type="submit">Continue</button>
+      <button class="btn btn-primary" type="submit">Prepare the message</button>
       <p style="font-size:13px;color:var(--muted)">You send the message yourself by WhatsApp or email. See our <a href="privacy.html">privacy notice</a>.</p>
     </form>
     <div data-msg-out class="grid" style="gap:12px"></div>

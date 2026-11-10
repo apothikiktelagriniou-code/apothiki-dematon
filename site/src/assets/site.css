@@ -130,7 +130,8 @@ button.btn[disabled] { opacity: .6; cursor: default; }
 .quicktrack { margin-top: 24px; background: #fff; color: #13283D; border-radius: var(--r); padding: 14px; border-left: 8px solid var(--sign); box-shadow: 0 10px 30px -12px rgba(4, 20, 36, .6); }
 .quicktrack label { display: block; font: 700 18px/1.2 var(--f-display); margin-bottom: 10px; }
 .quicktrack .row { display: grid; grid-template-columns: minmax(0, 1fr) 92px auto; gap: 8px; }
-.quicktrack input { background: #F3F5F7 !important; color: #13283D !important; border-color: #C9D4DF !important; }
+.quicktrack input { background: #F3F5F7 !important; color: #13283D !important; border-color: #8A9BAD !important; }
+.quicktrack input::placeholder { color: #5C6E80; }
 .quicktrack .btn { min-height: 50px; padding: 0 16px; background: var(--sign); color: var(--on-sign); border: 0; }
 .quicktrack small { display: block; margin-top: 8px; color: #56677A; font-size: 13px; }
 @media (max-width: 520px) { .quicktrack .row { grid-template-columns: minmax(0, 1fr) 88px; } .quicktrack .btn { grid-column: 1 / -1; } }
@@ -504,3 +505,29 @@ table.season .m-deps { display: none; }
 .brand-logo { display: inline-block; vertical-align: middle; }
 .partner .brand-logo { margin: 0 2px; }
 .contact-list .chat-btns a { display: inline-flex; }
+
+/* ---- Διορθώσεις από τον έλεγχο (κινητό, αντίθεση, εστίαση) ---- */
+.btn.btn-wa, .btn.btn-vb, .notice a.btn, .notice .chat-btns a { color: #fff; }
+.btn-wa { background: #15803D; } .btn-wa:hover { background: #116B33; }
+.btn-vb { background: #665CD9; } .btn-vb:hover { background: #5548C4; }
+.site-head :focus-visible, .hero :focus-visible, .page-head :focus-visible, .site-foot :focus-visible, .quickbar :focus-visible, .board :focus-visible, .band :focus-visible { outline-color: var(--sign); }
+input[type=text], input[type=search], input[type=tel], input[type=email], input[type=number], input:not([type]), select, textarea { border-color: #8A9BAD; }
+::placeholder { color: var(--muted); opacity: 1; }
+[data-track-out], .result, .result .price { scroll-margin-bottom: calc(var(--qb) + 16px); scroll-margin-top: 90px; }
+.quicktrack .qt-labels { display: grid; grid-template-columns: minmax(0, 1fr) 92px auto; gap: 8px; font-size: 12px; line-height: 1.25; color: #56677A; margin-bottom: 4px; }
+.head-ctas { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+.lang-switch { min-height: 44px; min-width: 44px; display: inline-flex; align-items: center; justify-content: center; }
+.site-foot ul a, .site-foot .legal a, .crumbs a, .season-link, .contact-list .row a:not(.btn) { display: inline-block; padding-block: 10px; }
+@media (max-width: 760px) { .gallery { scroll-padding-inline: 16px; } }
+.map-fig figcaption { color: #56677A; } .map-fig figcaption a { color: #016F86; }
+[data-calc] { min-height: 1100px; } @media (min-width: 901px) { [data-calc] { min-height: 760px; } }
+@media (max-width: 600px) {
+  .dest-table thead { display: none; }
+  .dest-table, .dest-table tbody { display: block; min-width: 0 !important; width: 100%; }
+  .dest-table tr { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 12px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .dest-table th[scope=row] { grid-column: 1 / -1; position: static; box-shadow: none; border: 0; padding: 0; white-space: normal; font-size: 18px; }
+  .dest-table td, .dest-table th[scope=row] { display: block; border: 0 !important; box-shadow: none !important; padding: 0 !important; white-space: normal; position: static; font-size: 15px; text-align: left !important; background: none !important; }
+  .dest-table td:last-child { grid-column: 1 / -1; margin-top: 4px; }
+  .dest-table td[data-label]:not([data-label=""])::before { content: attr(data-label); display: block; font-size: 12px; color: var(--muted); }
+  .dest-table td.wrap-cell { grid-column: 1 / -1; }
+}

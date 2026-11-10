@@ -85,11 +85,24 @@ export function nextDepartures(schedule, keys, now, count = 3, lang = "el") {
     for (const r of today) {
       const key = k + r.time;
       if (seen.has(key)) continue; seen.add(key);
-      out.push({ time: r.time, day: k < 2 ? REL[lang][k] : DAYS[lang][dow], rel: k, express: !!r.express, conn: !!r.conn, notes: r.notes || "" });
+      out.push({ time: r.time, day: k < 2 ? REL[lang][k] : DAYS[lang][dow], rel: k, dow, express: !!r.express, conn: !!r.conn, notes: r.notes || "" });
       if (out.length >= count) break;
     }
   }
   return out;
+}
+
+// Έως πότε φέρνει ο πελάτης το δέμα για ένα λεωφορείο (dow 0=Δευτέρα): cutoff λεπτά πριν.
+// Αν τότε η αποθήκη δεν έχει ανοίξει, το φέρνει το προηγούμενο βράδυ, έως το κλείσιμο εκείνης της μέρας.
+const DOW_EN = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+const hm = m => String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0");
+export function dropOff(business, dow, time) {
+  const hoursOf = d => (business.hours || []).find(x => x.schema && x.schema.d.includes(DOW_EN[d]));
+  const by = toMin(time) - (business.cutoffMin || 0), h = hoursOf(dow);
+  if (!h || by >= toMin(h.schema.o)) return { same: true, by: hm(Math.max(by, 0)), dayOffset: 0, min: by };
+  const p = hoursOf((dow + 6) % 7);
+  if (!business.eveningBefore || !p) return { same: true, by: hm(Math.max(by, 0)), dayOffset: 0, min: by, early: true };
+  return { same: false, by: p.schema.c, dayOffset: -1, min: toMin(p.schema.c) - 1440 };
 }
 
 // Ποια στήλη τιμοκαταλόγου ισχύει: του προορισμού· στις ανταποκρίσεις, αν δεν έχει δική του, του σταθμού ανταπόκρισης.

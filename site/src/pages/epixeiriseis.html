@@ -1,17 +1,18 @@
-<!--meta {"title":"Αποστολές δεμάτων για επιχειρήσεις στο Αγρίνιο","description":"Καθημερινές αποστολές δεμάτων με ΚΤΕΛ για καταστήματα, ανταλλακτικά, φαρμακαποθήκες και e-shops του Αγρινίου. Αναχωρήσεις από 04:00, ενημέρωση παραλήπτη με SMS."}-->
+<!--meta {"title":"Αποστολές δεμάτων για επιχειρήσεις στο Αγρίνιο","description":"Καθημερινές αποστολές δεμάτων με ΚΤΕΛ για καταστήματα, ανταλλακτικά, φαρμακαποθήκες και e-shops του Αγρινίου. Ανοιχτά από τις {{openWk}}, ενημέρωση παραλήπτη με SMS."}-->
 <section class="page-head"><div class="wrap">
   <span class="crumbs"><a href="index.html">Αρχική</a> / Για επιχειρήσεις</span>
   <h1>Για επιχειρήσεις</h1>
   <p>Στέλνετε σε πελάτες ή υποκαταστήματα κάθε μέρα; Τα λεωφορεία του ΚΤΕΛ φεύγουν από το πρωί ως το βράδυ, και ο παραλήπτης ενημερώνεται χωρίς να τον πάρετε τηλέφωνο.</p>
-  <div class="head-photo">{{photo:fortosi|Φόρτωση δεμάτων στο λεωφορείο|Loading parcels onto the bus}}</div>
+  <p class="head-ctas"><a class="btn btn-light" href="tel:+30{{tel}}">{{i:phone}} Καλέστε μας</a> {{chatButtons}}</p>
+  <div class="head-photo">{{photo:!fortosi|Φόρτωση δεμάτων στο λεωφορείο|Loading parcels onto the bus}}</div>
 </div></section>
 
 <section class="section"><div class="wrap">
   <div class="grid g4">
     <div class="panel"><span class="eyebrow">Αθήνα</span><p class="num" style="font-size:32px;font-weight:600;color:var(--heading);margin-top:6px">{{athensDaily}}</p><p class="muted">αναχωρήσεις την ημέρα</p></div>
     <div class="panel"><span class="eyebrow">Πάτρα</span><p class="num" style="font-size:32px;font-weight:600;color:var(--heading);margin-top:6px">{{patraDaily}}</p><p class="muted">αναχωρήσεις την ημέρα</p></div>
-    <div class="panel"><span class="eyebrow">Απευθείας</span><p class="num" style="font-size:32px;font-weight:600;color:var(--heading);margin-top:6px">{{nDirect}}</p><p class="muted">πόλεις, αυθημερόν</p></div>
-    <div class="panel"><span class="eyebrow">Ανοιχτά</span><p class="num" style="font-size:32px;font-weight:600;color:var(--heading);margin-top:6px">06:30</p><p class="muted">από Δευτέρα ως Παρασκευή</p></div>
+    <div class="panel"><span class="eyebrow">Απευθείας</span><p class="num" style="font-size:32px;font-weight:600;color:var(--heading);margin-top:6px">{{nDirect}}</p><p class="muted">πόλεις απευθείας</p></div>
+    <div class="panel"><span class="eyebrow">Ανοιχτά</span><p class="num" style="font-size:32px;font-weight:600;color:var(--heading);margin-top:6px">{{openWk}}</p><p class="muted">από Δευτέρα ως Παρασκευή</p></div>
   </div>
 </div></section>
 
@@ -46,7 +47,7 @@
       </div>
       <div class="field"><label for="b-msg">Μήνυμα</label><textarea id="b-msg" data-label="Μήνυμα"></textarea></div>
       <label class="check"><input type="checkbox" id="b-consent" data-label="Συμφωνεί σε ενημερωτικά email"><span>Θέλω να λαμβάνω ενημερωτικά email για δρομολόγια και αλλαγές τιμών. Μπορώ να σταματήσω οποτεδήποτε.</span></label>
-      <button class="btn btn-primary" type="submit">Συνέχεια</button>
+      <button class="btn btn-primary" type="submit">Ετοιμάστε το μήνυμα</button>
       <p class="hint" style="font-size:13px;color:var(--muted)">Το μήνυμα στέλνεται από εσάς με WhatsApp ή email. Δείτε το <a href="aporrito.html">απόρρητο</a>.</p>
     </form>
     <div data-msg-out class="grid" style="gap:12px"></div>

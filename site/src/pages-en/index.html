@@ -1,26 +1,27 @@
 <!--meta {"title":"Send parcels from Agrinio · KTEL Parcel Depot","description":"Send and collect parcels by KTEL bus from Agrinio to Athens, Patras, Thessaloniki and across Greece. Prices, departures and parcel tracking.","ld":"business"}-->
 <section class="hero"><div class="wrap">
   <div>
-    <h1>{{slogan}}</h1>
-    <p class="lead">Parcel depot inside the KTEL Agrinio bus station. Your parcel leaves on the next bus, to {{nDirect}} cities direct.</p>
+    <h1>Send parcels by KTEL bus from Agrinio</h1>
+    <p class="lead">{{slogan}} Parcel depot inside the KTEL Agrinio bus station. Your parcel leaves on the next bus, to {{nDirect}} cities direct.</p>
     <form class="quicktrack" action="track.html" method="get" autocomplete="off">
       <label for="q-r">Where is my parcel?</label>
+      <div class="row qt-labels"><span>Receipt number</span><span>3 letters of surname</span></div>
       <div class="row">
-        <input id="q-r" name="r" class="mono" inputmode="numeric" placeholder="Receipt no." required aria-label="Receipt number">
+        <input id="q-r" name="r" class="mono" inputmode="numeric" placeholder="228-…" required aria-label="Receipt number">
         <input id="q-n" name="n" maxlength="20" autocapitalize="characters" placeholder="PAP" required aria-label="First 3 letters of surname">
         <button class="btn" type="submit">{{i:search}} Find it</button>
       </div>
-      <small>Receipt number and the first 3 letters of the surname.</small>
+      <small>Receipt number and the first 3 letters of the recipient’s surname.</small>
     </form>
     <div class="ctas">
       <a class="btn btn-light" href="send.html#ypologismos">{{i:send}} Send a parcel · price</a>
     </div>
-    <div class="facts"><span><b>Mon–Fri</b> 06:30–21:30 · <b>Sat–Sun</b> 08:00–21:30</span><span><b>{{athensDaily}}</b> buses to Athens a day</span><a class="season-link" href="olive-oil.html">Olive oil season: a tin to Athens {{eur:athina:tenekes}} →</a></div>
+    <div class="facts"><span><b>Mon–Fri</b> {{openWk}}–{{close}} · <b>Sat–Sun</b> {{openWe}}–{{close}}</span><span><b>{{athensDaily}}</b> buses to Athens a day</span><a class="season-link" href="olive-oil.html">Olive oil season: a tin to Athens {{eur:athina:tenekes}} →</a></div>
   </div>
   <div class="board" data-board aria-label="Next departures from Agrinio">
     <div class="board-head"><span>Departures</span><time></time></div>
-    <table><thead><tr><th>Time</th><th>Destination</th><th></th></tr></thead><tbody><tr><td class="t">—</td><td class="d">Loading timetable…</td><td></td></tr></tbody></table>
-    <div class="board-foot">Bring your parcel at least {{cutoff}} minutes before departure.</div>
+    <table><thead><tr><th>Time</th><th>Destination</th><th></th></tr></thead><tbody>{{boardRows}}</tbody></table>
+    <div class="board-foot">Bring your parcel at least {{cutoff}} minutes before departure. For early-morning buses, the evening before.</div>
   </div>
 </div></section>
 
@@ -29,7 +30,7 @@
   <ul class="signs">
     <li><a href="send.html"><b>Send</b><span>Bring the parcel, pay, and it leaves on the next bus.</span><i aria-hidden="true">→</i></a></li>
     <li><a href="receive.html"><b>Collect</b><span>We text you when it arrives. Bring your ID and pick it up.</span><i aria-hidden="true">→</i></a></li>
-    <li><a href="business.html"><b>For businesses</b><span>Daily shipments from 06:30, with a text to the recipient.</span><i aria-hidden="true">→</i></a></li>
+    <li><a href="business.html"><b>For businesses</b><span>Daily shipments from {{openWk}}, with a text to the recipient.</span><i aria-hidden="true">→</i></a></li>
     <li><a href="students.html"><b>Parcels for students</b><span>Food and things from home, to Patras, Athens, Ioannina and more.</span><i aria-hidden="true">→</i></a></li>
     <li><a href="luggage-storage.html"><b>Luggage storage</b><span>€{{luggage}} per item per day while you explore town.</span><i aria-hidden="true">→</i></a></li>
     <li><a href="home-delivery.html"><b>To your door <span class="tag">Soon</span></b><span>Delivery and pickup within Agrinio. In Athens, to your door with ASAP Courier.</span><i aria-hidden="true">→</i></a></li>
@@ -76,11 +77,11 @@
 </div></section>
 
 <section class="section"><div class="wrap grid g2" style="align-items:start;gap:40px">
-  <div class="section-head" style="margin:0"><h2>Shipping every day?</h2><p>Shops, spare-parts dealers, pharmacy wholesalers and online stores in Agrinio ship with us from 06:30. The recipient gets a text.</p>
+  <div class="section-head" style="margin:0"><h2>Shipping every day?</h2><p>Shops, spare-parts dealers, pharmacy wholesalers and online stores in Agrinio ship with us every day. The recipient gets a text.</p>
     <p style="margin-top:10px"><a class="btn btn-primary" href="business.html">{{i:shop}} Talk to us</a></p></div>
   <ol class="steps">
-    <li><div><b>You bring the parcels</b><p>From 06:30, in time for the first buses.</p></div></li>
-    <li><div><b>They leave on the next bus</b><p>Same day to direct destinations.</p></div></li>
+    <li><div><b>You bring the parcels</b><p>For early-morning buses, the evening before, until {{close}}.</p></div></li>
+    <li><div><b>They leave on the next bus</b><p>Most arrive the same day.</p></div></li>
     <li><div><b>Your customer is notified</b><p>A text on arrival and tracking by receipt number.</p></div></li>
   </ol>
 </div></section>
