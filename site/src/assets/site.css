@@ -706,3 +706,58 @@ details.q[open]::details-content { block-size: auto; }
 .quicktrack .qt-grid input { grid-row: 2; }
 .quicktrack .qt-grid .btn { grid-row: 2; grid-column: 3; }
 @media (max-width: 520px) { .quicktrack .qt-grid .btn { grid-row: 3; grid-column: 1 / -1; } }
+
+/* ---------- Εποχή λαδιού ---------- */
+:root { --olive: #4C5B1C; --olive-ink: #2F3A0E; --olive-soft: #F3F0DC; --olive-line: #D9D3A8; --tin: #E2B33C; --tin-dark: #A8781C; --leaf: #6E8A2C; --olive-fruit: #3C4716; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --olive: #B9CB7A; --olive-ink: #E6EDC8; --olive-soft: #1B2210; --olive-line: #3A4520; --leaf: #8FAE3E; --olive-fruit: #C9D98C; } }
+:root[data-theme="dark"] { --olive: #B9CB7A; --olive-ink: #E6EDC8; --olive-soft: #1B2210; --olive-line: #3A4520; --leaf: #8FAE3E; --olive-fruit: #C9D98C; }
+/* Η εικονογράφηση */
+.oil-art svg, .oil-head-art svg { display: block; width: 100%; height: auto; }
+.oil-art .sh, .oil-head-art .sh { fill: rgb(0 0 0 / .12); }
+.oil-art .hd, .oil-head-art .hd { stroke: var(--tin-dark); }
+.oil-art .tin, .oil-head-art .tin { fill: var(--tin); stroke: var(--tin-dark); stroke-width: 3; }
+.oil-art .rib, .oil-head-art .rib { stroke: var(--tin-dark); }
+.oil-art .cap, .oil-head-art .cap { fill: var(--tin-dark); }
+.oil-art .lbl, .oil-head-art .lbl { fill: #FFF8E2; stroke: var(--tin-dark); stroke-width: 2; }
+.oil-art .drop, .oil-head-art .drop { fill: #7A8F25; }
+.oil-art .st, .oil-head-art .st { stroke: #6B5A2E; }
+.oil-art .lf, .oil-head-art .lf { fill: var(--leaf); }
+.oil-art .ol, .oil-head-art .ol { fill: var(--olive-fruit); }
+/* Κάρτα στην αρχική */
+.oil-band { background: var(--olive-soft); border-block: 1px solid var(--olive-line); }
+.oil-band .wrap { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 32px; align-items: center; padding-block: 32px; }
+.oil-kicker { display: inline-block; font: 700 14px/1 var(--f-body); letter-spacing: .06em; text-transform: uppercase; color: var(--olive); background: rgb(110 138 44 / .14); border-radius: 999px; padding: 7px 12px; }
+.oil-band h2 { margin: 12px 0 6px; color: var(--olive-ink); font: 800 clamp(26px, 3.4vw, 36px)/1.1 var(--f-display); }
+.oil-band p { margin: 0; max-width: 60ch; color: var(--ink); }
+.oil-prices { list-style: none; display: flex; flex-wrap: wrap; gap: 10px 28px; margin: 16px 0 0; padding: 0; }
+.oil-prices li { display: flex; flex-direction: column; }
+.oil-prices b { font: 800 30px/1 var(--f-display); color: var(--olive-ink); font-variant-numeric: tabular-nums; }
+.oil-prices span { font-size: 14px; color: var(--muted); margin-top: 4px; }
+.oil-ctas { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px !important; }
+.oil-band .btn-ghost { color: var(--olive-ink); border-color: var(--olive); }
+.oil-band .btn-ghost:hover { background: rgb(110 138 44 / .12); }
+@media (max-width: 700px) {
+  .oil-band .wrap { grid-template-columns: 84px minmax(0, 1fr); gap: 16px; padding-block: 24px; align-items: start; }
+  .oil-band .oil-ctas, .oil-band .oil-prices { grid-column: 1 / -1; }
+  .oil-prices b { font-size: 26px; }
+}
+/* Επικεφαλίδα σελίδας λαδιού */
+.page-head.oil-head .wrap { display: grid; grid-template-columns: minmax(0, 1fr) 200px; gap: 8px 40px; align-items: center; }
+.page-head.oil-head .wrap > :not(.oil-head-art) { grid-column: 1; }
+.oil-head-art { grid-column: 2; grid-row: 1 / span 4; }
+@media (max-width: 700px) { .page-head.oil-head .wrap { grid-template-columns: minmax(0, 1fr) 96px; gap: 8px 16px; } }
+/* Οδηγός συσκευασίας */
+.oil-guide { background: var(--olive-soft); }
+.oil-guide .section-head h2 { color: var(--olive-ink); }
+.pack-need { display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: 16px; align-items: start; background: var(--surface); border: 1px solid var(--olive-line); border-radius: var(--r); padding: 16px 18px; max-width: 760px; }
+.pack-need h3 { margin: 2px 0 6px; font: 700 18px/1.2 var(--f-display); color: var(--olive-ink); }
+.pack-need ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+.pack-ico { width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center; background: rgb(110 138 44 / .16); color: var(--olive); }
+.pack-ico svg { width: 26px; height: 26px; }
+.pack-grid { list-style: none; margin: 20px 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; counter-reset: none; }
+.pack-card { position: relative; background: var(--surface); border: 1px solid var(--olive-line); border-radius: var(--r); padding: 18px; }
+.pack-card h3 { margin: 12px 0 6px; font: 700 18px/1.2 var(--f-display); color: var(--olive-ink); }
+.pack-card p { margin: 0; color: var(--ink); font-size: 16px; }
+.pack-n { position: absolute; top: 14px; right: 16px; font: 800 28px/1 var(--f-display); color: var(--olive-line); font-variant-numeric: tabular-nums; }
+@media (max-width: 900px) { .pack-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .pack-grid { grid-template-columns: minmax(0, 1fr); } .pack-card { display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: 4px 14px; } .pack-card .pack-ico { grid-row: 1 / span 2; } .pack-card h3 { margin-top: 2px; } .pack-n { top: 12px; } }

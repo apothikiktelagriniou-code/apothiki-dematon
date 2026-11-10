@@ -173,6 +173,9 @@ export const STORAGE = { freeDays: 10, perDay: 3, cap: 20 };
 export const LUGGAGE = { perPiecePerDay: 2, note: "Ανά κομμάτι, ανά ημέρα, στις ώρες λειτουργίας της αποθήκης." };
 
 // Παράδοση / παραλαβή στο σπίτι. active:false → η σελίδα γράφει «Σύντομα».
+// Εποχή λαδιού: όσο ισχύει, η αρχική δείχνει την κάρτα του λαδιού (μήνας-μέρα, το «to» μπορεί να είναι τον επόμενο χρόνο).
+export const OIL_SEASON = { from: "10-01", to: "02-28" };
+
 export const HOME = {
   active: false,
   zones: [{ id: "agrinio", name: "Πόλη Αγρινίου", price: 3 }],

@@ -129,6 +129,27 @@ function imgSize(file) {
   } catch {}
   return null;
 }
+// Εικονογράφηση τενεκέ με κλαδί ελιάς (δική μας, σε SVG) και εικονίδια για τον οδηγό συσκευασίας.
+const OIL_ART = `<svg viewBox="0 0 200 200" role="presentation"><ellipse cx="100" cy="182" rx="66" ry="8" class="sh"/>
+<path class="hd" d="M70 46 C70 22 130 22 130 46" fill="none" stroke-width="7" stroke-linecap="round"/>
+<rect class="tin" x="48" y="44" width="104" height="134" rx="8"/>
+<path class="rib" d="M48 74h104M48 150h104" stroke-width="3"/>
+<rect class="cap" x="110" y="34" width="24" height="14" rx="3"/>
+<rect class="lbl" x="62" y="88" width="76" height="48" rx="4"/>
+<path class="drop" d="M100 96c-7 9-11 15-11 20a11 11 0 0 0 22 0c0-5-4-11-11-20z"/>
+<path class="st" d="M150 150 C 168 120 172 92 160 62" fill="none" stroke-width="3" stroke-linecap="round"/>
+<g class="lf"><ellipse cx="166" cy="134" rx="13" ry="5" transform="rotate(-50 166 134)"/><ellipse cx="152" cy="118" rx="13" ry="5" transform="rotate(30 152 118)"/><ellipse cx="172" cy="104" rx="13" ry="5" transform="rotate(-60 172 104)"/><ellipse cx="156" cy="88" rx="12" ry="5" transform="rotate(35 156 88)"/><ellipse cx="166" cy="70" rx="11" ry="4.5" transform="rotate(-70 166 70)"/></g>
+<g class="ol"><circle cx="160" cy="124" r="6"/><circle cx="170" cy="92" r="5.5"/><circle cx="150" cy="102" r="5"/></g></svg>`;
+const OI = {
+  need: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4h6v3H9z"/><path d="M7 6H5v15h14V6h-2"/><path d="m9 13 2 2 4-4"/></svg>',
+  fill: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="6" width="14" height="15" rx="2"/><path d="M5 10h14"/><path d="M9 8h6" stroke-dasharray="2 2"/></svg>',
+  wipe: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3c-3 4-5 6.5-5 9a5 5 0 0 0 10 0c0-2.5-2-5-5-9z"/><path d="M4 21h16"/></svg>',
+  cap: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="9" width="14" height="12" rx="2"/><rect x="13" y="5" width="5" height="4" rx="1"/><path d="M11 3l9 8M20 3l-9 8"/></svg>',
+  bag: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8h12l-1 13H7z"/><path d="M9 8c0-3 1.5-5 3-5s3 2 3 5"/><path d="M10 5.5 14 4"/></svg>',
+  tag: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8.5" r="1.5"/><path d="M11 15h4"/></svg>',
+  upright: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="9" width="10" height="12" rx="1.5"/><path d="M12 7V2m-3 3 3-3 3 3"/></svg>',
+};
+
 const WA_URL = `https://wa.me/30${B.mobile}`, VB_URL = `viber://chat?number=%2B30${B.mobile}`;
 
 // ---------- κομμάτια που χτίζονται από τα δεδομένα (ανά γλώσσα) ----------
@@ -241,6 +262,29 @@ function makeLang(lang) {
     },
     "{{eveningBy}}": () => B.eveningBy || B.hours[0].schema.c, "{{openWk}}": () => B.hours[0].schema.o, "{{openWe}}": () => B.hours[1].schema.o, "{{close}}": () => B.hours[0].schema.c,
     "{{chatButtons}}": () => chatButtons(),
+    // Κάρτα «Εποχή λαδιού» στην αρχική: μόνο μέσα στην εποχή (ημερομηνία του build, ώρα Ελλάδας).
+    "{{oilArt}}": () => OIL_ART,
+    "{{oilBanner}}": () => {
+      const md = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Athens", month: "2-digit", day: "2-digit" }).format(new Date()).replace("/", "-");
+      const { from, to } = DATA.OIL_SEASON || { from: "10-01", to: "02-28" }, inSeason = from <= to ? md >= from && md <= to : md >= from || md <= to;
+      if (!inSeason) return "";
+      const tf = DATA.TARIFFS[tariffKey(DATA, DATA.DESTINATIONS.find(d => d.name === "Αθήνα"))];
+      const tfP = DATA.TARIFFS[tariffKey(DATA, DATA.DESTINATIONS.find(d => d.name === "Πάτρα"))];
+      return `<section class="oil-band" aria-labelledby="oil-h"><div class="wrap">
+  <div class="oil-art" aria-hidden="true">${OIL_ART}</div>
+  <div class="oil-copy">
+    <span class="oil-kicker">${t("Εποχή λαδιού", "Olive oil season")}</span>
+    <h2 id="oil-h">${t("Το λάδι της χρονιάς, στους δικούς σας", "This year's oil, to your family")}</h2>
+    <p>${t("Φέρτε τον τενεκέ στον σταθμό και φεύγει με το επόμενο λεωφορείο. Σας δείχνουμε πώς να τον συσκευάσετε για να φτάσει χωρίς σταγόνα.", "Bring the tin to the station and it leaves on the next bus. We show you how to pack it so it arrives without a drop.")}</p>
+    <ul class="oil-prices">
+      <li><b>${eur(tf.p.tenekes)}</b><span>${t("τενεκές για Αθήνα", "a tin to Athens")}</span></li>
+      <li><b>${eur(tfP.p.tenekes)}</b><span>${t("τενεκές για Πάτρα", "a tin to Patras")}</span></li>
+      <li><b>${eur(tf.p.tenekes_syn)}</b><span>${t("αν ταξιδεύετε κι εσείς", "if you travel too")}</span></li>
+    </ul>
+    <p class="oil-ctas"><a class="btn btn-primary" href="${link("ladi")}#syskevasia">${t("Πώς τον συσκευάζω", "How to pack it")} →</a><a class="btn btn-ghost" href="${link("ladi")}#times">${t("Τιμές για όλες τις πόλεις", "Prices for all cities")}</a></p>
+  </div>
+</div></section>`;
+    },
     // «Το ταξίδι του δέματος»: στατικά για την Αθήνα (χωρίς JavaScript)· το client.js τα προσαρμόζει στον προορισμό και στην ώρα.
     "{{journey}}": () => {
       const list = DATA.DESTINATIONS.filter(d => (d.type === "direct" || d.type === "local") && d.sched && d.sched.length && DATA.TARIFFS[tariffKey(DATA, d)]).sort(sortL);
@@ -301,6 +345,7 @@ function makeLang(lang) {
     "{{owExamples}}": () => ["nomos", "patra", "athina", "thess", "kriti"].map(k => { const tf = DATA.TARIFFS[k]; return `${esc(L(tf.label))}: ${money2(kgRate(ow, tf))}/kg`; }).join(" · "),
     "{{address}}": () => esc(`${L(B.address.place)}, ${L(B.address.street)}, ${B.address.postal} ${L(B.address.city)}`),
     ...Object.fromEntries(Object.entries(I).map(([k, v]) => [`{{i:${k}}}`, () => v])),
+    ...Object.fromEntries(Object.entries(OI).map(([k, v]) => [`{{oi:${k}}}`, () => v])),
   };
   // {{photo:name|…}}: «!name» = φωτογραφία στην κορυφή της σελίδας (φορτώνει αμέσως, όχι lazy).
   const photo = (name, capEl, capEn) => {
