@@ -80,7 +80,7 @@
         h("div", { class: "dims" }, num("c-l", T("Μήκος", "Length"), "40"), num("c-w", T("Πλάτος", "Width"), "30"), num("c-h", T("Ύψος", "Height"), "20"), num("c-kg", T("Κιλά", "Kg"), "3", "0.1")),
         h("div", { class: "hint" }, T("Μετρήστε την κούτα κλειστή, μαζί με τη συσκευασία.", "Measure the closed box, including packaging."), owHint ? " " + owHint : "")),
       h("div", { id: "c-skg-wrap", class: "field", hidden: true }, h("label", { for: "c-skg" }, T("2. Βάρος τσουβαλιού (κιλά)", "2. Sack weight (kg)")),
-        h("input", { id: "c-skg", type: "number", inputmode: "decimal", min: "0", max: "30", step: "0.1", placeholder: "20" }), owHint ? h("div", { class: "hint" }, owHint) : null),
+        h("input", { id: "c-skg", type: "number", inputmode: "decimal", min: "0", max: "30", step: "0.1", placeholder: T("π.χ. 20", "e.g. 20") }), owHint ? h("div", { class: "hint" }, owHint) : null),
       h("label", { id: "c-syn-wrap", class: "check", hidden: true }, h("input", { type: "checkbox", id: "c-syn" }), h("span", {}, T("Θα ταξιδέψω κι εγώ με το ίδιο λεωφορείο (συνοδευόμενος τενεκές)", "I will travel on the same bus (accompanied tin)"))),
       h("div", { class: "grid g2" },
         h("div", { class: "field" }, h("label", { for: "c-dest" }, T("3. Προορισμός", "3. Destination")), sel),
