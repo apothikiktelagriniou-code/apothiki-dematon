@@ -22,6 +22,10 @@ const OUT = join(ROOT, ARTIFACT ? "artifact" : "dist");
 // Προορισμοί, τιμοκατάλογος και δρομολόγια αλλάζουν από τις σελίδες διαχείρισης· εδώ τα διαβάζουμε την ώρα του χτισίματος.
 // Αν η βάση δεν απαντήσει (ή --offline / --artifact), το σάιτ χτίζεται με τα αρχικά δεδομένα και ΔΕΝ αποτυγχάνει.
 const DATA = { ...DATA0 };
+// Σταθμοί παραλαβής από τα αρχικά δεδομένα (αν η διαχείριση δεν έχει δικά της, κρατάμε αυτά).
+const withTerminals = list => list.map(d => { const tm = (DATA0.TERMINALS || {})[d.name];
+  return tm && !d.terminal ? { ...d, terminal: tm.terminal, terminalAddr: tm.addr, terminalPhone: tm.phone } : d; });
+DATA.DESTINATIONS = withTerminals(DATA0.DESTINATIONS);
 let SCHED = SCHEDULE_TIMES;
 async function rpc(name) {
   const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${name}`, { method: "POST", headers: { apikey: SUPABASE_KEY, Authorization: "Bearer " + SUPABASE_KEY, "content-type": "application/json" }, body: "{}", signal: AbortSignal.timeout(8000) });
@@ -47,10 +51,13 @@ if (!ARTIFACT && !process.argv.includes("--offline")) {
       if (d.days && /^[01]{7}$/.test(d.days)) o.days = d.days;
       if (d.eta) o.eta = d.eta;
       if (d.note) o.note = d.note;
+      if (d.terminal) o.terminal = d.terminal;
+      if (d.terminal_addr) o.terminalAddr = d.terminal_addr;
+      if (d.terminal_phone) o.terminalPhone = d.terminal_phone;
       return o;
     }).filter(Boolean);
     const hubsOk = Object.values(DATA0.HUBS).every(h => T[h.tariff]);
-    if (Object.keys(T).length && dests.length && hubsOk) { DATA.TARIFFS = T; DATA.DESTINATIONS = dests; console.log(`Προορισμοί/τιμές από τη διαχείριση: ${dests.length} προορισμοί, ${Object.keys(T).length} στήλες τιμών.`); }
+    if (Object.keys(T).length && dests.length && hubsOk) { DATA.TARIFFS = T; DATA.DESTINATIONS = withTerminals(dests); console.log(`Προορισμοί/τιμές από τη διαχείριση: ${dests.length} προορισμοί, ${Object.keys(T).length} στήλες τιμών.`); }
     else console.warn("⚠ Η διαχείριση προορισμών είναι κενή ή ελλιπής — χρησιμοποιούνται τα αρχικά δεδομένα.");
   } catch (e) { console.warn("⚠ Προορισμοί/τιμές: αρχικά δεδομένα (" + e.message + ")"); }
   try {
@@ -355,6 +362,7 @@ ${body}
     const facts = [
       days && [t("Μέρες", "Days"), days],
       d.eta && [t("Παράδοση", "Delivery"), L(d.eta)],
+      d.terminal && [t("Παραλαβή στον προορισμό", "Collection at destination"), [d.terminal, d.terminalAddr].filter(Boolean).join(", "), d.terminalPhone],
       d.note && [t("Σημείωση", "Note"), L(d.note)],
       [t("Στο ταμείο", "At the counter"), t(`Τουλάχιστον ${B.cutoffMin} λεπτά πριν την αναχώρηση.`, `At least ${B.cutoffMin} minutes before departure.`)],
       [t("Πληρωμή", "Payment"), t("Μετρητά, κάρτα ή IRIS", "Cash, card or IRIS")],
@@ -368,7 +376,7 @@ ${body}
 </div></section>
 <section class="section"><div class="wrap">
   <h2>${t("Με μια ματιά", "At a glance")}</h2>
-  <ul class="access">${facts.map(([k, v]) => `<li><b>${k}:</b> ${esc(v)}</li>`).join("")}</ul>
+  <ul class="access">${facts.map(([k, v, ph]) => `<li><b>${k}:</b> ${esc(v)}${ph ? ` · ${String(ph).split(/\s*[,;]\s*/).map(n => `<a class="num" href="tel:${n.replace(/[^\d+]/g, "").replace(/^(?!\+)/, "+30")}">${esc(n)}</a>`).join(", ")}` : ""}</li>`).join("")}</ul>
   ${d.name === "Αθήνα" && DATA.HOME.athens ? `<div class="notice info" style="margin-top:16px;max-width:70ch"><b>${t("Παραλαβή κατ' οίκον στην Αθήνα", "Delivery to your door in Athens")}${DATA.HOME.athens.active ? "" : ` <span class="tag">${t("Σύντομα", "Soon")}</span>`}</b>${(brandImg("asap", "", 20) ? brandImg("asap", DATA.HOME.athens.partner, 20) + " " : "") + t(`Σε συνεργασία με την ${esc(DATA.HOME.athens.partner)}: ο παραλήπτης το παίρνει στο σπίτι ή στο γραφείο, χωρίς να πάει στον Κηφισό.`, `In partnership with ${esc(DATA.HOME.athens.partner)}: the recipient gets it at home or at work, without going to Kifisos.`)} <a href="${link("spiti")}#${lang === "en" ? "athens" : "athina"}">${t("Περισσότερα →", "More →")}</a></div>` : ""}
   <h2 style="margin-top:32px">${t(`Τιμές για ${esc(name)}`, `Prices to ${esc(name)}`)}</h2>
   <div class="table-wrap"><table class="data"><thead><tr><th scope="col">${t("Είδος δέματος", "Item")}</th><th scope="col">${t("Τιμή", "Price")}</th></tr></thead><tbody>${

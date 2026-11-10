@@ -135,7 +135,10 @@
         h("dt", {}, T("Προορισμός", "Destination")), h("dd", {}, L(q.dest.name)),
         q.extra ? [h("dt", {}, T("Επιβάρυνση βάρους", "Weight surcharge")), h("dd", {}, T(`+${eur(q.extra)} ανά τεμάχιο (βασική ${eur(q.base)}, ${String(q.rate.toFixed(2)).replace(".", ",")} €/kg πάνω από ${OW.fromKg} kg)`, `+${eur(q.extra)} per item (base ${eur(q.base)}, €${q.rate.toFixed(2)}/kg over ${OW.fromKg} kg)`))] : null,
         q.hub ? [h("dt", {}, T("Μέσω", "Via")), h("dd", {}, L(q.hub.label))] : null,
-        h("dt", {}, T("Παράδοση", "Delivery")), h("dd", {}, L(q.eta) || "")));
+        h("dt", {}, T("Παράδοση", "Delivery")), h("dd", {}, L(q.eta) || ""),
+        // 🚏 Πού το παραλαμβάνει ο παραλήπτης, με τηλέφωνα που καλούνται με ένα πάτημα
+        q.dest.terminal ? [h("dt", {}, T("Παραλαβή στον προορισμό", "Collection at destination")), h("dd", {}, [q.dest.terminal, q.dest.terminalAddr].filter(Boolean).join(", "),
+          q.dest.terminalPhone ? h("div", {}, ...String(q.dest.terminalPhone).split(/\s*[,;]\s*/).flatMap((n, i) => [i ? ", " : "", h("a", { class: "num", href: "tel:" + n.replace(/[^\d+]/g, "").replace(/^(?!\+)/, "+30") }, n)])) : null)] : null));
       const keys = q.dest.sched && q.dest.sched.length ? q.dest.sched : q.hub ? q.hub.sched : null;
       if (keys) {
         const now = athensNow();
@@ -555,6 +558,7 @@
           h("div", { class: "adm-f wide" }, h("span", {}, "Μέρες δρομολογίου" + (preview ? ` · ${preview}` : "")),
             h("div", { class: "adm-days" }, h("label", { class: "adm-auto" }, auto, " από τα δρομολόγια"), ...days)),
           field("Παράδοση", inp("eta", "π.χ. Αυθημερόν, με τα δρομολόγια της ημέρας"), true),
+          field("Σταθμός παραλαβής στον προορισμό", inp("terminal", "π.χ. ΚΤΕΛ Κηφισού")), field("Διεύθυνση σταθμού", inp("terminal_addr", "π.χ. Κηφισού 100, Αθήνα")), field("Τηλέφωνο σταθμού", inp("terminal_phone", "π.χ. 210 5124910")),
           field("Σημείωση", inp("note", "προαιρετικό"), true)));
     }
 
@@ -568,7 +572,7 @@
         for (const t of TF.filter(x => dT.has(x.key))) await api("/rest/v1/site_tariffs", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify({ key: t.key, label: t.label, p: t.p || {}, sort: TF.indexOf(t), updated_at: new Date().toISOString() }) });
         for (const id of rD) await api("/rest/v1/site_destinations?id=eq." + id, { method: "DELETE" });
         for (const d of DS.filter(x => dD.has(x.id))) {
-          const body = { name: d.name.trim(), region: d.region || "", type: d.type, tariff: d.tariff || null, hub: d.type === "transfer" ? d.hub : null, sched: d.sched || [], days: d.days || null, eta: d.eta || null, note: d.note || null, shown: !!d.shown, updated_at: new Date().toISOString() };
+          const body = { name: d.name.trim(), region: d.region || "", type: d.type, tariff: d.tariff || null, hub: d.type === "transfer" ? d.hub : null, sched: d.sched || [], days: d.days || null, eta: d.eta || null, note: d.note || null, terminal: d.terminal || null, terminal_addr: d.terminal_addr || null, terminal_phone: d.terminal_phone || null, shown: !!d.shown, updated_at: new Date().toISOString() };
           if (d.id > 0) await api("/rest/v1/site_destinations?id=eq." + d.id, { method: "PATCH", body: JSON.stringify(body) });
           else await api("/rest/v1/site_destinations", { method: "POST", body: JSON.stringify(body) });
         }
