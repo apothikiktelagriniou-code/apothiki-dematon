@@ -153,7 +153,8 @@ export function fillTemplate(tpl, p) {
 
 /** CSV για Excel (ελληνικό): ; διαχωριστικό, BOM. */
 export function toCSV(rows, cols) {
-  const esc = v => { v = v == null ? "" : String(v); return /[;"\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+  // Κελιά που ξεκινούν με = + - @ (ή tab/CR) τα «εξουδετερώνουμε» με ' ώστε το Excel να μην τα τρέξει ως τύπο.
+  const esc = v => { v = v == null ? "" : String(v); if (/^[=+\-@\t\r]/.test(v) && !/^-?\d+([.,]\d+)?$/.test(v)) v = "'" + v; return /[;"\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
   return "﻿" + [cols.map(c => esc(c[1])).join(";"), ...rows.map(r => cols.map(c => esc(c[2] ? c[2](r) : r[c[0]])).join(";"))].join("\r\n");
 }
 

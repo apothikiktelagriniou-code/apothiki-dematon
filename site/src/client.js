@@ -224,6 +224,8 @@
       out.scrollIntoView({ behavior: "smooth", block: "nearest" }); };
     const city = c => { const d = c && findDest(SITE.DESTINATIONS, c); return d ? L(d.name) : c; };
     const q = new URLSearchParams(location.search); if (q.get("r")) $("#t-rc").value = q.get("r");
+    // Ο αριθμός απόδειξης και τα γράμματα του επωνύμου δεν μένουν στη γραμμή διευθύνσεων (ούτε σε link που θα κοινοποιηθεί).
+    if (q.get("r") || q.get("n")) history.replaceState(null, "", location.pathname + location.hash);
     if (q.get("n")) { $("#t-nm").value = q.get("n"); if (q.get("r")) setTimeout(() => tr.requestSubmit(), 0); }
     tr.addEventListener("submit", async e => {
       e.preventDefault();
