@@ -136,6 +136,35 @@ for (const p of DEST_PAGES) { SLUG[p.gr] = p.en; GR_OF[p.en] = p.gr; }
 const counts = { direct: DATA.DESTINATIONS.filter(d => d.type === "direct").length, local: DATA.DESTINATIONS.filter(d => d.type === "local").length, transfer: DATA.DESTINATIONS.filter(d => d.type === "transfer").length,
   athensDaily: SCHED.filter(r => r.dest === "ΑΘΗΝΑ" && r.days[2] === "1").length, patraDaily: SCHED.filter(r => r.dest === "ΠΑΤΡΑ" && r.days[2] === "1").length };
 
+// ---------- Χάρτης διαδρομών (αρχική): από το assets/map.svg, απλοποιημένος, με διαδρομές που «ζωγραφίζονται» ----------
+const MAP = (() => {
+  const src = readFileSync(join(ROOT, "src/assets/map.svg"), "utf8");
+  const land = (src.match(/<path d="([^"]+)" fill="#DCE6EC"/) || [])[1] || "";
+  // απλοποίηση (Douglas–Peucker) για να μείνει ελαφρύ το inline SVG
+  const rdp = (pts, eps) => { if (pts.length < 3) return pts; const [a, b] = [pts[0], pts[pts.length - 1]]; let dm = 0, idx = 0;
+    const dx = b[0] - a[0], dy = b[1] - a[1], len = Math.hypot(dx, dy) || 1;
+    for (let i = 1; i < pts.length - 1; i++) { const d = Math.abs(dy * pts[i][0] - dx * pts[i][1] + b[0] * a[1] - b[1] * a[0]) / len; if (d > dm) { dm = d; idx = i; } }
+    return dm > eps ? [...rdp(pts.slice(0, idx + 1), eps).slice(0, -1), ...rdp(pts.slice(idx), eps)] : [a, b]; };
+  const rings = land.split(/(?=M)/).map(r => [...r.matchAll(/(-?[\d.]+),(-?[\d.]+)/g)].map(m => [+m[1], +m[2]]));
+  const d = rings.map(r => rdp(r, 0.9)).filter(r => r.length > 2).map(r => "M" + r.map(([x, y]) => `${Math.round(x)},${Math.round(y)}`).join("L") + "Z").join("");
+  const cities = [...src.matchAll(/<circle cx="([\d.]+)" cy="([\d.]+)" r="8"[^>]*>(?:<\/circle>)?\s*<text x="([\d.]+)" y="([\d.]+)" text-anchor="(\w+)"[^>]*>([^<]+)<\/text>/g)]
+    .map(m => ({ x: +m[1], y: +m[2], tx: +m[3], ty: +m[4], anchor: m[5], label: m[6] }));
+  const hub = { x: 741.7, y: 488.8 };
+  const plain = s => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toUpperCase();
+  for (const c of cities) c.dest = DATA.DESTINATIONS.find(x => plain(x.name) === c.label);
+  cities.sort((a, b) => Math.hypot(a.x - hub.x, a.y - hub.y) - Math.hypot(b.x - hub.x, b.y - hub.y));
+  return { d, cities, hub };
+})();
+const routesSvg = (lang, L) => {
+  const { d, cities, hub } = MAP, r1 = n => Math.round(n * 10) / 10;
+  const routes = cities.map((c, i) => { const mx = (hub.x + c.x) / 2, my = (hub.y + c.y) / 2, dx = c.x - hub.x, dy = c.y - hub.y, k = 0.16 * (i % 2 ? 1 : -1);
+    return `<path class="rt" pathLength="1" style="--i:${i}" d="M${hub.x},${hub.y}Q${r1(mx - dy * k)},${r1(my + dx * k)} ${c.x},${c.y}"/>`; }).join("");
+  const dots = cities.map((c, i) => `<g class="ct" style="--i:${i}"><circle cx="${c.x}" cy="${c.y}" r="7"/><text x="${c.tx}" y="${c.ty}" text-anchor="${c.anchor}">${esc(c.dest ? L(c.dest.name) : c.label)}</text></g>`).join("");
+  return `<svg class="routes-svg" viewBox="545 130 645 810" role="img" aria-labelledby="rm-t"><title id="rm-t">${lang === "en" ? "Direct parcel routes from Agrinio" : "Απευθείας διαδρομές δεμάτων από το Αγρίνιο"}</title>`
+    + `<path class="land" d="${d}"/><g class="rts">${routes}</g>${dots}`
+    + `<g class="hub"><circle class="pulse" cx="${hub.x}" cy="${hub.y}" r="13"/><circle cx="${hub.x}" cy="${hub.y}" r="12"/><text x="${hub.x - 18}" y="${hub.y + 40}" text-anchor="end">${lang === "en" ? "AGRINIO" : "ΑΓΡΙΝΙΟ"}</text></g></svg>`;
+};
+
 function makeLang(lang) {
   const t = (el, en) => (lang === "en" ? en : el);
   const L = s => tr(s, lang);
@@ -202,6 +231,10 @@ function makeLang(lang) {
     },
     "{{eveningBy}}": () => B.eveningBy || B.hours[0].schema.c, "{{openWk}}": () => B.hours[0].schema.o, "{{openWe}}": () => B.hours[1].schema.o, "{{close}}": () => B.hours[0].schema.c,
     "{{chatButtons}}": () => chatButtons(),
+    "{{routesMap}}": () => `<figure class="routes-map" data-routes>${routesSvg(lang, L)}<figcaption class="stats">`
+      + `<span><b data-count="${counts.direct}">${counts.direct}</b>${t("πόλεις απευθείας", "cities direct")}</span>`
+      + `<span><b data-count="${counts.local}">${counts.local}</b>${t("προορισμοί στον νομό", "places in the prefecture")}</span>`
+      + `<span><b data-count="${counts.transfer}">${counts.transfer}</b>${t("με ανταπόκριση", "with a connection")}</span></figcaption></figure>`,
     "{{asapLogo}}": () => `<a class="partner-link" href="https://asapcouriers.gr/" rel="noopener" target="_blank">${brandImg("asap", "ASAP Courier", 28) || "<b>ASAP Courier</b>"}</a>`,
     "{{phone}}": () => `<a class="num" href="tel:+30${B.phone}">${lang === "en" ? "+30 " : ""}${B.phoneDisplay}</a>`,
     "{{mobile}}": () => `<a class="num" href="tel:+30${B.mobile}">${lang === "en" ? "+30 " : ""}${B.mobileDisplay}</a>`,

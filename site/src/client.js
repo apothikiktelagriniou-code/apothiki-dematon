@@ -16,6 +16,7 @@
   };
   const eur = n => { const v = Number.isInteger(n) ? String(n) : (LANG === "en" ? n.toFixed(2) : n.toFixed(2).replace(".", ",")); return LANG === "en" ? "€" + v : v + " €"; };
   const B = SITE.BUSINESS;
+  const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
   const LOCALE = T("el-GR", "en-GB");
 
   // Μενού κινητού
@@ -41,6 +42,7 @@
 
   // ---------- Πίνακας αναχωρήσεων (αρχική) ----------
   const board = $("[data-board]");
+  let boardDrawn = false;
   if (board) {
     const picks = ["ΑΘΗΝΑ", "ΠΑΤΡΑ", "ΘΕΣΣΑΛΟΝΙΚΗ", "ΙΩΑΝΝΙΝΑ", "ΛΕΥΚΑΔΑ", "ΑΡΤΑ", "ΝΑΥΠΑΚΤΟΣ", "ΜΕΣΟΛΟΓΓΙ", "ΑΜΦΙΛΟΧΙΑ", "ΛΑΡΙΣΑ", "ΒΟΛΟΣ", "ΚΑΛΑΜΑΤΑ", "ΠΥΡΓΟΣ", "ΧΑΝΙΑ", "ΗΡΑΚΛΕΙΟ", "ΚΕΡΚΥΡΑ", "ΚΟΖΑΝΗ"];
     const pretty = k => { const d = SITE.DESTINATIONS.find(x => x.sched && x.sched[0] === k); return d ? L(d.name) : k; };
@@ -50,8 +52,21 @@
       for (const k of picks) { const [n] = nextDepartures(SITE.SCHEDULE, [k], now, 1, LANG); if (n) rows.push({ k, ...n }); }
       const order = r => Math.min(r.rel, 2) * 1440 + Number(r.time.slice(0, 2)) * 60 + Number(r.time.slice(3));
       rows.sort((a, b) => order(a) - order(b));
-      const tb = $("tbody", board); tb.textContent = "";
-      for (const r of rows.slice(0, 7)) tb.append(h("tr", {}, h("td", { class: "t" }, r.time), h("td", { class: "d" }, pretty(r.k)), h("td", { class: "x" }, r.rel === 0 ? (r.express ? "Express" : "") : r.day)));
+      const tb = $("tbody", board);
+      // Γραμμές που άλλαξαν (ή όλες, την πρώτη φορά) «γυρίζουν» σαν πινακίδα σταθμού· η ώρα «τρέχει» πριν σταθεροποιηθεί.
+      const prev = [...tb.rows].map(tr => tr.textContent);
+      tb.textContent = ""; let fi = 0;
+      rows.slice(0, 7).forEach((r, i) => {
+        const tr = h("tr", {}, h("td", { class: "t" }, r.time), h("td", { class: "d" }, pretty(r.k)), h("td", { class: "x" }, r.rel === 0 ? (r.express ? "Express" : "") : r.day));
+        tb.append(tr);
+        if (!REDUCED && (!boardDrawn || prev[i] !== tr.textContent)) {
+          const k = fi++; tr.style.setProperty("--fi", k); tr.classList.add("flip");
+          const t = tr.cells[0], fin = r.time, end = performance.now() + 380 + k * 70;
+          const tick = () => { if (performance.now() >= end) { t.textContent = fin; return; } t.textContent = fin.replace(/\d/g, () => Math.floor(Math.random() * 10)); setTimeout(tick, 50); };
+          tick(); tr.addEventListener("animationend", () => tr.classList.remove("flip"), { once: true });
+        }
+      });
+      boardDrawn = true;
       $("time", board).textContent = new Intl.DateTimeFormat(LOCALE, { timeZone: "Europe/Athens", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date());
     };
     draw(); setInterval(draw, 30000); onSchedule(draw);
@@ -582,5 +597,31 @@
       } catch (e) { say("bad", "Δεν αποθηκεύτηκαν όλα: " + e.message); renderDest(); }
     }
     sess ? load() : loginView();
+  }
+
+  // ---------- Κίνηση: εμφάνιση στο σκρολάρισμα, χάρτης διαδρομών, μετρητές ----------
+  if ("IntersectionObserver" in window) {
+    // Μόνο ό,τι είναι κάτω από την οθόνη όταν φορτώνει: ό,τι ήδη φαίνεται δεν κρύβεται ποτέ.
+    const sel = ".section > .wrap > *:not(.signs):not(.routes-map), .section .signs > li, .cta-band .wrap > *";
+    const io = new IntersectionObserver(es => { for (const e of es) if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); } }, { threshold: 0.12, rootMargin: "0px 0px -40px 0px" });
+    for (const el of $$(sel)) {
+      if (el.closest(".hero")) continue;
+      if (el.getBoundingClientRect().top < innerHeight) continue;
+      const sib = [...el.parentElement.children].indexOf(el);
+      el.style.setProperty("--rv", Math.min(sib, 5)); el.classList.add("rv"); io.observe(el);
+    }
+    // Αν ο χρήστης πηδήξει πιο κάτω (σύνδεσμος, αναζήτηση στη σελίδα), ό,τι προσπέρασε εμφανίζεται κι αυτό.
+    let raf = 0;
+    addEventListener("scroll", () => { if (raf) return; raf = requestAnimationFrame(() => { raf = 0;
+      for (const el of $$(".rv:not(.in)")) if (el.getBoundingClientRect().top < innerHeight) { el.classList.add("in"); io.unobserve(el); } }); }, { passive: true });
+    const count = el => { const n = Number(el.dataset.count); if (REDUCED || !n) return; const t0 = performance.now() + 200, dur = 900;
+      const step = now => { const p = Math.min(Math.max((now - t0) / dur, 0), 1); el.textContent = Math.round(n * (1 - Math.pow(1 - p, 3))); if (p < 1) requestAnimationFrame(step); };
+      el.textContent = "0"; requestAnimationFrame(step); };
+    for (const fig of $$("[data-routes]")) {
+      if (fig.getBoundingClientRect().top < innerHeight * 0.8) { fig.classList.add("in"); continue; }
+      fig.classList.add("armed");
+      const mo = new IntersectionObserver(es => { if (es.some(e => e.isIntersecting)) { fig.classList.add("in"); $$("[data-count]", fig).forEach(count); mo.disconnect(); } }, { threshold: 0.35 });
+      mo.observe(fig);
+    }
   }
 })();

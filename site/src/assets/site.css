@@ -533,3 +533,52 @@ input[type=text], input[type=search], input[type=tel], input[type=email], input[
   .dest-table td.wrap-cell { grid-column: 1 / -1; }
 }
 .partner-link { display: inline-block; vertical-align: middle; } .partner-link .brand-logo { height: 32px !important; }
+
+/* ---------- Κίνηση ---------- */
+:root {
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+}
+
+/* Εμφάνιση στο σκρολάρισμα: μόνο για ό,τι είναι εκτός οθόνης όταν φορτώνει η σελίδα (το client.js βάζει .rv) */
+.rv { opacity: 0; transform: translateY(16px); }
+.rv.in { opacity: 1; transform: none; transition: opacity 500ms var(--ease-out), transform 500ms var(--ease-out); transition-delay: calc(var(--rv, 0) * 60ms); }
+
+/* Πίνακας αναχωρήσεων: οι γραμμές «γυρίζουν» σαν πινακίδα σταθμού όταν αλλάζουν */
+.board tbody { perspective: 600px; }
+.board tr.flip td { animation: flap 420ms var(--ease-out) both; animation-delay: calc(var(--fi, 0) * 70ms); transform-origin: 50% 0; backface-visibility: hidden; }
+@keyframes flap { from { transform: rotateX(-88deg); opacity: 0; } 60% { opacity: 1; } to { transform: none; opacity: 1; } }
+.board .t { font-variant-numeric: tabular-nums; }
+
+/* Χάρτης διαδρομών */
+.routes-map { margin: 0; background: var(--surface); border: 1px solid var(--line); border-top: 6px solid var(--teal); border-radius: var(--r); padding: 8px 8px 0; }
+.section.alt .routes-map { background: var(--paper); }
+.routes-svg { display: block; width: 100%; height: auto; font-family: var(--f-display); }
+.routes-svg .land { fill: #DCE6EC; stroke: #AFC3CF; stroke-width: 1; }
+.routes-svg .rt { fill: none; stroke: #017F98; stroke-width: 2.6; stroke-linecap: round; stroke-dasharray: 1; stroke-dashoffset: 0; }
+.routes-svg .ct circle { fill: #fff; stroke: #017F98; stroke-width: 3; }
+.routes-svg .ct text { font-size: 21px; font-weight: 700; fill: var(--heading); stroke: #fff; stroke-width: 5px; paint-order: stroke; }
+.routes-svg .hub circle { fill: var(--band); stroke: #fff; stroke-width: 3; }
+.routes-svg .hub .pulse { fill: none; stroke: var(--band); stroke-width: 3; opacity: 0; transform-box: fill-box; transform-origin: center; }
+.routes-svg .hub text { font-size: 28px; font-weight: 800; fill: var(--heading); stroke: #fff; stroke-width: 6px; paint-order: stroke; }
+.routes-map .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; border-top: 1px solid var(--line); padding: 12px 6px 14px; }
+.routes-map .stats span { display: flex; flex-direction: column; font-size: 13px; color: var(--muted); line-height: 1.25; }
+.routes-map .stats b { font: 700 30px/1.05 var(--f-display); color: var(--heading); font-variant-numeric: tabular-nums; }
+
+/* Πριν μπει στην οθόνη (μόνο με JavaScript): κρυμμένες διαδρομές και πόλεις */
+.routes-map.armed .rt { stroke-dashoffset: 1; }
+.routes-map.armed .ct { opacity: 0; transform: scale(.6); transform-box: fill-box; transform-origin: center; }
+.routes-map.armed.in .rt { animation: draw 900ms var(--ease-in-out) forwards; animation-delay: calc(var(--i) * 70ms); }
+.routes-map.armed.in .ct { opacity: 1; transform: none; transition: opacity 300ms var(--ease-out), transform 300ms var(--ease-out); transition-delay: calc(var(--i) * 70ms + 650ms); }
+.routes-map.in .hub .pulse { animation: pulse 1600ms var(--ease-out) 3; }
+@keyframes draw { to { stroke-dashoffset: 0; } }
+@keyframes pulse { from { opacity: .6; transform: scale(1); } to { opacity: 0; transform: scale(3); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .rv { opacity: 0; transform: none; }
+  .rv.in { opacity: 1; transition: opacity 300ms ease; }
+  .board tr.flip td { animation: none; }
+  .routes-map.armed .rt { stroke-dashoffset: 0; }
+  .routes-map.armed .ct { transform: none; }
+  .routes-map.armed.in .rt, .routes-map.in .hub .pulse { animation: none; }
+}
