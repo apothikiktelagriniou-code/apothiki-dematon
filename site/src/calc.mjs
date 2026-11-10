@@ -102,7 +102,8 @@ export function dropOff(business, dow, time) {
   if (!h || by >= toMin(h.schema.o)) return { same: true, by: hm(Math.max(by, 0)), dayOffset: 0, min: by };
   const p = hoursOf((dow + 6) % 7);
   if (!business.eveningBefore || !p) return { same: true, by: hm(Math.max(by, 0)), dayOffset: 0, min: by, early: true };
-  return { same: false, by: p.schema.c, dayOffset: -1, min: toMin(p.schema.c) - 1440 };
+  const ev = business.eveningBy || p.schema.c;
+  return { same: false, by: ev, dayOffset: -1, min: toMin(ev) - 1440 };
 }
 
 // Ποια στήλη τιμοκαταλόγου ισχύει: του προορισμού· στις ανταποκρίσεις, αν δεν έχει δική του, του σταθμού ανταπόκρισης.

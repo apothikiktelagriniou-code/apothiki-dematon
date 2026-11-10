@@ -34,18 +34,18 @@ test("destDays: ανταπόκριση → μέρες του σταθμού, ε�
 });
 
 import { dropOff } from "../site/src/calc.mjs";
-const BIZ = { cutoffMin: 20, eveningBefore: true, hours: [
+const BIZ = { cutoffMin: 20, eveningBefore: true, eveningBy: "21:00", hours: [
   { schema: { d: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"], o: "06:20", c: "21:30" } },
   { schema: { d: ["Saturday", "Sunday"], o: "08:00", c: "21:30" } }] };
 test("dropOff: λεωφορείο 07:00 Τρίτη → έως 06:40 ίδια μέρα", () => {
   const r = dropOff(BIZ, 1, "07:00"); assert.equal(r.same, true); assert.equal(r.by, "06:40");
 });
 test("dropOff: λεωφορείο 06:30 Τρίτη → το προηγούμενο βράδυ έως 21:30", () => {
-  const r = dropOff(BIZ, 1, "06:30"); assert.equal(r.same, false); assert.equal(r.by, "21:30");
+  const r = dropOff(BIZ, 1, "06:30"); assert.equal(r.same, false); assert.equal(r.by, "21:00");
 });
 test("dropOff: λεωφορείο 06:45 Τρίτη → έως 06:25 (ανοίγουμε 06:20)", () => {
   assert.equal(dropOff(BIZ, 1, "06:45").by, "06:25");
 });
 test("dropOff: Σάββατο 08:15 → Παρασκευή βράδυ", () => {
-  const r = dropOff(BIZ, 5, "08:15"); assert.equal(r.same, false); assert.equal(r.by, "21:30");
+  const r = dropOff(BIZ, 5, "08:15"); assert.equal(r.same, false); assert.equal(r.by, "21:00");
 });

@@ -200,7 +200,7 @@ function makeLang(lang) {
       for (const r of rows) { if (seen.has(r.dest)) continue; seen.add(r.dest); out.push(r); if (out.length >= 7) break; }
       return out.sort((a, b) => a.time.localeCompare(b.time)).map(r => `<tr><td class="t">${r.time}</td><td class="d">${esc(nm(r.dest))}</td><td class="x">${r.express ? "Express" : ""}</td></tr>`).join("");
     },
-    "{{openWk}}": () => B.hours[0].schema.o, "{{openWe}}": () => B.hours[1].schema.o, "{{close}}": () => B.hours[0].schema.c,
+    "{{eveningBy}}": () => B.eveningBy || B.hours[0].schema.c, "{{openWk}}": () => B.hours[0].schema.o, "{{openWe}}": () => B.hours[1].schema.o, "{{close}}": () => B.hours[0].schema.c,
     "{{chatButtons}}": () => chatButtons(),
     "{{asapLogo}}": () => brandImg("asap", "ASAP Courier", 28),
     "{{phone}}": () => `<a class="num" href="tel:+30${B.phone}">${lang === "en" ? "+30 " : ""}${B.phoneDisplay}</a>`,
