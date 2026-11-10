@@ -313,6 +313,7 @@ ${body}
 <section class="section"><div class="wrap">
   <h2>${t("Με μια ματιά", "At a glance")}</h2>
   <ul class="access">${facts.map(([k, v]) => `<li><b>${k}:</b> ${esc(v)}</li>`).join("")}</ul>
+  ${d.name === "Αθήνα" && DATA.HOME.athens ? `<div class="notice info" style="margin-top:16px;max-width:70ch"><b>${t("Παραλαβή κατ' οίκον στην Αθήνα", "Delivery to your door in Athens")}${DATA.HOME.athens.active ? "" : ` <span class="tag">${t("Σύντομα", "Soon")}</span>`}</b>${t(`Σε συνεργασία με την ${esc(DATA.HOME.athens.partner)}: ο παραλήπτης το παίρνει στο σπίτι ή στο γραφείο, χωρίς να πάει στον Κηφισό.`, `In partnership with ${esc(DATA.HOME.athens.partner)}: the recipient gets it at home or at work, without going to Kifisos.`)} <a href="${link("spiti")}#${lang === "en" ? "athens" : "athina"}">${t("Περισσότερα →", "More →")}</a></div>` : ""}
   <h2 style="margin-top:32px">${t(`Τιμές για ${esc(name)}`, `Prices to ${esc(name)}`)}</h2>
   <div class="table-wrap"><table class="data"><thead><tr><th scope="col">${t("Είδος δέματος", "Item")}</th><th scope="col">${t("Τιμή", "Price")}</th></tr></thead><tbody>${
     C.map(c => { const v = tf.p[c.id]; return `<tr><th scope="row" style="font-weight:600">${esc(L(c.name))}</th><td class="${v == null ? "na" : "num"}">${v == null ? t("ρωτήστε", "ask") : eur(v)}</td></tr>`; }).join("")

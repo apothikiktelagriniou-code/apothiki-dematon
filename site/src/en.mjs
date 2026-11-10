@@ -41,7 +41,7 @@ export const EN = {
   "Χανιά ή Ηράκλειο": "Chania or Heraklion",
   "Ανά κομμάτι, ανά ημέρα, στις ώρες λειτουργίας της αποθήκης.": "Per item, per day, during opening hours.",
   "Πόλη Αγρινίου": "Agrinio town", "Φάκελος με φυσαλίδα": "Padded envelope", "Μηχανή και αυτοκίνητο": "Motorbike and car",
-  "Στην Αθήνα, μέσω συνεργάτη (η τιμή ανακοινώνεται σύντομα).": "In Athens, through a partner (price to be announced).",
+  "Στην Αθήνα: παραλαβή κατ' οίκον σε συνεργασία με την ASAP Courier (σύντομα).": "In Athens: delivery to your door in partnership with ASAP Courier (coming soon).",
 
   // Περιοχές
   "Αττική": "Attica", "Πελοπόννησος": "Peloponnese", "Μακεδονία": "Macedonia", "Ήπειρος": "Epirus", "Θεσσαλία": "Thessaly",
