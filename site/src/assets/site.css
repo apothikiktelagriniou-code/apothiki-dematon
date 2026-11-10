@@ -586,3 +586,30 @@ input[type=text], input[type=search], input[type=tel], input[type=email], input[
   .routes-map.armed.in .rt, .routes-map.in .hub .pulse { animation: none; }
 }
 @media (max-width: 600px) { .routes-svg .ct text { font-size: 25px; stroke-width: 6px; } .routes-svg .ct circle { r: 8; } .routes-svg .hub text { font-size: 32px; } }
+
+/* «Το ταξίδι του δέματος» */
+.journey { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 18px 16px; }
+.j-pick { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 18px; font-weight: 600; color: var(--heading); }
+.j-pick select { min-height: 44px; font-size: 17px; padding: 8px 12px; border: 1px solid #8A9BAD; border-radius: 10px; background: var(--surface); color: var(--ink); min-width: 220px; }
+.j-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 18px; position: relative; }
+.j-steps::before { content: ""; position: absolute; left: 21px; top: 22px; bottom: 22px; border-left: 2px dashed var(--line); }
+.j-steps > li { display: grid; grid-template-columns: 44px 1fr; gap: 14px; position: relative; align-content: start; }
+.j-node { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: var(--surface); border: 2px solid var(--line); color: var(--muted); position: relative; z-index: 1;
+  transition: background-color 250ms var(--ease-out), border-color 250ms var(--ease-out), color 250ms var(--ease-out); }
+.j-node svg { width: 22px; height: 22px; }
+.j-steps > li.on .j-node { border-color: var(--teal); background: var(--teal-soft); color: var(--teal); }
+.j-steps h3 { margin: 2px 0 2px; font: 700 15px/1.2 var(--f-body); color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.j-main { margin: 0; font: 700 20px/1.25 var(--f-display); color: var(--heading); }
+.j-sub { margin: 4px 0 0; font-size: 14px; color: var(--muted); }
+.j-parcel { position: absolute; left: 0; top: 0; z-index: 2; width: 34px; height: 34px; border-radius: 8px; display: grid; place-items: center; background: var(--sign); color: var(--on-sign);
+  box-shadow: 0 4px 10px rgb(0 0 0 / .18); transition: transform 600ms var(--ease-in-out); pointer-events: none; }
+.j-parcel svg { width: 20px; height: 20px; }
+.journey.still .j-parcel { display: none; }
+.j-ctas { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; align-items: center; }
+@media (min-width: 900px) {
+  .journey { padding: 24px; }
+  .j-steps { grid-template-columns: repeat(4, 1fr); gap: 20px; }
+  .j-steps::before { left: 22px; right: calc(25% - 22px); top: 21px; bottom: auto; border-left: 0; border-top: 2px dashed var(--line); }
+  .j-steps > li { grid-template-columns: 1fr; gap: 10px; }
+}
+@media (prefers-reduced-motion: reduce) { .j-parcel { display: none; } }

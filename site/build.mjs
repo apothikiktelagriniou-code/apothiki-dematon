@@ -96,6 +96,8 @@ const I = {
   home: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 11 9-7 9 7"/><path d="M5 10v10h14V10M10 20v-6h4v6"/></svg>',
   shop: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9h18l-1-5H4zM5 9v11h14V9M9 20v-6h6v6"/></svg>',
   phone: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></svg>',
+  bus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="3" width="16" height="15" rx="2"/><path d="M4 11h16M8 18v3M16 18v3M8 14.5h.01M16 14.5h.01"/></svg>',
+  euro: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M17 6.5A7 7 0 1 0 17 17.5M4 10h9M4 14h9"/></svg>',
   clock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
   pin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6-7-11a7 7 0 0 1 14 0c0 5-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>',
   chat: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg>',
@@ -231,6 +233,24 @@ function makeLang(lang) {
     },
     "{{eveningBy}}": () => B.eveningBy || B.hours[0].schema.c, "{{openWk}}": () => B.hours[0].schema.o, "{{openWe}}": () => B.hours[1].schema.o, "{{close}}": () => B.hours[0].schema.c,
     "{{chatButtons}}": () => chatButtons(),
+    // «Το ταξίδι του δέματος»: στατικά για την Αθήνα (χωρίς JavaScript)· το client.js τα προσαρμόζει στον προορισμό και στην ώρα.
+    "{{journey}}": () => {
+      const list = DATA.DESTINATIONS.filter(d => (d.type === "direct" || d.type === "local") && d.sched && d.sched.length && DATA.TARIFFS[tariffKey(DATA, d)]).sort(sortL);
+      const d0 = list.find(d => d.name === "Αθήνα") || list[0], tf = DATA.TARIFFS[tariffKey(DATA, d0)];
+      const step = (k, icon, title, main, sub) => `<li data-j="${k}"><span class="j-node">${icon}</span><div><h3>${title}</h3><p class="j-main">${main}</p><p class="j-sub">${sub}</p></div></li>`;
+      const tel = d0.terminalPhone ? String(d0.terminalPhone).split(/\s*[,;]\s*/).map(n => `<a class="num" href="tel:+30${n.replace(/\D/g, "")}">${n}</a>`).join(", ") : "";
+      return `<div class="journey" data-journey>
+  <label class="j-pick"><span>${t("Πού το στέλνετε;", "Where to?")}</span><select data-j-dest>${list.map(d => `<option value="${esc(d.name)}"${d === d0 ? " selected" : ""}>${esc(L(d.name))}</option>`).join("")}</select></label>
+  <ol class="j-steps">
+    ${step("drop", I.send, t("Φέρτε το", "Bring it"), t(`Τουλάχιστον ${B.cutoffMin} λεπτά πριν από την αναχώρηση`, `At least ${B.cutoffMin} minutes before departure`), t(`Για τα πρωινά λεωφορεία, από το προηγούμενο βράδυ έως τις ${B.eveningBy}.`, `For morning buses, the evening before, by ${B.eveningBy}.`))}
+    ${step("pay", I.euro, t("Πληρώνετε", "Pay"), [tf.p.fakelos != null ? t(`Φάκελος ${eur(tf.p.fakelos)}`, `Envelope ${eur(tf.p.fakelos)}`) : "", tf.p.mikro != null ? t(`μικρό κουτί ${eur(tf.p.mikro)}`, `small box ${eur(tf.p.mikro)}`) : ""].filter(Boolean).join(" · "), t("Ενδεικτικά. Η τελική τιμή βγαίνει στο ταμείο.", "Indicative. The final price is set at the counter."))}
+    ${step("go", I.bus, t("Φεύγει", "It leaves"), t("Με το επόμενο λεωφορείο", "On the next bus"), esc(L(d0.eta || "")))}
+    ${step("get", I.receive, t("Παραλαβή", "Collection"), esc(d0.terminal || t("Στο ΚΤΕΛ του προορισμού", "At the destination bus station")), [esc(d0.terminalAddr || ""), tel].filter(Boolean).join(" · ") + `<br>${t("Με ταυτότητα. Μπορεί να το πάρει και άλλος, με τη δική του.", "With ID. Someone else can collect it with their own ID.")}`)}
+    <span class="j-parcel" aria-hidden="true">${I.send}</span>
+  </ol>
+  <div class="j-ctas"><a class="btn" data-j-calc href="${link("apostoli")}?to=${encodeURIComponent(d0.name)}#ypologismos">${t("Ακριβής τιμή", "Exact price")} →</a>${chatButtons()}</div>
+</div>`;
+    },
     "{{routesMap}}": () => `<figure class="routes-map" data-routes>${routesSvg(lang, L)}<figcaption class="stats">`
       + `<span><b data-count="${counts.direct}">${counts.direct}</b>${t("πόλεις απευθείας", "cities direct")}</span>`
       + `<span><b data-count="${counts.local}">${counts.local}</b>${t("προορισμοί στον νομό", "places in the prefecture")}</span>`

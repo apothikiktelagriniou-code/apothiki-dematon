@@ -599,6 +599,52 @@
     sess ? load() : loginView();
   }
 
+
+  // ---------- «Το ταξίδι του δέματος» (αρχική) ----------
+  const jr = $("[data-journey]");
+  if (jr) {
+    const sel = $("[data-j-dest]", jr), steps = $$(".j-steps > li", jr), parcel = $(".j-parcel", jr), calcA = $("[data-j-calc]", jr);
+    const set = (k, main, sub) => { const li = $(`[data-j="${k}"]`, jr); $(".j-main", li).textContent = main; const sb = $(".j-sub", li); sb.textContent = ""; sb.append(...[sub].flat().filter(x => x != null && x !== "")); };
+    const fill = () => {
+      const d = SITE.DESTINATIONS.find(x => x.name === sel.value); if (!d) return;
+      const now = athensNow();
+      const dep = nextDepartures(SITE.SCHEDULE, d.sched || [], now, 8, LANG).map(x => ({ ...x, drop: dropOff(B, x.dow, x.time) }))
+        .find(x => x.rel * 1440 + x.drop.min > now.minutes && !x.drop.early);
+      const cap = w => w.charAt(0).toUpperCase() + w.slice(1);
+      if (dep) {
+        const dayTxt = dep.rel < 2 ? dep.day.toLowerCase() : T("την ", "on ") + dep.day;
+        set("drop", dep.drop.same ? T(`${cap(dayTxt)}, έως τις ${dep.drop.by}`, `${cap(dayTxt)}, by ${dep.drop.by}`)
+                                   : (dep.rel === 1 ? T(`Σήμερα το βράδυ, έως τις ${dep.drop.by}`, `This evening, by ${dep.drop.by}`) : T(`Το προηγούμενο βράδυ, έως τις ${dep.drop.by}`, `The evening before, by ${dep.drop.by}`)),
+          T(`Στο ταμείο της αποθήκης, για το λεωφορείο των ${dep.time}.`, `At the depot counter, for the ${dep.time} bus.`));
+        set("go", T(`${cap(dayTxt)} στις ${dep.time}`, `${cap(dayTxt)} at ${dep.time}`), L(d.eta || ""));
+      } else {
+        set("drop", T("Ρωτήστε μας για την επόμενη αναχώρηση", "Ask us about the next departure"), "");
+        set("go", T("Με το επόμενο λεωφορείο", "On the next bus"), L(d.eta || ""));
+      }
+      const tf = SITE.TARIFFS[tariffKey(SITE, d)] || { p: {} };
+      set("pay", [tf.p.fakelos != null ? T("Φάκελος ", "Envelope ") + eur(tf.p.fakelos) : "", tf.p.mikro != null ? T("μικρό κουτί ", "small box ") + eur(tf.p.mikro) : ""].filter(Boolean).join(" · ") || T("Ρωτήστε μας", "Ask us"),
+        T("Ενδεικτικά. Η τελική τιμή βγαίνει στο ταμείο.", "Indicative. The final price is set at the counter."));
+      const tels = d.terminalPhone ? String(d.terminalPhone).split(/\s*[,;]\s*/).flatMap((n, i) => [i ? ", " : "", h("a", { class: "num", href: "tel:" + n.replace(/[^\d+]/g, "").replace(/^(?!\+)/, "+30") }, n)]) : [];
+      set("get", d.terminal || T("Στο ΚΤΕΛ του προορισμού", "At the destination bus station"),
+        [d.terminalAddr ? d.terminalAddr : null, d.terminalAddr && tels.length ? " · " : null, ...tels, h("br"), T("Με ταυτότητα. Μπορεί να το πάρει και άλλος, με τη δική του.", "With ID. Someone else can collect it with their own ID.")]);
+      if (calcA) calcA.href = calcA.href.replace(/\?to=[^#]*/, "?to=" + encodeURIComponent(d.name));
+    };
+    // Το δέμα «ταξιδεύει» από βήμα σε βήμα (κίνηση μόνο με transform· χωρίς κίνηση αν ο χρήστης το έχει ζητήσει).
+    let timers = [], at = 0;
+    const place = i => { const n = $(".j-node", steps[i]), box = parcel.offsetParent.getBoundingClientRect(), r = n.getBoundingClientRect();
+      parcel.style.transform = `translate(${r.left - box.left + r.width / 2 - parcel.offsetWidth / 2}px, ${r.top - box.top + r.height / 2 - parcel.offsetHeight / 2}px)`; at = i;
+      steps.forEach((li, j) => li.classList.toggle("on", j <= i)); };
+    const run = () => { timers.forEach(clearTimeout); timers = [];
+      if (REDUCED) { steps.forEach(li => li.classList.add("on")); jr.classList.add("still"); return; }
+      place(0); steps.forEach((_, i) => { if (i) timers.push(setTimeout(() => place(i), 300 + i * 650)); }); };
+    sel.addEventListener("change", () => { fill(); run(); });
+    addEventListener("resize", () => { parcel.style.transition = "none"; place(at); parcel.offsetWidth; parcel.style.transition = ""; }, { passive: true });
+    fill(); onSchedule(fill);
+    if ("IntersectionObserver" in window && !REDUCED) {
+      parcel.style.transition = "none"; place(0); parcel.offsetWidth; parcel.style.transition = "";
+      const jo = new IntersectionObserver(es => { if (es.some(e => e.isIntersecting)) { run(); jo.disconnect(); } }, { threshold: 0.4 }); jo.observe(jr);
+    } else run();
+  }
   // ---------- Κίνηση: εμφάνιση στο σκρολάρισμα, χάρτης διαδρομών, μετρητές ----------
   if ("IntersectionObserver" in window) {
     // Μόνο ό,τι είναι κάτω από την οθόνη όταν φορτώνει: ό,τι ήδη φαίνεται δεν κρύβεται ποτέ.
