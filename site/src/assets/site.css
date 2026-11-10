@@ -551,16 +551,19 @@ input[type=text], input[type=search], input[type=tel], input[type=email], input[
 .board .t { font-variant-numeric: tabular-nums; }
 
 /* Χάρτης διαδρομών */
-.routes-map { margin: 0; background: var(--surface); border: 1px solid var(--line); border-top: 6px solid var(--teal); border-radius: var(--r); padding: 8px 8px 0; }
-.section.alt .routes-map { background: var(--paper); }
+.routes-map { --m-sea: var(--surface); --m-land: #DCE6EC; --m-coast: #AFC3CF; --m-route: #017F98; --m-dot: #FFFFFF; --m-label: #0C3456; --m-halo: #FFFFFF; --m-hub: #0C3456; background: var(--m-sea); }
+.section.alt .routes-map { --m-sea: var(--paper); --m-halo: var(--paper); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .routes-map { --m-land: #22394F; --m-coast: #3A5874; --m-route: #5CCBE0; --m-dot: #0B1622; --m-label: #F3F7FB; --m-halo: #0B1622; --m-hub: #F2B632; } }
+:root[data-theme="dark"] .routes-map { --m-land: #22394F; --m-coast: #3A5874; --m-route: #5CCBE0; --m-dot: #0B1622; --m-label: #F3F7FB; --m-halo: #0B1622; --m-hub: #F2B632; }
+.routes-map { margin: 0; border: 1px solid var(--line); border-top: 6px solid var(--teal); border-radius: var(--r); padding: 8px 8px 0; }
 .routes-svg { display: block; width: 100%; height: auto; font-family: var(--f-display); }
-.routes-svg .land { fill: #DCE6EC; stroke: #AFC3CF; stroke-width: 1; }
-.routes-svg .rt { fill: none; stroke: #017F98; stroke-width: 2.6; stroke-linecap: round; stroke-dasharray: 1; stroke-dashoffset: 0; }
-.routes-svg .ct circle { fill: #fff; stroke: #017F98; stroke-width: 3; }
-.routes-svg .ct text { font-size: 21px; font-weight: 700; fill: var(--heading); stroke: #fff; stroke-width: 5px; paint-order: stroke; }
-.routes-svg .hub circle { fill: var(--band); stroke: #fff; stroke-width: 3; }
-.routes-svg .hub .pulse { fill: none; stroke: var(--band); stroke-width: 3; opacity: 0; transform-box: fill-box; transform-origin: center; }
-.routes-svg .hub text { font-size: 28px; font-weight: 800; fill: var(--heading); stroke: #fff; stroke-width: 6px; paint-order: stroke; }
+.routes-svg .land { fill: var(--m-land); stroke: var(--m-coast); stroke-width: 1; }
+.routes-svg .rt { fill: none; stroke: var(--m-route); stroke-width: 2.6; stroke-linecap: round; stroke-dasharray: 1; stroke-dashoffset: 0; }
+.routes-svg .ct circle { fill: var(--m-dot); stroke: var(--m-route); stroke-width: 3; }
+.routes-svg .ct text { font-size: 21px; font-weight: 700; fill: var(--m-label); stroke: var(--m-halo); stroke-width: 5px; paint-order: stroke; }
+.routes-svg .hub circle { fill: var(--m-hub); stroke: var(--m-halo); stroke-width: 3; }
+.routes-svg .hub .pulse { fill: none; stroke: var(--m-hub); stroke-width: 3; opacity: 0; transform-box: fill-box; transform-origin: center; }
+.routes-svg .hub text { font-size: 28px; font-weight: 800; fill: var(--m-label); stroke: var(--m-halo); stroke-width: 6px; paint-order: stroke; }
 .routes-map .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; border-top: 1px solid var(--line); padding: 12px 6px 14px; }
 .routes-map .stats span { display: flex; flex-direction: column; font-size: 13px; color: var(--muted); line-height: 1.25; }
 .routes-map .stats b { font: 700 30px/1.05 var(--f-display); color: var(--heading); font-variant-numeric: tabular-nums; }
@@ -582,3 +585,4 @@ input[type=text], input[type=search], input[type=tel], input[type=email], input[
   .routes-map.armed .ct { transform: none; }
   .routes-map.armed.in .rt, .routes-map.in .hub .pulse { animation: none; }
 }
+@media (max-width: 600px) { .routes-svg .ct text { font-size: 25px; stroke-width: 6px; } .routes-svg .ct circle { r: 8; } .routes-svg .hub text { font-size: 32px; } }
