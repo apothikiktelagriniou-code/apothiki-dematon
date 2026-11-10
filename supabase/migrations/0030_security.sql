@@ -8,6 +8,7 @@
 --  3. Deploy hook: η βάση δέχεται μόνο σύνδεσμο Cloudflare.
 --  4. Ημερολόγιο ενεργειών: κανείς δεν γράφει εγγραφή με όνομα άλλου χρήστη.
 --  5. add_piece: αφαιρείται η πρόσβαση από PUBLIC.
+--  6. Αναζήτηση: τα 3 γράμματα επωνύμου πιάνουν και με λατινικό πληκτρολόγιο (pap → ΠΑΠ).
 -- Ίδια είσοδος/έξοδος συναρτήσεων: η εφαρμογή και το σάιτ δεν αλλάζουν.
 -- Επικόλληση → SQL Editor → Run. Ασφαλές να τρέξει ξανά.
 -- =====================================================================
@@ -44,6 +45,10 @@ declare
   v_ip text := public.client_ip();
   v_d text := regexp_replace(coalesce(p_receipt, ''), '\D', '', 'g');
   v_n text := left(replace(public.norm_key(p_name), ' ', ''), 3);
+  -- ίδια γράμματα γραμμένα με λατινικούς χαρακτήρες: pap → ΠΑΠ, thе → ΘΕ…
+  v_n2 text := left(translate(replace(replace(replace(replace(replace(upper(replace(coalesce(p_name, ''), ' ', '')),
+                 'TH', 'Θ'), 'CH', 'Χ'), 'PS', 'Ψ'), 'KS', 'Ξ'), 'OU', 'ΟΥ'),
+                 'ABGDEZHIKLMNXOPRSTYFWVCQUJ', 'ΑΒΓΔΕΖΗΙΚΛΜΝΞΟΠΡΣΤΥΦΩΒΚΚΥΤ'), 3);
   v_rows int;
 begin
   if (select count(*) from public.track_hits h where h.ip = v_ip and h.at > now() - interval '15 minutes') >= 20 then
@@ -79,7 +84,7 @@ begin
      and (regexp_replace(p.receipt_no, '\D', '', 'g') = v_d
           or (length(regexp_replace(p.receipt_no, '\D', '', 'g')) > length(v_d) and regexp_replace(p.receipt_no, '\D', '', 'g') like '%' || v_d)
           or (length(v_d) > length(regexp_replace(p.receipt_no, '\D', '', 'g')) and v_d like '%' || regexp_replace(p.receipt_no, '\D', '', 'g') and length(regexp_replace(p.receipt_no, '\D', '', 'g')) >= 10))
-     and left(split_part(public.norm_key(p.recipient_name), ' ', 1), 3) = v_n
+     and left(split_part(public.norm_key(p.recipient_name), ' ', 1), 3) in (v_n, v_n2)
    order by p.created_at desc
    limit 1;
   get diagnostics v_rows = row_count;

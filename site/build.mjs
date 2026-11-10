@@ -3,6 +3,7 @@
 // Χωρίς εξαρτήσεις. Σελίδες: site/src/pages/*.html (ελληνικά) και site/src/pages-en/*.html (αγγλικά, στο /en/).
 // Η πρώτη γραμμή κάθε σελίδας είναι <!--meta {...}-->.
 import { readFileSync, writeFileSync, mkdirSync, readdirSync, copyFileSync, rmSync, existsSync, statSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import * as DATA0 from "./src/data.mjs";
@@ -84,8 +85,15 @@ for (const f of readdirSync(join(ROOT, "src/assets"))) {
 const PHOTO_DIR = join(ROOT, "src/assets/photos");
 const calcSrc = readFileSync(join(ROOT, "src/calc.mjs"), "utf8").replace(/^export /gm, "");
 const site = { ...DATA, EN, SCHEDULE: SCHED.map(({ dest, time, days, express, conn, notes }) => ({ dest, time, days, express, conn, notes })), SUPABASE: { url: SUPABASE_URL, key: SUPABASE_KEY } };
-writeFileSync(join(OUT, "assets/app.js"),
-  `// Παράγεται από site/build.mjs — μην το αλλάζετε με το χέρι.\n"use strict";\nconst SITE = ${JSON.stringify(site)};\n${calcSrc}\n${readFileSync(join(ROOT, "src/client.js"), "utf8")}`);
+const APP_JS = `// Παράγεται από site/build.mjs — μην το αλλάζετε με το χέρι.\n"use strict";\nconst SITE = ${JSON.stringify(site)};\n${calcSrc}\n${readFileSync(join(ROOT, "src/client.js"), "utf8")}`;
+writeFileSync(join(OUT, "assets/app.js"), APP_JS);
+// Γραμματοσειρές από το δικό μας σάιτ: μπαίνουν στην αρχή του site.css (ένα αρχείο, κανένα αίτημα σε τρίτους).
+const SITE_CSS = readFileSync(join(ROOT, "src/assets/fonts.css"), "utf8") + "\n" + readFileSync(join(ROOT, "src/assets/site.css"), "utf8");
+writeFileSync(join(OUT, "assets/site.css"), SITE_CSS);
+rmSync(join(OUT, "assets/fonts.css"), { force: true });
+// Έκδοση αρχείων (?v=…): αλλάζει μόνο όταν αλλάζει το περιεχόμενο, άρα ο browser μπορεί να τα κρατά για καιρό.
+const ver = s => createHash("sha256").update(s).digest("hex").slice(0, 10);
+const V_CSS = ver(SITE_CSS), V_JS = ver(APP_JS);
 
 // ---------- εικονίδια (SVG, inline) ----------
 const I = {
@@ -127,7 +135,7 @@ const WA_URL = `https://wa.me/30${B.mobile}`, VB_URL = `viber://chat?number=%2B3
 const C = DATA.CATEGORIES;
 // Αντιστοίχιση σελίδων ελληνικά ↔ αγγλικά (αγγλικά στο /en/)
 const SLUG = { index: "index", apostoli: "send", paralavi: "receive", anazitisi: "track", proorismoi: "destinations", epixeiriseis: "business",
-  spiti: "home-delivery", klirosi: "giveaway", "syxnes-erotiseis": "faq", epikoinonia: "contact", oroi: "terms", aporrito: "privacy", poll: "poll", nomothesia: "legislation", ladi: "olive-oil", foitites: "students", diaxeirisi: "admin", "diaxeirisi-proorismon": "admin-destinations", "404": "404", "fylaxi-aposkevon": "luggage-storage" };
+  spiti: "home-delivery", klirosi: "giveaway", "syxnes-erotiseis": "faq", epikoinonia: "contact", oroi: "terms", aporrito: "privacy", poll: "poll", nomothesia: "legislation", ladi: "olive-oil", foitites: "students", diaxeirisi: "admin", "diaxeirisi-proorismon": "admin-destinations", "404": "404", "fylaxi-aposkevon": "luggage-storage", istoria: "history" };
 const GR_OF = Object.fromEntries(Object.entries(SLUG).map(([g, e]) => [e, g]));
 // Σελίδες ανά προορισμό («Αποστολή δέματος Αγρίνιο – Αθήνα»): μόνο για απευθείας προορισμούς με τιμές, από τα δεδομένα της διαχείρισης.
 const DEST_PAGES = [["Αθήνα", "athina", "athens", "στην Αθήνα"], ["Πάτρα", "patra", "patras", "στην Πάτρα"], ["Θεσσαλονίκη", "thessaloniki", "thessaloniki", "στη Θεσσαλονίκη"], ["Ιωάννινα", "ioannina", "ioannina", "στα Ιωάννινα"],
@@ -188,9 +196,9 @@ function makeLang(lang) {
     }${ow.enabled ? `<tr><th scope="row" style="font-weight:600">${t(`Ανά κιλό πάνω από ${ow.fromKg} kg`, `Per kg over ${ow.fromKg} kg`)}</th>${order.map(k => `<td>+${money2(kgRate(ow, DATA.TARIFFS[k]))}</td>`).join("")}</tr>` : ""}</tbody></table></div><p class="caption">${t("Ενδεικτικές τιμές από τον επίσημο τιμοκατάλογο του ΚΤΕΛ Αιτωλοακαρνανίας, ανά τεμάχιο, με ΦΠΑ. Η τελική τιμή βγαίνει στον πάγκο, μετά από ζύγισμα και μέτρηση.", "Indicative prices from the official KTEL Aetolia-Acarnania price list, per item, VAT included. The final price is set at the counter after weighing and measuring.")}${
       ow.enabled ? " " + t(`Επιβάρυνση βάρους (τελευταία γραμμή): για κουτιά, φακέλους και τσουβάλια, ανά κιλό πάνω από ${ow.fromKg} kg και ανά τεμάχιο, στρογγυλεμένη στο επόμενο ευρώ. Τενεκέδες και αρνί έχουν σταθερή τιμή.`, `Weight surcharge (last row): for boxes, envelopes and sacks, per kg over ${ow.fromKg} kg and per item, rounded up to the next euro. Tins and lamb have a fixed price.`) : ""}</p>`;
   };
-  const sizeTable = () => `<div class="table-wrap"><table class="data"><thead><tr><th scope="col">${t("Κατηγορία", "Category")}</th><th scope="col">${t("Χωράει σε (εκ.)", "Fits in (cm)")}</th><th scope="col">${t("Έως", "Up to")}</th></tr></thead><tbody>${
-    C.filter(c => c.box).map(c => `<tr><th scope="row" style="font-weight:600">${esc(L(c.name))}</th><td class="num">${c.box.L} × ${c.box.W} × ${c.box.H}</td><td class="num">${kgFmt(c.kg)} kg</td></tr>`).join("")
-  }<tr><th scope="row" style="font-weight:600">${t("Μεγαλύτερο ή βαρύτερο", "Larger or heavier")}</th><td colspan="2">${t("Καλέστε μας", "Call us")}</td></tr></tbody></table></div><p class="caption">${t("Μετράει η μεγαλύτερη κατηγορία από τις δύο: διαστάσεις ή βάρος. Ένα μικρό κουτί 8 κιλών χρεώνεται ως μεσαίο.", "The larger of the two counts: size or weight. A small box weighing 8 kg is charged as medium.")}</p>`;
+  const sizeTable = () => `<div class="table-wrap"><table class="data stack"><thead><tr><th scope="col">${t("Κατηγορία", "Category")}</th><th scope="col">${t("Χωράει σε (εκ.)", "Fits in (cm)")}</th><th scope="col">${t("Έως", "Up to")}</th></tr></thead><tbody>${
+    C.filter(c => c.box).map(c => `<tr><th scope="row" style="font-weight:600">${esc(L(c.name))}</th><td class="num" data-label="${t("Χωράει σε (εκ.)", "Fits in (cm)")}">${c.box.L} × ${c.box.W} × ${c.box.H}</td><td class="num" data-label="${t("Έως", "Up to")}">${kgFmt(c.kg)} kg</td></tr>`).join("")
+  }<tr><th scope="row" style="font-weight:600">${t("Μεγαλύτερο ή βαρύτερο", "Larger or heavier")}</th><td colspan="2" style="grid-column:1/-1">${t("Καλέστε μας", "Call us")}</td></tr></tbody></table></div><p class="caption">${t("Μετράει η μεγαλύτερη κατηγορία από τις δύο: διαστάσεις ή βάρος. Ένα μικρό κουτί 8 κιλών χρεώνεται ως μεσαίο.", "The larger of the two counts: size or weight. A small box weighing 8 kg is charged as medium.")}</p>`;
 
   const destGroups = () => {
     const by = ty => DATA.DESTINATIONS.filter(d => d.type === ty).sort(sortL);
@@ -276,7 +284,7 @@ function makeLang(lang) {
         const eta = d.type === "transfer" ? (d.eta || DATA.HUBS[d.hub].eta) : d.eta;
         const from = tf && tf.p.fakelos != null ? `${t("από", "from")} ${eur(tf.p.fakelos)}` : "—";
         const calc = d.type === "none" || d.type === "ask" ? "" : `<a href="${link("apostoli")}?to=${encodeURIComponent(d.name)}#ypologismos">${t("Υπολογισμός", "Calculate")}</a>`;
-        return `<tr data-q="${esc((d.name + " " + L(d.name) + " " + d.region + " " + L(d.region)).toLowerCase())}"${d.type === "none" ? ' class="off"' : ""}><th scope="row">${esc(L(d.name))}<small>${esc(L(d.region))}</small></th><td>${tag(d) ? `<span class="tag ${tag(d)}">${esc(typeTxt(d))}</span>` : esc(typeTxt(d))}</td><td>${tf ? esc(L(tf.label)) : "—"}</td><td>${from}</td><td>${esc(days) || "—"}</td><td class="wrap-cell">${esc(L(eta) || "")}</td><td>${calc}</td></tr>`;
+        return `<tr data-q="${esc((d.name + " " + L(d.name) + " " + d.region + " " + L(d.region)).toLowerCase())}"${DEST_PAGES.some(p => p.d.name === d.name) ? ' data-top="1"' : ""}${d.type === "none" ? ' class="off"' : ""}><th scope="row">${esc(L(d.name))}<small>${esc(L(d.region))}</small></th><td>${tag(d) ? `<span class="tag ${tag(d)}">${esc(typeTxt(d))}</span>` : esc(typeTxt(d))}</td><td>${tf ? esc(L(tf.label)) : "—"}</td><td>${from}</td><td>${esc(days) || "—"}</td><td class="wrap-cell">${esc(L(eta) || "")}</td><td>${calc}</td></tr>`;
       }).map(r => { const lab = [t("Πώς πάει", "Route"), t("Τιμοκατάλογος", "Price list"), t("Φάκελος", "Envelope"), t("Μέρες", "Days"), t("Παράδοση", "Delivery"), ""]; let i = 0;
         return r.replace(/<td( class="[^"]*")?>/g, (m, c) => `<td${c || ""} data-label="${esc(lab[i++] || "")}">`); }).join("");
       return `<div class="field" style="max-width:420px;margin-bottom:12px"><label for="dt-q">${t("Βρείτε πόλη", "Find a town")}</label><input id="dt-q" type="search" data-dest-filter placeholder="${t("π.χ. Τρίπολη", "e.g. Tripoli")}" autocomplete="off"></div>
@@ -284,9 +292,9 @@ function makeLang(lang) {
 <p class="caption" data-dest-count></p>`;
     },
     "{{packingTable}}": () => { const P = DATA.PACKING, m = n => (lang === "en" ? `€${Number.isInteger(n) ? n : n.toFixed(2)}` : `${Number.isInteger(n) ? n : n.toFixed(2).replace(".", ",")} €`);
-      return `<div class="table-wrap"><table class="data"><thead><tr><th scope="col">${t("Είδος", "Item")}</th><th scope="col">${t("Μόνο υλικό", "Material only")}</th><th scope="col">${t("Το πακετάρουμε εμείς", "We pack it")}</th></tr></thead><tbody>${
-        P.items.map(i => `<tr><th scope="row" style="font-weight:600">${esc(L(i.name))}</th><td>${m(i.material)}</td><td>${m(i.service)}</td></tr>`).join("")
-      }<tr><th scope="row" style="font-weight:600">${t("Εύθραυστο (γέμισμα, σήμανση)", "Fragile (padding, labels)")}</th><td>—</td><td>+${m(P.fragile)}</td></tr></tbody></table></div><p class="caption">${t("Με ΦΠΑ. Ταινία και stretch film δωρεάν με την αγορά κούτας. Η συσκευασία χρεώνεται χωριστά από τον ναύλο του ΚΤΕΛ.", "VAT included. Tape and stretch film free with any box. Packing is charged separately from the KTEL fare.")}</p>`; },
+      return `<div class="table-wrap"><table class="data stack"><thead><tr><th scope="col">${t("Είδος", "Item")}</th><th scope="col">${t("Μόνο υλικό", "Material only")}</th><th scope="col">${t("Το πακετάρουμε εμείς", "We pack it")}</th></tr></thead><tbody>${
+        P.items.map(i => `<tr><th scope="row" style="font-weight:600">${esc(L(i.name))}</th><td data-label="${t("Μόνο υλικό", "Material only")}">${m(i.material)}</td><td data-label="${t("Το πακετάρουμε εμείς", "We pack it")}">${m(i.service)}</td></tr>`).join("")
+      }<tr><th scope="row" style="font-weight:600">${t("Εύθραυστο (γέμισμα, σήμανση)", "Fragile (padding, labels)")}</th><td data-label="${t("Μόνο υλικό", "Material only")}">—</td><td data-label="${t("Το πακετάρουμε εμείς", "We pack it")}">+${m(P.fragile)}</td></tr></tbody></table></div><p class="caption">${t("Με ΦΠΑ. Ταινία και stretch film δωρεάν με την αγορά κούτας. Η συσκευασία χρεώνεται χωριστά από τον ναύλο του ΚΤΕΛ.", "VAT included. Tape and stretch film free with any box. Packing is charged separately from the KTEL fare.")}</p>`; },
     "{{cEnd}}": () => dateTxt(DATA.CONTEST.end), "{{cDraw}}": () => dateTxt(DATA.CONTEST.draw), "{{cWinners}}": () => DATA.CONTEST.winners,
     "{{cDeliveries}}": () => DATA.CONTEST.prizeDeliveries, "{{cFallback}}": () => DATA.CONTEST.fallbackShipments, "{{cFallbackUntil}}": () => dateTxt(DATA.CONTEST.fallbackUntil),
     "{{owFrom}}": () => ow.fromKg, "{{owShare}}": () => Math.round(ow.share * 100),
@@ -367,12 +375,12 @@ ${meta.noindex ? '<meta name="robots" content="noindex">\n' : `<link rel="canoni
 <link rel="alternate" hreflang="el" href="${urlOf("el", gr)}"><link rel="alternate" hreflang="en" href="${urlOf("en", gr)}"><link rel="alternate" hreflang="x-default" href="${urlOf("el", gr)}">`}
 <meta property="og:type" content="website"><meta property="og:locale" content="${t("el_GR", "en_GB")}"><meta property="og:site_name" content="${esc(L(B.name))}">
 <meta property="og:title" content="${esc(meta.title)}"><meta property="og:description" content="${esc(meta.description)}">
-<meta property="og:url" content="${url}"><meta property="og:image" content="${B.domain}/assets/og.jpg">
-<meta name="theme-color" content="#0C3456">
+<meta property="og:url" content="${url}"><meta property="og:image" content="${B.domain}/assets/og.jpg"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:locale:alternate" content="${t("en_GB", "el_GR")}">
+<meta name="theme-color" content="#0C3456" media="(prefers-color-scheme: light)"><meta name="theme-color" content="#0A2236" media="(prefers-color-scheme: dark)">
 <link rel="icon" href="${pre}assets/icon-192.png"><link rel="apple-touch-icon" href="${pre}assets/icon-192.png">
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fira+Sans+Condensed:wght@600;700;800&family=Fira+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap">
-<link rel="stylesheet" href="${pre}assets/site.css">
+<link rel="preload" href="${pre}assets/fonts/fira-sans-condensed-greek-700-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="${pre}assets/fonts/fira-sans-greek-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="${pre}assets/site.css?v=${V_CSS}">
 ${ld.map(x => `<script type="application/ld+json">${JSON.stringify(x)}</script>`).join("\n")}
 <!-- Στατιστικά χωρίς cookies (Cloudflare Web Analytics): μπαίνει εδώ μετά τη δημοσίευση. -->`;
     const content = `<a class="skip" href="#main">${t("Μετάβαση στο περιεχόμενο", "Skip to content")}</a>
@@ -380,7 +388,7 @@ ${PROTOTYPE ? `<div class="proto">${t("Πρωτότυπο για έγκριση 
 <header class="site-head"><div class="wrap">
   <a class="brand" href="${link("index")}"><span class="chip"><img src="${pre}assets/mark.png" alt="" width="54" height="27"></span><span><b>${t("Αποθήκη Δεμάτων", "Parcel Depot")}</b><small>${t("ΚΤΕΛ Αγρινίου", "KTEL Agrinio")}</small></span></a>
   <a class="lang-switch" href="${other}" hreflang="${t("en", "el")}" lang="${t("en", "el")}">${t("EN", "ΕΛ")}</a>
-  <button class="menu-btn" type="button" aria-expanded="false" aria-controls="nav">${t("Μενού", "Menu")}</button>
+  <button class="menu-btn" type="button" aria-expanded="false" aria-controls="nav"><svg class="mb-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg><span class="mb-txt">${t("Μενού", "Menu")}</span></button>
   <nav class="nav" id="nav" aria-label="${t("Κύριο μενού", "Main menu")}">${nav}<a class="call" href="tel:+30${B.phone}">${B.phoneDisplay}</a></nav>
 </div></header>
 <main id="main">
@@ -395,10 +403,11 @@ ${body}
 </div></footer>
 <nav class="quickbar" aria-label="${t("Γρήγορες ενέργειες", "Quick actions")}">
   <a href="tel:+30${B.phone}">${I.phone}<span>${t("Κλήση", "Call")}</span></a>
-  <a href="${link("anazitisi")}"${gr === "anazitisi" ? ' aria-current="page"' : ""}>${I.search}<span>${t("Πού είναι το δέμα", "Track parcel")}</span></a>
-  <a href="${link("apostoli")}#ypologismos"${gr === "apostoli" ? ' aria-current="page"' : ""}>${I.send}<span>${t("Πόσο κοστίζει", "Price")}</span></a>
+  <a href="${WA_URL}">${I.chat || I.phone}<span>WhatsApp</span></a>
+  <a href="${link("anazitisi")}"${gr === "anazitisi" ? ' aria-current="page"' : ""}>${I.search}<span>${t("Το δέμα μου", "My parcel")}</span></a>
+  <a href="${link("apostoli")}#ypologismos"${gr === "apostoli" ? ' aria-current="page"' : ""}>${I.send}<span>${t("Τιμή", "Price")}</span></a>
 </nav>
-<script src="${pre}assets/app.js"></script>`;
+<script src="${pre}assets/app.js?v=${V_JS}"></script>`;
     if (ARTIFACT && lang === "el" && gr === "index") return `${headInner}\n${content}\n`;
     return `<!doctype html>\n<html lang="${lang}">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">\n${headInner}\n</head>\n<body>\n${content}\n</body>\n</html>\n`;
   }
@@ -431,19 +440,19 @@ ${body}
   <h2>${t("Με μια ματιά", "At a glance")}</h2>
   <ul class="access">${facts.map(([k, v, ph]) => `<li><b>${k}:</b> ${esc(v)}${ph ? ` · ${String(ph).split(/\s*[,;]\s*/).map(n => `<a class="num" href="tel:${n.replace(/[^\d+]/g, "").replace(/^(?!\+)/, "+30")}">${esc(n)}</a>`).join(", ")}` : ""}</li>`).join("")}</ul>
   ${d.name === "Αθήνα" && DATA.HOME.athens ? `<div class="notice info" style="margin-top:16px;max-width:70ch"><b>${t("Παραλαβή κατ' οίκον στην Αθήνα", "Delivery to your door in Athens")}${DATA.HOME.athens.active ? "" : ` <span class="tag">${t("Σύντομα", "Soon")}</span>`}</b>${(brandImg("asap", "", 20) ? brandImg("asap", DATA.HOME.athens.partner, 20) + " " : "") + t(`Σε συνεργασία με την ${esc(DATA.HOME.athens.partner)}: ο παραλήπτης το παίρνει στο σπίτι ή στο γραφείο, χωρίς να πάει στον Κηφισό.`, `In partnership with ${esc(DATA.HOME.athens.partner)}: the recipient gets it at home or at work, without going to Kifisos.`)} <a href="${link("spiti")}#${lang === "en" ? "athens" : "athina"}">${t("Περισσότερα →", "More →")}</a></div>` : ""}
-  <h2 style="margin-top:32px">${t(`Τιμές για ${esc(name)}`, `Prices to ${esc(name)}`)}</h2>
-  <div class="table-wrap"><table class="data"><thead><tr><th scope="col">${t("Είδος δέματος", "Item")}</th><th scope="col">${t("Τιμή", "Price")}</th></tr></thead><tbody>${
+  <h2>${t(`Τιμές για ${esc(name)}`, `Prices to ${esc(name)}`)}</h2>
+  <div class="table-wrap narrow"><table class="data two"><thead><tr><th scope="col">${t("Είδος δέματος", "Item")}</th><th scope="col">${t("Τιμή", "Price")}</th></tr></thead><tbody>${
     C.map(c => { const v = tf.p[c.id]; return `<tr><th scope="row" style="font-weight:600">${esc(L(c.name))}</th><td class="${v == null ? "na" : "num"}">${v == null ? t("ρωτήστε", "ask") : eur(v)}</td></tr>`; }).join("")
   }${ow.enabled ? `<tr><th scope="row" style="font-weight:600">${t(`Ανά κιλό πάνω από ${ow.fromKg} kg`, `Per kg over ${ow.fromKg} kg`)}</th><td class="num">+${money2(kgRate(ow, tf))}</td></tr>` : ""}</tbody></table></div>
   <p class="caption">${t("Ενδεικτικές τιμές από τον επίσημο τιμοκατάλογο του ΚΤΕΛ Αιτωλοακαρνανίας, ανά τεμάχιο, με ΦΠΑ. Η τελική τιμή βγαίνει στον πάγκο.", "Indicative prices from the official KTEL Aetolia-Acarnania price list, per item, VAT included. The final price is set at the counter.")} <a href="${link("apostoli")}#ypologismos">${t("Ποιο μέγεθος είναι το δέμα μου;", "Which size is my parcel?")}</a></p>
-  ${rows.length ? `<h2 style="margin-top:32px">${t("Αναχωρήσεις από το Αγρίνιο", "Departures from Agrinio")}</h2>
+  ${rows.length ? `<h2>${t("Αναχωρήσεις από το Αγρίνιο", "Departures from Agrinio")}</h2>
   <div class="table-wrap"><table class="data"><thead><tr><th scope="col">${t("Ώρα", "Time")}</th><th scope="col">${t("Μέρες", "Days")}</th><th scope="col">${t("Σημείωση", "Note")}</th></tr></thead><tbody>${
     rows.map(r => `<tr><td class="num">${r.time}</td><td>${esc(daysLabel([r], [r.dest], lang))}</td><td>${[r.express ? "Express" : "", r.notes ? esc(noteTxt(r.notes)) : ""].filter(Boolean).join(" · ")}</td></tr>`).join("")
   }</tbody></table></div>
   <p class="caption">${t(`Λεωφορεία που παίρνουν δέματα. Φέρτε το δέμα στο ταμείο τουλάχιστον ${B.cutoffMin} λεπτά πριν. Τις αργίες τα δρομολόγια μπορεί να αλλάζουν.`, `Buses that carry parcels. Bring your parcel to the counter at least ${B.cutoffMin} minutes before. Holiday timetables may differ.`)}</p>` : ""}
-  <h2 style="margin-top:32px">${t("Πώς στέλνω", "How to send")}</h2>
+  <h2>${t("Πώς στέλνω", "How to send")}</h2>
   <ol class="steps"><li><div><b>${t("Συσκευάστε το δέμα", "Pack the parcel")}</b><p>${t("Γράψτε πάνω ονοματεπώνυμο και κινητό του παραλήπτη, όπως στην ταυτότητά του.", "Write the recipient’s full name, as on their ID, and mobile number on it.")}</p></div></li><li><div><b>${t("Φέρτε το στην αποθήκη", "Bring it to the warehouse")}</b><p>${t(`Δεξιά από την είσοδο του σταθμού ΚΤΕΛ Αγρινίου. ${esc(B.hours.map(x => L(x.days) + " " + x.time).join(" · "))}.`, `To the right of the Agrinio KTEL station entrance. ${esc(B.hours.map(x => L(x.days) + " " + x.time).join(" · "))}.`)}</p></div></li><li><div><b>${t("Πληρώνετε και φεύγει", "Pay and it’s on its way")}</b><p>${t(`Μετρητά, κάρτα ή IRIS. Ο παραλήπτης ειδοποιείται με SMS όταν φτάσει ${p.eis}.`, `Cash, card or IRIS. The recipient gets an SMS when it reaches ${esc(name)}.`)}</p></div></li></ol>
-  <h2 style="margin-top:32px">${t("Άλλοι προορισμοί", "Other destinations")}</h2>
+  <h2>${t("Άλλοι προορισμοί", "Other destinations")}</h2>
   <ul class="dest-list">${others}<li><a href="${link("proorismoi")}">${t("Όλοι οι προορισμοί →", "All destinations →")}</a></li></ul>
 </div></section>`;
     const U = g => B.domain + "/" + (lang === "en" ? "en/" : "") + (g === "index" ? "" : (lang === "en" ? SLUG[g] : g) + EXT);
@@ -454,8 +463,8 @@ ${body}
     const meta = {
       ldExtra: [crumbsLd],
       title: t(`Αποστολή δέματος Αγρίνιο – ${name} · Τιμές & δρομολόγια ΚΤΕΛ`, `Parcel from Agrinio to ${name} · KTEL prices & times`),
-      description: t(`Δέμα από το Αγρίνιο ${p.eis} με το ΚΤΕΛ: ${fromTxt}.${days ? ` Δρομολόγια: ${days}.` : ""} Τιμές ανά είδος και ώρες αναχώρησης.`,
-        `Parcels from Agrinio to ${name} by KTEL bus: ${fromTxt}.${days ? ` Departures: ${days}.` : ""} Prices by item and departure times.`),
+      description: t(`Δέμα από το Αγρίνιο ${p.eis} με το ΚΤΕΛ: ${fromTxt}. Τιμές, ώρες αναχώρησης και σημείο παραλαβής.`,
+        `Parcels from Agrinio to ${name} by KTEL bus: ${fromTxt}. Prices, departure times and pickup point.`),
     };
     return { meta, body };
   }
@@ -464,7 +473,16 @@ ${body}
 
 // ---------- σελίδες ----------
 // Το Cloudflare Pages σερβίρει /apostoli για το apostoli.html (και ανακατευθύνει το .html): σύνδεσμοι χωρίς .html.
+// Πίνακες που σκρολάρουν οριζόντια: να φτάνει κανείς σε αυτούς και με πληκτρολόγιο, με όνομα από την προηγούμενη επικεφαλίδα.
+function a11yTables(html) {
+  return html.replace(/<div class="table-wrap( [^"]*)?">/g, (m, cls, off) => {
+    const before = html.slice(Math.max(0, off - 1500), off), hs = [...before.matchAll(/<h[23][^>]*>([\s\S]*?)<\/h[23]>/g)];
+    const label = hs.length ? hs[hs.length - 1][1].replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim() : "";
+    return `<div class="table-wrap${cls || ""}" tabindex="0" role="region" aria-label="${label || (html.includes('lang="en"') ? "Table" : "Πίνακας")}">`;
+  });
+}
 function cleanLinks(html) {
+  html = a11yTables(html);
   if (ARTIFACT) return html;
   return html
     .replace(/(href|action)="(?!https?:|mailto:|tel:|#|\/\/|viber:)([^"]*?)\.html(?=["#?])/g, '$1="$2')
@@ -508,7 +526,9 @@ if (!ARTIFACT) writeFileSync(join(OUT, "_headers"), `/*
   X-Frame-Options: SAMEORIGIN
   Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()
   Strict-Transport-Security: max-age=31536000
-  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' ${SUPABASE_URL} https://api.cloudflare.com; frame-ancestors 'self'; base-uri 'self'; form-action 'self'; object-src 'none'
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' ${SUPABASE_URL} https://api.cloudflare.com; frame-ancestors 'self'; base-uri 'self'; form-action 'self'; object-src 'none'
+/assets/*
+  Cache-Control: public, max-age=604800, stale-while-revalidate=86400
 /diaxeirisi*
   X-Robots-Tag: noindex, nofollow
   Cache-Control: no-store

@@ -18,10 +18,36 @@
   const B = SITE.BUSINESS;
   const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
   const LOCALE = T("el-GR", "en-GB");
+  const SMOOTH = REDUCED ? "auto" : "smooth";
+  const CALC = LANG === "en" ? "send" : "apostoli";
+  const telA = (n, txt) => h("a", { class: "num", href: "tel:+30" + String(n).replace(/\D/g, "") }, txt || n);
+  const contactNodes = () => [T("Καλέστε μας στο ", "Call us on "), telA(B.phone, B.phoneDisplay), T(" ή γράψτε μας στο ", " or message us on "), h("a", { href: "https://wa.me/30" + B.mobile }, "WhatsApp"), "."];
 
-  // Μενού κινητού
+  // Μενού κινητού: κλείνει με Esc και όταν πατηθεί σύνδεσμος
   const mb = $(".menu-btn"), nav = $(".nav");
-  if (mb && nav) mb.addEventListener("click", () => { const o = nav.classList.toggle("open"); mb.setAttribute("aria-expanded", o); });
+  if (mb && nav) {
+    const setOpen = o => { nav.classList.toggle("open", o); mb.setAttribute("aria-expanded", o); };
+    mb.addEventListener("click", () => setOpen(!nav.classList.contains("open")));
+    nav.addEventListener("click", e => { if (e.target.closest("a")) setOpen(false); });
+    addEventListener("keydown", e => { if (e.key === "Escape" && nav.classList.contains("open")) { setOpen(false); mb.focus(); } });
+  }
+
+  // «Ανοιχτά τώρα» (αρχική)
+  const openEl = $("[data-open-now]");
+  if (openEl) {
+    const DOWS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+    const mins = x => Number(x.slice(0, 2)) * 60 + Number(x.slice(3, 5));
+    const upd = () => {
+      const n = athensNow(), hrs = d => (B.hours || []).find(x => x.schema && x.schema.d.includes(DOWS[d]));
+      const closedDay = d => (B.closedDates || []).includes(d);
+      const today = hrs(n.dow), isOpen = today && !closedDay(n.ymd) && n.minutes >= mins(today.schema.o) && n.minutes < mins(today.schema.c);
+      if (isOpen) { openEl.textContent = T(`Ανοιχτά τώρα, έως ${today.schema.c}`, `Open now, until ${today.schema.c}`); openEl.classList.remove("closed"); }
+      else { const next = today && n.minutes < mins(today.schema.o) && !closedDay(n.ymd) ? today : hrs((n.dow + 1) % 7);
+        openEl.textContent = T(`Κλειστά τώρα · ανοίγει ${next && next !== today ? "αύριο " : ""}${next ? next.schema.o : ""}`, `Closed now · opens ${next && next !== today ? "tomorrow " : ""}${next ? next.schema.o : ""}`); openEl.classList.add("closed"); }
+      openEl.hidden = false;
+    };
+    upd(); setInterval(upd, 60000);
+  }
 
   // ---------- Δρομολόγια με δέματα (ζωντανά, από τη διαχείριση) ----------
   // Η λίστα ορίζεται στη σελίδα διαχείρισης (site_schedule)· αν δεν απαντήσει, μένει η λίστα της ιστοσελίδας.
@@ -42,30 +68,36 @@
 
   // ---------- Πίνακας αναχωρήσεων (αρχική) ----------
   const board = $("[data-board]");
-  let boardDrawn = false;
+  let boardDrawn = false, boardAt = 0;
   if (board) {
     const picks = ["ΑΘΗΝΑ", "ΠΑΤΡΑ", "ΘΕΣΣΑΛΟΝΙΚΗ", "ΙΩΑΝΝΙΝΑ", "ΛΕΥΚΑΔΑ", "ΑΡΤΑ", "ΝΑΥΠΑΚΤΟΣ", "ΜΕΣΟΛΟΓΓΙ", "ΑΜΦΙΛΟΧΙΑ", "ΛΑΡΙΣΑ", "ΒΟΛΟΣ", "ΚΑΛΑΜΑΤΑ", "ΠΥΡΓΟΣ", "ΧΑΝΙΑ", "ΗΡΑΚΛΕΙΟ", "ΚΕΡΚΥΡΑ", "ΚΟΖΑΝΗ"];
     const pretty = k => { const d = SITE.DESTINATIONS.find(x => x.sched && x.sched[0] === k); return d ? L(d.name) : k; };
     const draw = () => {
       const now = athensNow();
       const rows = [];
-      for (const k of picks) { const [n] = nextDepartures(SITE.SCHEDULE, [k], now, 1, LANG); if (n) rows.push({ k, ...n }); }
+      // Μόνο λεωφορεία που προλαβαίνει ακόμα ένα δέμα (ίδιος κανόνας με τον υπολογιστή και το «ταξίδι»).
+      for (const k of picks) { const n = nextDepartures(SITE.SCHEDULE, [k], now, 4, LANG).map(d => ({ ...d, drop: dropOff(B, d.dow, d.time) })).find(d => d.rel * 1440 + d.drop.min > now.minutes && !d.drop.early); if (n) rows.push({ k, ...n }); }
       const order = r => Math.min(r.rel, 2) * 1440 + Number(r.time.slice(0, 2)) * 60 + Number(r.time.slice(3));
       rows.sort((a, b) => order(a) - order(b));
       const tb = $("tbody", board);
       // Γραμμές που άλλαξαν (ή όλες, την πρώτη φορά) «γυρίζουν» σαν πινακίδα σταθμού· η ώρα «τρέχει» πριν σταθεροποιηθεί.
-      const prev = [...tb.rows].map(tr => tr.textContent);
+      // Συγκρίνουμε ανά προορισμό: «γυρίζει» μόνο η γραμμή που άλλαξε (όχι όλες, όταν έρθουν τα ζωντανά δεδομένα).
+      const prev = new Map([...tb.rows].map(tr => [tr.dataset.k, tr.textContent]));
+      const quiet = boardDrawn && performance.now() - boardAt < 1500;
       tb.textContent = ""; let fi = 0;
-      rows.slice(0, 7).forEach((r, i) => {
-        const tr = h("tr", {}, h("td", { class: "t" }, r.time), h("td", { class: "d" }, pretty(r.k)), h("td", { class: "x" }, r.rel === 0 ? (r.express ? "Express" : "") : r.day));
+      const digit = (c, i) => String(Math.floor(Math.random() * (i === 0 ? 3 : i === 3 ? 6 : 10)));
+      rows.slice(0, 7).forEach(r => {
+        const dest = SITE.DESTINATIONS.find(x => x.sched && x.sched[0] === r.k);
+        const tr = h("tr", { "data-k": r.k }, h("td", { class: "t" }, r.time), h("td", { class: "d" }, dest ? h("a", { href: `${CALC}?to=${encodeURIComponent(dest.name)}#ypologismos` }, L(dest.name)) : pretty(r.k)), h("td", { class: "x" }, r.rel === 0 ? (r.express ? "Express" : "") : r.day));
         tb.append(tr);
-        if (!REDUCED && (!boardDrawn || prev[i] !== tr.textContent)) {
+        if (!REDUCED && !quiet && (!boardDrawn || prev.get(r.k) !== tr.textContent)) {
           const k = fi++; tr.style.setProperty("--fi", k); tr.classList.add("flip");
           const t = tr.cells[0], fin = r.time, end = performance.now() + 380 + k * 70;
-          const tick = () => { if (performance.now() >= end) { t.textContent = fin; return; } t.textContent = fin.replace(/\d/g, () => Math.floor(Math.random() * 10)); setTimeout(tick, 50); };
+          const tick = () => { if (performance.now() >= end) { t.textContent = fin; return; } t.textContent = fin.replace(/\d/g, digit); setTimeout(tick, 50); };
           tick(); tr.addEventListener("animationend", () => tr.classList.remove("flip"), { once: true });
         }
       });
+      if (!boardDrawn) boardAt = performance.now();
       boardDrawn = true;
       $("time", board).textContent = new Intl.DateTimeFormat(LOCALE, { timeZone: "Europe/Athens", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date());
     };
@@ -87,26 +119,36 @@
     const groups = [["direct", T("Απευθείας δρομολόγια", "Direct buses")], ["local", T("Εντός Νομού Αιτωλοακαρνανίας", "Within Aetolia-Acarnania")], ["transfer", T("Με ανταπόκριση", "With connection")], ["ask", T("Ρωτήστε μας", "Ask us")], ["none", T("Δεν εξυπηρετούνται", "Not served")]];
     const sel = h("select", { id: "c-dest", required: true }, h("option", { value: "" }, T("Διαλέξτε προορισμό…", "Choose destination…")),
       groups.map(([t, label]) => { const list = SITE.DESTINATIONS.filter(d => d.type === t); return list.length ? h("optgroup", { label }, list.slice().sort((a, b) => L(a.name).localeCompare(L(b.name), LANG)).map(d => h("option", { value: d.name }, L(d.name)))) : null; }));
-    const num = (id, label, ph, step = "1") => h("div", { class: "field" }, h("label", { for: id }, label), h("input", { id, type: "number", inputmode: "decimal", min: "0", step, placeholder: ph }));
+    const num = (id, label, ph, step = "1") => h("div", { class: "field" }, h("label", { for: id }, label), h("input", { id, type: "number", inputmode: "decimal", min: "0", step, placeholder: T("π.χ. ", "e.g. ") + ph }));
     const form = h("form", { class: "form panel", novalidate: true },
-      h("fieldset", {}, h("legend", { class: "legend" }, T("1. Τι στέλνετε;", "1. What are you sending?")),
+      h("div", { class: "grid g2" },
+        h("div", { class: "field" }, h("label", { for: "c-dest" }, T("1. Πού το στέλνετε;", "1. Where to?")), sel),
+        h("div", { class: "field" }, h("label", { for: "c-n" }, T("Τεμάχια", "Items")), h("input", { id: "c-n", type: "number", inputmode: "numeric", min: "1", max: "99", value: "1" }))),
+      h("fieldset", {}, h("legend", { class: "legend" }, T("2. Τι στέλνετε;", "2. What are you sending?")),
         h("div", { class: "choices", style: "margin-top:8px" }, KINDS.map((k, i) => h("label", { class: "choice" }, h("input", { type: "radio", name: "kind", value: k.id, checked: i === 1 }), h("span", {}, k.name, h("small", {}, k.sub)))))),
-      h("div", { id: "c-dims-wrap", class: "field" }, h("span", { class: "legend" }, T("2. Διαστάσεις (εκ.) και βάρος", "2. Size (cm) and weight")),
+      h("div", { id: "c-dims-wrap", class: "field" }, h("span", { class: "legend" }, T("3. Διαστάσεις (εκ.) και βάρος", "3. Size (cm) and weight")),
         h("div", { class: "dims" }, num("c-l", T("Μήκος", "Length"), "40"), num("c-w", T("Πλάτος", "Width"), "30"), num("c-h", T("Ύψος", "Height"), "20"), num("c-kg", T("Κιλά", "Kg"), "3", "0.1")),
         h("div", { class: "hint" }, T("Μετρήστε την κούτα κλειστή, μαζί με τη συσκευασία.", "Measure the closed box, including packaging."), owHint ? " " + owHint : "")),
-      h("div", { id: "c-skg-wrap", class: "field", hidden: true }, h("label", { for: "c-skg" }, T("2. Βάρος τσουβαλιού (κιλά)", "2. Sack weight (kg)")),
+      h("div", { id: "c-skg-wrap", class: "field", hidden: true }, h("label", { for: "c-skg" }, T("3. Βάρος τσουβαλιού (κιλά)", "3. Sack weight (kg)")),
         h("input", { id: "c-skg", type: "number", inputmode: "decimal", min: "0", max: "30", step: "0.1", placeholder: T("π.χ. 20", "e.g. 20") }), owHint ? h("div", { class: "hint" }, owHint) : null),
       h("label", { id: "c-syn-wrap", class: "check", hidden: true }, h("input", { type: "checkbox", id: "c-syn" }), h("span", {}, T("Θα ταξιδέψω κι εγώ με το ίδιο λεωφορείο (συνοδευόμενος τενεκές)", "I will travel on the same bus (accompanied tin)"))),
-      h("div", { class: "grid g2" },
-        h("div", { class: "field" }, h("label", { for: "c-dest" }, T("3. Προορισμός", "3. Destination")), sel),
-        h("div", { class: "field" }, h("label", { for: "c-n" }, T("Τεμάχια", "Items")), h("input", { id: "c-n", type: "number", inputmode: "numeric", min: "1", max: "99", value: "1" }))),
       h("div", { class: "field" }, h("label", { for: "c-desc" }, T("Περιγραφή (προαιρετικά)", "Contents (optional)")), h("input", { id: "c-desc", type: "text", placeholder: T("Π.χ. ανταλλακτικά, ρούχα, έγγραφα", "E.g. spare parts, clothes, documents"), autocomplete: "off" }),
         h("div", { class: "hint" }, T("Δεν αλλάζει την τιμή. Μας βοηθά να σας πούμε αν κάτι δεν μπορεί να ταξιδέψει.", "Does not change the price. It helps us tell you if something cannot travel."))));
-    const out = h("div", { class: "result", "aria-live": "polite" });
-    calcEl.append(h("div", { class: "calc" }, form, out));
+    const out = h("div", { class: "result" });
+    // Για αναγνώστες οθόνης: μία σύντομη πρόταση, όχι όλο το αποτέλεσμα σε κάθε πλήκτρο.
+    const say = h("p", { class: "sr-only", "aria-live": "polite" });
+    calcEl.append(h("div", { class: "calc" }, form, out), say);
+    let sayT = 0, lastTotal = null, howOpen = true;
+    const announce = txt => { clearTimeout(sayT); sayT = setTimeout(() => { say.textContent = txt; }, 700); };
 
     const val = id => $("#" + id).value;
+    const NUMS = new Set(["c-l", "c-w", "c-h", "c-kg", "c-skg", "c-n"]);
+    const nv = id => { const v = $("#" + id).value; return NUMS.has(id) && !(Number(v) > 0) ? "" : v; };
     const contactLine = () => h("p", { style: "margin-top:12px" }, T("Τηλέφωνο ", "Phone "), h("a", { href: "tel:+30" + B.phone, class: "num" }, B.phoneDisplay), " · WhatsApp ", h("a", { href: "https://wa.me/30" + B.mobile, class: "num" }, B.mobileDisplay));
+    const nextStep = () => h("div", { class: "next-step" },
+      h("a", { class: "btn btn-primary", href: "tel:+30" + B.phone }, T("Κλήση ", "Call ") + B.phoneDisplay),
+      h("a", { class: "btn btn-wa", href: "https://wa.me/30" + B.mobile }, "WhatsApp"),
+      h("a", { class: "btn btn-ghost", href: B.mapsUrl, rel: "noopener" }, T("Οδηγίες για την αποθήκη", "Directions to the depot")));
     const render = () => {
       const kind = (form.querySelector("input[name=kind]:checked") || {}).value;
       const isBox = kind === "fakelos" || kind === "box";
@@ -120,29 +162,47 @@
         T("Εύφλεκτα, εκρηκτικά, αέρια, χημικά, όπλα, αιχμηρά και ζωντανά ζώα δεν μεταφέρονται. Αν δεν είστε σίγουροι, ρωτήστε μας πριν έρθετε.", "Flammables, explosives, gas, chemicals, weapons, sharp objects and live animals are not carried. If unsure, ask us before you come.")) : null;
       const oversize = () => { card.append(h("div", { class: "notice warn" }, h("b", {}, T("Μεγάλο ή βαρύ δέμα", "Large or heavy item")), T("Ξεπερνά τα 80 × 60 × 60 εκ. ή τα 30 κιλά. Καλέστε μας για τιμή και για το αν χωράει στο λεωφορείο.", "It exceeds 80 × 60 × 60 cm or 30 kg. Call us for a price and to check it fits on the bus.")), contactLine()); if (warnHit) out.append(warnHit); };
 
-      let catId = kind, classed = null, kg = 0;
+      let catId = kind, classed = null, kg = 0, noDims = false;
       if (isBox) {
-        const dims = [val("c-l"), val("c-w"), val("c-h")];
+        const dims = [nv("c-l"), nv("c-w"), nv("c-h")];
         const filled = dims.filter(Number).length;
         if (filled > 0 && filled < 3) { card.append(h("p", { class: "muted" }, T("Συμπληρώστε και τις τρεις διαστάσεις.", "Fill in all three dimensions."))); return; }
-        classed = classifyBox(SITE.CATEGORIES, filled === 3 ? dims : [], val("c-kg"), kind === "fakelos" ? "fakelos" : "mikro", SITE.SIZE_RULE.weightBumpsCategory);
+        classed = classifyBox(SITE.CATEGORIES, filled === 3 ? dims : [], nv("c-kg"), kind === "fakelos" ? "fakelos" : "mikro", SITE.SIZE_RULE.weightBumpsCategory);
         if (classed.oversize) return oversize();
-        catId = classed.id; kg = val("c-kg");
+        catId = classed.id; kg = nv("c-kg");
+        noDims = kind === "box" && filled === 0 && !kg;
       }
-      if (kind === "tsouvali") { kg = val("c-skg"); if (Number(kg) > 30) return oversize(); }
+      if (kind === "tsouvali") { kg = nv("c-skg"); if (Number(kg) > 30) return oversize(); }
       if (kind === "tenekes" && $("#c-syn").checked) catId = "tenekes_syn";
       const dest = val("c-dest");
       const cat = SITE.CATEGORIES.find(c => c.id === catId);
       const byKg = classed && classed.by === "kg" ? h("span", { class: "muted", style: "font-weight:400" }, T(" (λόγω βάρους)", " (by weight)")) : null;
-      if (!dest) { card.append(h("h3", {}, T("Ενδεικτική τιμή", "Estimated price")), h("p", { class: "muted", style: "margin-top:8px" }, T("Διαλέξτε προορισμό για να δείτε τιμή και επόμενες αναχωρήσεις.", "Choose a destination to see the price and next departures.")), h("dl", { class: "kv" }, h("dt", {}, T("Κατηγορία", "Category")), h("dd", {}, cat ? L(cat.name) : "—", byKg))); if (warnHit) out.append(warnHit); return; }
+      if (!dest) { card.append(h("div", { class: "price-board" }, h("span", { class: "eyebrow" }, T("Ενδεικτική τιμή", "Estimated price")), h("div", { class: "price", style: "margin-top:6px" }, h("span", { class: "big" }, "— €")), h("p", { class: "deadline" }, T("Διαλέξτε πού το στέλνετε", "Choose where it goes"), h("small", {}, T("Θα δείτε τιμή, πότε να το φέρετε και πού το παραλαμβάνουν.", "You will see the price, when to bring it and where it is collected."))))); lastTotal = null; if (warnHit) out.append(warnHit); return; }
 
       const dn = L(dest);
-      const q = quote(SITE, { dest, catId, pieces: val("c-n"), kg });
+      const q = quote(SITE, { dest, catId, pieces: nv("c-n") || 1, kg });
       if (q.status === "none") { card.append(h("div", { class: "notice bad" }, h("b", {}, T(`Δεν στέλνουμε σε ${dn}`, `We do not ship to ${dn}`)), T("Δεν υπάρχει δρομολόγιο ή ανταπόκριση προς τα εκεί από το Αγρίνιο.", "There is no bus or connection there from Agrinio.")), contactLine()); return; }
       if (q.status === "ask" || q.status === "noprice") { card.append(h("div", { class: "notice info" }, h("b", {}, T("Ρωτήστε μας για τιμή", "Ask us for a price")), T(`Για ${dn} η τιμή δίνεται στο ταμείο ή στο τηλέφωνο.`, `For ${dn} we give the price at the counter or by phone.`)), contactLine()); if (warnHit) out.append(warnHit); return; }
 
-      card.append(h("span", { class: "eyebrow" }, q.status === "transfer" ? T("Ενδεικτικό κόστος ΚΤΕΛ Αιτωλοακαρνανίας", "Estimated KTEL Aetolia-Acarnania cost") : T("Ενδεικτική τιμή", "Estimated price")),
-        h("div", { class: "price", style: "margin-top:6px" }, h("span", { class: "big" }, eur(q.total)), h("span", { class: "per" }, q.pieces > 1 ? `${q.pieces} × ${eur(q.perPiece)}` : T("ανά τεμάχιο, με ΦΠΑ", "per item, VAT included"))));
+      const keys = q.dest.sched && q.dest.sched.length ? q.dest.sched : q.hub ? q.hub.sched : null;
+      const now = athensNow();
+      // Κρατάμε μόνο λεωφορεία που προλαβαίνει ακόμα ο πελάτης (μαζί με όσα θέλουν το δέμα από το προηγούμενο βράδυ).
+      const deps = keys ? nextDepartures(SITE.SCHEDULE, keys, now, 8, LANG).map(d => ({ ...d, drop: dropOff(B, d.dow, d.time) }))
+        .filter(d => d.rel * 1440 + d.drop.min > now.minutes && !d.drop.early).slice(0, 3) : [];
+      const cap = w => w.charAt(0).toUpperCase() + w.slice(1);
+      const dayTxt = d => d.rel < 2 ? d.day.toLowerCase() : T("την ", "on ") + d.day;
+      const d0 = deps[0];
+      const deadline = !d0 ? null : d0.drop.same ? T(`Φέρτε το ${dayTxt(d0)} έως τις ${d0.drop.by}`, `Bring it ${dayTxt(d0)} by ${d0.drop.by}`)
+        : d0.rel === 1 ? T(`Φέρτε το σήμερα το βράδυ, έως τις ${d0.drop.by}`, `Bring it this evening, by ${d0.drop.by}`) : T(`Φέρτε το το προηγούμενο βράδυ, έως τις ${d0.drop.by}`, `Bring it the evening before, by ${d0.drop.by}`);
+      const big = h("span", { class: "big" }, (noDims ? T("από ", "from ") : "") + eur(q.total));
+      card.append(h("div", { class: "price-board" },
+        h("span", { class: "eyebrow" }, q.status === "transfer" ? T("Ενδεικτικό κόστος ΚΤΕΛ Αιτωλοακαρνανίας", "Estimated KTEL Aetolia-Acarnania cost") : T("Ενδεικτική τιμή", "Estimated price")),
+        h("div", { class: "price", style: "margin-top:6px" }, big, h("span", { class: "per" }, q.pieces > 1 ? `${q.pieces} × ${eur(q.perPiece)}` : T("ανά τεμάχιο, με ΦΠΑ", "per item, VAT included"))),
+        noDims ? h("p", { class: "deadline" }, T("Για μικρό κουτί", "For a small box"), h("small", {}, T("Βάλτε διαστάσεις και βάρος για ακριβέστερη τιμή.", "Enter size and weight for a closer price."))) : null,
+        deadline ? h("p", { class: "deadline" }, deadline, h("small", {}, T(`Για το λεωφορείο των ${d0.time}, στο ταμείο της αποθήκης.`, `For the ${d0.time} bus, at the depot counter.`))) : null));
+      if (lastTotal !== null && lastTotal !== q.total && !REDUCED) big.classList.add("bump");
+      lastTotal = q.total;
+      announce(T(`Ενδεικτική τιμή ${noDims ? "από " : ""}${eur(q.total)} για ${dn}.${deadline ? " " + deadline + "." : ""}`, `Estimated price ${noDims ? "from " : ""}${eur(q.total)} to ${dn}.${deadline ? " " + deadline + "." : ""}`));
       if (q.status === "transfer") card.append(h("div", { class: "notice info" }, h("b", {}, T(`Και περίπου ${eur(q.otherEstimate)} σε φάκελο πάνω στο δέμα`, `Plus about ${eur(q.otherEstimate)} in an envelope on the parcel`)),
         T(`Τα πληρώνει ο αποστολέας και τα παραλαμβάνει το πρακτορείο που συνεχίζει τη μεταφορά από ${L(q.hub.label)}. Σύνολο περίπου ${eur(q.grandEstimate)}.`, `Paid by the sender and collected by the agency that carries it on from ${L(q.hub.label)}. About ${eur(q.grandEstimate)} in total.`)));
       card.append(h("dl", { class: "kv", style: "margin-top:12px" },
@@ -154,23 +214,18 @@
         // 🚏 Πού το παραλαμβάνει ο παραλήπτης, με τηλέφωνα που καλούνται με ένα πάτημα
         q.dest.terminal ? [h("dt", {}, T("Παραλαβή στον προορισμό", "Collection at destination")), h("dd", {}, [q.dest.terminal, q.dest.terminalAddr].filter(Boolean).join(", "),
           q.dest.terminalPhone ? h("div", {}, ...String(q.dest.terminalPhone).split(/\s*[,;]\s*/).flatMap((n, i) => [i ? ", " : "", h("a", { class: "num", href: "tel:" + n.replace(/[^\d+]/g, "").replace(/^(?!\+)/, "+30") }, n)])) : null)] : null));
-      const keys = q.dest.sched && q.dest.sched.length ? q.dest.sched : q.hub ? q.hub.sched : null;
       if (keys) {
-        const now = athensNow();
-        // Κρατάμε μόνο λεωφορεία που προλαβαίνει ακόμα ο πελάτης (μαζί με όσα θέλουν το δέμα από το προηγούμενο βράδυ).
-        const deps = nextDepartures(SITE.SCHEDULE, keys, now, 8, LANG).map(d => ({ ...d, drop: dropOff(B, d.dow, d.time) }))
-          .filter(d => d.rel * 1440 + d.drop.min > now.minutes && !d.drop.early).slice(0, 3);
         const when = d => d.drop.same ? T(`φέρτε το έως ${d.drop.by}`, `bring it by ${d.drop.by}`)
           : T(`φέρτε το από το προηγούμενο βράδυ, έως ${d.drop.by}`, `bring it the evening before, by ${d.drop.by}`);
         if (deps.length) card.append(h("div", { style: "margin-top:14px" }, h("span", { class: "eyebrow" }, T("Επόμενες αναχωρήσεις από Αγρίνιο", "Next departures from Agrinio")),
-          h("div", { class: "deps", style: "margin-top:6px" }, deps.map(d => h("div", {}, h("span", { class: "num" }, d.time), h("span", {}, d.day), h("span", { class: "muted", style: "font-size:13px" }, when(d)), d.express ? h("span", { class: "tag info" }, "Express") : null)))));
+          h("div", { class: "deps", style: "margin-top:6px" }, deps.map(d => h("div", {}, h("span", { class: "num" }, d.time), h("span", {}, d.day), h("span", { class: "muted", style: "font-size:14px" }, when(d)), d.express ? h("span", { class: "tag info" }, "Express") : null)))));
       }
       if (q.dest.note) card.append(h("p", { class: "muted", style: "margin-top:10px;font-size:14px" }, L(q.dest.note)));
       card.append(breakdown({ q, cat, classed, kg, kind }));
       const P = SITE.PACKING, pk = P && P.items.find(i => i.id === cat.id);
       if (pk && !P.active) card.append(h("p", { class: "notice info", style: "margin-top:12px" }, h("b", {}, T("Σύντομα: συσκευασία από εμάς", "Soon: we pack it for you")),
         T(`Για ${L(cat.name).toLowerCase()}: ${eur(pk.service)} με υλικό και δουλειά, ή ${eur(pk.material)} μόνο η κούτα.`, `For a ${L(cat.name).toLowerCase()}: ${eur(pk.service)} including materials, or ${eur(pk.material)} for the box only.`)));
-      card.append(h("p", { class: "muted", style: "margin-top:12px;font-size:13px" }, T("Ενδεικτική τιμή. Η τελική βγαίνει στον πάγκο, μετά από ζύγισμα και μέτρηση. Τιμές ΚΤΕΛ Αιτωλοακαρνανίας με ΦΠΑ.", "Indicative price. The final price is set at the counter after weighing and measuring. KTEL Aetolia-Acarnania prices, VAT included.")));
+      card.append(h("p", { class: "muted", style: "margin-top:12px;font-size:14px" }, T("Ενδεικτική τιμή. Η τελική βγαίνει στον πάγκο, μετά από ζύγισμα και μέτρηση. Τιμές ΚΤΕΛ Αιτωλοακαρνανίας με ΦΠΑ.", "Indicative price. The final price is set at the counter after weighing and measuring. KTEL Aetolia-Acarnania prices, VAT included.")), nextStep());
       if (warnHit) out.append(warnHit);
     };
     // «Πώς υπολογίστηκε»: τα ίδια βήματα με το ταμείο, με τα νούμερα αυτού του δέματος
@@ -200,12 +255,14 @@
       steps.push(T(`Ανά τεμάχιο: ${eur(q.base)}${q.extra ? ` + ${eur(q.extra)}` : ""} = ${eur(q.perPiece)}${q.pieces > 1 ? ` · × ${q.pieces} τεμάχια = ${eur(q.total)}` : ""}.`,
         `Per item: ${eur(q.base)}${q.extra ? ` + ${eur(q.extra)}` : ""} = ${eur(q.perPiece)}${q.pieces > 1 ? ` · × ${q.pieces} items = ${eur(q.total)}` : ""}.`));
       if (q.hub) steps.push(T(`Ανταπόκριση: περίπου άλλα ${eur(q.otherEstimate)} σε φάκελο πάνω στο δέμα, για το πρακτορείο που συνεχίζει.`, `Connection: about ${eur(q.otherEstimate)} more in an envelope on the parcel, for the agency that carries it on.`));
-      return h("details", { class: "how", open: true }, h("summary", {}, T("Πώς υπολογίστηκε", "How we calculated it")), h("ol", {}, steps.map(s => h("li", {}, s))));
+      const det = h("details", { class: "how", open: howOpen }, h("summary", {}, T("Πώς υπολογίστηκε", "How we calculated it")), h("ol", {}, steps.map(s => h("li", {}, s))));
+      det.addEventListener("toggle", () => { howOpen = det.open; });
+      return det;
     };
 
     form.addEventListener("input", render); form.addEventListener("change", render);
     // Στο κινητό, μόλις διαλέξει προορισμό ή είδος, δείχνουμε την τιμή (αλλιώς μένει κάτω από την κάτω μπάρα).
-    form.addEventListener("change", e => { if (e.target.tagName === "SELECT" && matchMedia("(max-width: 900px)").matches) { const p = $(".price", out) || out; p.scrollIntoView({ behavior: "smooth", block: "nearest" }); } });
+    form.addEventListener("change", e => { if (e.target.tagName === "SELECT" && matchMedia("(max-width: 900px)").matches) { const p = $(".price-board", out) || out; p.scrollIntoView({ behavior: SMOOTH, block: "start" }); } });
     form.addEventListener("submit", e => e.preventDefault());
     const pre = new URLSearchParams(location.search).get("to");
     if (pre && findDest(SITE.DESTINATIONS, pre)) sel.value = findDest(SITE.DESTINATIONS, pre).name;
@@ -221,7 +278,8 @@
     const ymd = v => new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Athens" }).format(new Date(v));
     const show = (cls, title, ...lines) => { out.textContent = ""; out.append(h("div", { class: "notice " + cls }, h("b", {}, title), ...lines.filter(Boolean).map(l => h("div", {}, l))));
       // Στο κινητό το αποτέλεσμα μπορεί να πέσει κάτω από την κάτω μπάρα: το φέρνουμε στην οθόνη.
-      out.scrollIntoView({ behavior: "smooth", block: "nearest" }); };
+      out.scrollIntoView({ behavior: SMOOTH, block: "nearest" }); };
+    const bad = (el, on) => { el.setAttribute("aria-invalid", on ? "true" : "false"); if (on) el.focus(); };
     const city = c => { const d = c && findDest(SITE.DESTINATIONS, c); return d ? L(d.name) : c; };
     const q = new URLSearchParams(location.search); if (q.get("r")) $("#t-rc").value = q.get("r");
     // Ο αριθμός απόδειξης και τα γράμματα του επωνύμου δεν μένουν στη γραμμή διευθύνσεων (ούτε σε link που θα κοινοποιηθεί).
@@ -230,15 +288,16 @@
     tr.addEventListener("submit", async e => {
       e.preventDefault();
       const rc = $("#t-rc").value, nm = $("#t-nm").value.trim();
-      if (rc.replace(/\D/g, "").length < 10) return show("warn", T("Ελέγξτε τον αριθμό απόδειξης", "Check the receipt number"), T("Γράψτε όλο τον αριθμό της απόδειξης, π.χ. 228-336-12345. Στις χειρόγραφες αποδείξεις: τον κόκκινο αριθμό.", "Enter the full receipt number, e.g. 228-336-12345. On handwritten receipts: the red number."));
-      if (nm.replace(/\s/g, "").length < 3) return show("warn", T("Γράψτε 3 γράμματα", "Enter 3 letters"), T("Τα 3 πρώτα γράμματα του επωνύμου του παραλήπτη.", "The first 3 letters of the recipient's surname, as written on the receipt."));
+      bad($("#t-rc"), false); bad($("#t-nm"), false);
+      if (rc.replace(/\D/g, "").length < 10) { setTimeout(() => bad($("#t-rc"), true), 0); return show("warn", T("Ελέγξτε τον αριθμό απόδειξης", "Check the receipt number"), T("Γράψτε όλο τον αριθμό της απόδειξης, π.χ. 228-336-12345. Στις χειρόγραφες αποδείξεις: τον κόκκινο αριθμό.", "Enter the full receipt number, e.g. 228-336-12345. On handwritten receipts: the red number.")); }
+      if (nm.replace(/\s/g, "").length < 3) { setTimeout(() => bad($("#t-nm"), true), 0); return show("warn", T("Γράψτε 3 γράμματα", "Enter 3 letters"), T("Τα 3 πρώτα γράμματα του επωνύμου του παραλήπτη.", "The first 3 letters of the recipient's surname, as written on the receipt.")); }
       const btn = $("button", tr); btn.disabled = true; show("info", T("Αναζήτηση…", "Searching…"));
       try {
         const r = await fetch(URL_ + "/rest/v1/rpc/track_parcel", { method: "POST", headers: { apikey: KEY, "content-type": "application/json" }, body: JSON.stringify({ p_receipt: rc, p_name: nm }) });
-        if (r.status === 429 || r.status === 400) { const t = await r.text(); if (r.status === 429 || /too_many/.test(t)) return show("warn", T("Πολλές αναζητήσεις", "Too many searches"), T("Για την προστασία των δεδομένων, οι αναζητήσεις είναι περιορισμένες. Δοκιμάστε ξανά σε 15 λεπτά ή καλέστε μας.", "To protect personal data, searches are limited. Try again in 15 minutes or call us.")); throw new Error(t); }
+        if (r.status === 429 || r.status === 400) { const t = await r.text(); if (r.status === 429 || /too_many/.test(t)) return show("warn", T("Πολλές αναζητήσεις", "Too many searches"), T("Για την προστασία των δεδομένων, οι αναζητήσεις είναι περιορισμένες. Δοκιμάστε ξανά σε 15 λεπτά ή καλέστε μας.", "To protect personal data, searches are limited. Try again in 15 minutes or call us."), h("span", {}, ...contactNodes())); throw new Error(t); }
         if (!r.ok) throw new Error(r.status);
         const [x] = await r.json();
-        if (!x) return show("warn", T("Δεν βρέθηκε ακόμα", "Not found yet"), T("Αν το δέμα στάλθηκε σήμερα, μπορεί να μην έχει φτάσει ή να μην έχει καταχωρηθεί. Ελέγξτε τον αριθμό και τα γράμματα, ή καλέστε μας.", "If it was sent today, it may not have arrived or been registered yet. Check the number and letters, or call us."));
+        if (!x) return show("warn", T("Δεν βρέθηκε ακόμα", "Not found yet"), T("Αν το δέμα στάλθηκε σήμερα, μπορεί να μην έχει φτάσει ή να μην έχει καταχωρηθεί. Ελέγξτε τον αριθμό και τα γράμματα, ή καλέστε μας.", "If it was sent today, it may not have arrived or been registered yet. Check the number and letters."), h("span", {}, ...contactNodes()));
         const pcs = x.pieces_total > 1 ? T(`Έχουν φτάσει ${x.pieces_in} από ${x.pieces_total} τεμάχια.`, `${x.pieces_in} of ${x.pieces_total} items have arrived.`) : null;
         if (x.state === "here") {
           const f = storageFee(SITE.STORAGE, ymd(x.at), ymd(new Date()));
@@ -247,9 +306,9 @@
         } else if (x.state === "done") show("info", T("Παραδόθηκε", "Collected"), T(`Το δέμα παραλήφθηκε ${fmtDT(x.at)}.`, `The parcel was collected ${fmtDT(x.at)}.`));
         else if (x.state === "transit") show("info", T("Σε μεταφόρτωση", "In transit"), T(`Πέρασε από το Αγρίνιο ${fmtDT(x.at)} και συνεχίζει προς ${x.dest || "τον προορισμό του"}.`, `Passed through Agrinio ${fmtDT(x.at)} and continues to ${city(x.dest) || "its destination"}.`), pcs);
         else if (x.state === "forwarded") show("info", T("Στάλθηκε", "Sent on"), T(`Έφυγε από το Αγρίνιο προς ${x.dest || "τον προορισμό του"}${x.at ? " " + fmtDT(x.at) : ""}.`, `Left Agrinio for ${city(x.dest) || "its destination"}${x.at ? " " + fmtDT(x.at) : ""}.`));
-        else if (x.state === "returned") show("warn", T("Επεστράφη", "Returned"), T("Το δέμα επιστράφηκε στον αποστολέα. Καλέστε μας για πληροφορίες.", "The parcel was returned to the sender. Call us for details."));
-        else show("warn", T("Καλέστε μας", "Call us"), T("Δεν μπορούμε να δούμε την κατάσταση του δέματος από εδώ.", "We cannot show this parcel's status here."));
-      } catch { show("bad", T("Η αναζήτηση δεν ολοκληρώθηκε", "The search did not complete"), T("Ελέγξτε τη σύνδεσή σας και δοκιμάστε ξανά, ή καλέστε μας στο ", "Check your connection and try again, or call us on +30 ") + B.phoneDisplay + "."); }
+        else if (x.state === "returned") show("warn", T("Επεστράφη", "Returned"), T("Το δέμα επιστράφηκε στον αποστολέα. Καλέστε μας για πληροφορίες.", "The parcel was returned to the sender."), h("span", {}, ...contactNodes()));
+        else show("warn", T("Καλέστε μας", "Call us"), T("Δεν μπορούμε να δούμε την κατάσταση του δέματος από εδώ.", "We cannot show this parcel's status here."), h("span", {}, ...contactNodes()));
+      } catch { show("bad", T("Η αναζήτηση δεν ολοκληρώθηκε", "The search did not complete"), T("Ελέγξτε τη σύνδεσή σας και δοκιμάστε ξανά.", "Check your connection and try again."), h("span", {}, ...contactNodes())); }
       finally { btn.disabled = false; }
     });
   }
@@ -258,10 +317,25 @@
   const dq = $("[data-dest-filter]");
   if (dq) {
     const rows = $$(".dest-table tbody tr"), cnt = $("[data-dest-count]");
+    // «larisa», «thessaloniki», «patra»: τα λατινικά γράμματα γίνονται ελληνικά πριν από τη σύγκριση.
+    const G2 = [["th", "θ"], ["ch", "χ"], ["ps", "ψ"], ["ks", "ξ"], ["ou", "ου"], ["mp", "μπ"], ["nt", "ντ"], ["gk", "γκ"]];
+    const G1 = { a: "α", b: "β", v: "β", g: "γ", d: "δ", e: "ε", z: "ζ", h: "η", i: "ι", y: "υ", k: "κ", c: "κ", q: "κ", l: "λ", m: "μ", n: "ν", x: "ξ", o: "ο", p: "π", r: "ρ", s: "σ", t: "τ", u: "ου", f: "φ", w: "ω", j: "τζ" };
+    const toGreek = s => { s = s.toLowerCase(); for (const [a, b] of G2) s = s.split(a).join(b); return s.replace(/[a-z]/g, c => G1[c] || c); };
+    // απλοποίηση για σύγκριση: ι/η/υ/ει/οι → ι, ο/ω → ο, ε/αι → ε
+    const loose = s => norm(s).replace(/ει|οι|υι/g, "ι").replace(/[ηυ]/g, "ι").replace(/ω/g, "ο").replace(/αι/g, "ε").replace(/(.)\1/g, "$1");
+    const empty = h("div", { class: "notice info dest-empty", hidden: true }, h("b", {}, T("Δεν βρέθηκε", "Not found")), T("Δεν τη βρίσκουμε στη λίστα. Ρωτήστε μας: μπορεί να πηγαίνει με ανταπόκριση. ", "It is not on the list. Ask us: it may go with a connection. "), ...contactNodes());
+    cnt.after(empty);
+    const mobile = matchMedia("(max-width: 600px)").matches;
+    let showAll = !mobile;
+    const more = h("button", { type: "button", class: "btn btn-ghost dest-more", hidden: true }, T(`Όλοι οι προορισμοί (${rows.length})`, `All destinations (${rows.length})`));
+    more.addEventListener("click", () => { showAll = true; run(); });
+    cnt.after(more);
     const run = () => {
-      const q = norm(dq.value).trim(); let n = 0;
-      for (const r of rows) { const ok = !q || norm(r.dataset.q).includes(q); r.hidden = !ok; if (ok) n++; }
-      cnt.textContent = T(`${n} από ${rows.length} προορισμούς`, `${n} of ${rows.length} destinations`);
+      const raw = dq.value.trim(), q = loose(/[a-z]/i.test(raw) ? toGreek(raw) : raw); let n = 0;
+      for (const r of rows) { const ok = q ? loose(r.dataset.q).includes(q) || norm(r.dataset.q).includes(norm(raw)) : (showAll || r.dataset.top === "1"); r.hidden = !ok; if (ok) n++; }
+      cnt.textContent = !q && !showAll ? T(`Οι πιο συχνοί προορισμοί · γράψτε για να βρείτε άλλη πόλη`, `Most common destinations · type to find another town`) : T(`${n} από ${rows.length} προορισμούς`, `${n} of ${rows.length} destinations`);
+      empty.hidden = !(q && n === 0);
+      more.hidden = !!q || showAll;
     };
     dq.addEventListener("input", run); run();
   }
@@ -303,7 +377,7 @@
         h("div", { style: "display:flex;flex-wrap:wrap;gap:10px" },
           h("a", { class: "btn btn-primary", href: "https://wa.me/30" + B.mobile + "?text=" + encodeURIComponent(text), target: "_blank", rel: "noopener" }, T("Αποστολή με WhatsApp", "Send by WhatsApp")),
           h("a", { class: "btn btn-ghost", href: "mailto:" + B.email + "?subject=" + encodeURIComponent(f.dataset.msgform) + "&body=" + encodeURIComponent(text) }, T("Αποστολή με email", "Send by email")), copy));
-      out.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      out.scrollIntoView({ behavior: SMOOTH, block: "nearest" });
     });
   }
 
@@ -630,16 +704,21 @@
       set("get", d.terminal || T("Στο ΚΤΕΛ του προορισμού", "At the destination bus station"),
         [d.terminalAddr ? d.terminalAddr : null, d.terminalAddr && tels.length ? " · " : null, ...tels, h("br"), T("Με ταυτότητα. Μπορεί να το πάρει και άλλος, με τη δική του.", "With ID. Someone else can collect it with their own ID.")]);
       if (calcA) calcA.href = calcA.href.replace(/\?to=[^#]*/, "?to=" + encodeURIComponent(d.name));
+      steps.forEach((li, i) => li.style.setProperty("--n", i));
     };
     // Το δέμα «ταξιδεύει» από βήμα σε βήμα (κίνηση μόνο με transform· χωρίς κίνηση αν ο χρήστης το έχει ζητήσει).
     let timers = [], at = 0;
+    // Ο κόμβος «ανάβει» όταν φτάσει το δέμα (transitionend), όχι όταν ξεκινά.
     const place = i => { const n = $(".j-node", steps[i]), box = parcel.offsetParent.getBoundingClientRect(), r = n.getBoundingClientRect();
       parcel.style.transform = `translate(${r.left - box.left + r.width / 2 - parcel.offsetWidth / 2}px, ${r.top - box.top + r.height / 2 - parcel.offsetHeight / 2}px)`; at = i;
-      steps.forEach((li, j) => li.classList.toggle("on", j <= i)); };
-    const run = () => { timers.forEach(clearTimeout); timers = [];
+      if (i === 0) steps.forEach((li, j) => li.classList.toggle("on", j === 0)); };
+    parcel.addEventListener("transitionend", e => { if (e.propertyName === "transform") steps.forEach((li, j) => li.classList.toggle("on", j <= at)); });
+    let ran = false;
+    const run = () => { timers.forEach(clearTimeout); timers = []; ran = true;
       if (REDUCED) { steps.forEach(li => li.classList.add("on")); jr.classList.add("still"); return; }
-      place(0); steps.forEach((_, i) => { if (i) timers.push(setTimeout(() => place(i), 300 + i * 650)); }); };
-    sel.addEventListener("change", () => { fill(); run(); });
+      place(0); steps.forEach((_, i) => { if (i) timers.push(setTimeout(() => place(i), 300 + i * 720)); }); };
+    // Αλλαγή προορισμού: δεν ξανατρέχει η διαδρομή· τα κείμενα αλλάζουν απαλά.
+    sel.addEventListener("change", () => { fill(); if (!ran) return run(); jr.classList.remove("swap"); void jr.offsetWidth; jr.classList.add("swap"); });
     addEventListener("resize", () => { parcel.style.transition = "none"; place(at); parcel.offsetWidth; parcel.style.transition = ""; }, { passive: true });
     fill(); onSchedule(fill);
     if ("IntersectionObserver" in window && !REDUCED) {
@@ -652,17 +731,20 @@
     // Μόνο ό,τι είναι κάτω από την οθόνη όταν φορτώνει: ό,τι ήδη φαίνεται δεν κρύβεται ποτέ.
     const sel = ".section > .wrap > *:not(.signs):not(.routes-map), .section .signs > li, .cta-band .wrap > *";
     const io = new IntersectionObserver(es => { for (const e of es) if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); } }, { threshold: 0.12, rootMargin: "0px 0px -40px 0px" });
-    for (const el of $$(sel)) {
-      if (el.closest(".hero")) continue;
-      if (el.getBoundingClientRect().top < innerHeight) continue;
-      const sib = [...el.parentElement.children].indexOf(el);
-      el.style.setProperty("--rv", Math.min(sib, 5)); el.classList.add("rv"); io.observe(el);
+    // Με «λιγότερη κίνηση» δεν κρύβουμε τίποτα: το περιεχόμενο είναι απλώς εκεί.
+    if (!REDUCED) {
+      // Πρώτα διαβάζουμε όλες τις θέσεις, μετά γράφουμε (χωρίς επαναλαμβανόμενους υπολογισμούς διάταξης).
+      const els = $$(sel).filter(el => !el.closest(".hero")), tops = els.map(el => el.getBoundingClientRect().top);
+      els.forEach((el, i) => { if (tops[i] < innerHeight) return;
+        el.style.setProperty("--rv", Math.min([...el.parentElement.children].indexOf(el), 4)); el.classList.add("rv"); io.observe(el); });
+      // Αν ο χρήστης πηδήξει πιο κάτω (σύνδεσμος, αναζήτηση στη σελίδα), ό,τι προσπέρασε εμφανίζεται κι αυτό.
+      let raf = 0;
+      const onScroll = () => { if (raf) return; raf = requestAnimationFrame(() => { raf = 0;
+        const left = $$(".rv:not(.in)"); if (!left.length) return removeEventListener("scroll", onScroll);
+        for (const el of left) if (el.getBoundingClientRect().top < innerHeight) { el.classList.add("in"); io.unobserve(el); } }); };
+      addEventListener("scroll", onScroll, { passive: true });
     }
-    // Αν ο χρήστης πηδήξει πιο κάτω (σύνδεσμος, αναζήτηση στη σελίδα), ό,τι προσπέρασε εμφανίζεται κι αυτό.
-    let raf = 0;
-    addEventListener("scroll", () => { if (raf) return; raf = requestAnimationFrame(() => { raf = 0;
-      for (const el of $$(".rv:not(.in)")) if (el.getBoundingClientRect().top < innerHeight) { el.classList.add("in"); io.unobserve(el); } }); }, { passive: true });
-    const count = el => { const n = Number(el.dataset.count); if (REDUCED || !n) return; const t0 = performance.now() + 200, dur = 900;
+    const count = el => { const n = Number(el.dataset.count); if (REDUCED || !n) return; const t0 = performance.now() + 300, dur = 1100;
       const step = now => { const p = Math.min(Math.max((now - t0) / dur, 0), 1); el.textContent = Math.round(n * (1 - Math.pow(1 - p, 3))); if (p < 1) requestAnimationFrame(step); };
       el.textContent = "0"; requestAnimationFrame(step); };
     for (const fig of $$("[data-routes]")) {

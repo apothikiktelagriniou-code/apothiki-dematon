@@ -4,24 +4,26 @@
     <h1>Αποστολή δεμάτων με ΚΤΕΛ από το Αγρίνιο</h1>
     <p class="lead">{{slogan}} Αποθήκη δεμάτων μέσα στον σταθμό ΚΤΕΛ Αγρινίου. Το δέμα φεύγει με το επόμενο λεωφορείο, σε {{nDirect}} πόλεις απευθείας.</p>
     <form class="quicktrack" action="anazitisi.html" method="get" autocomplete="off">
-      <label for="q-r">Πού είναι το δέμα μου;</label>
-      <div class="row qt-labels"><span>Αριθμός απόδειξης</span><span>3 γράμματα επωνύμου</span></div>
-      <div class="row">
-        <input id="q-r" name="r" class="mono" inputmode="numeric" placeholder="228-…" required aria-label="Αριθμός απόδειξης">
-        <input id="q-n" name="n" maxlength="20" autocapitalize="characters" placeholder="ΠΑΠ" required aria-label="3 πρώτα γράμματα επωνύμου">
+      <p class="qt-title">Πού είναι το δέμα μου;</p>
+      <div class="row qt-grid">
+        <label for="q-r">Αριθμός απόδειξης</label><label for="q-n">Επώνυμο</label>
+        <input id="q-r" name="r" class="mono" inputmode="numeric" placeholder="228-336-12345" required>
+        <input id="q-n" name="n" maxlength="20" autocapitalize="characters" placeholder="ΠΑΠ" required>
         <button class="btn" type="submit">{{i:search}} Βρες το</button>
       </div>
       <small>Αριθμός απόδειξης και τα 3 πρώτα γράμματα του επωνύμου του παραλήπτη.</small>
     </form>
     <div class="ctas">
-      <a class="btn btn-light" href="apostoli.html#ypologismos">{{i:send}} Στέλνω δέμα · πόσο κοστίζει</a>
+      <a class="btn btn-ghost-light" href="apostoli.html#ypologismos">{{i:send}} Στέλνω δέμα · πόσο κοστίζει</a>
     </div>
-    <div class="facts"><span><b>Δευ–Παρ</b> {{openWk}}–{{close}} · <b>Σαβ–Κυρ</b> {{openWe}}–{{close}}</span><span><b>{{athensDaily}}</b> λεωφορεία για Αθήνα την ημέρα</span><a class="season-link" href="ladi.html">Εποχή λαδιού: τενεκές για Αθήνα {{eur:athina:tenekes}} →</a></div>
+    <div class="facts"><span class="open-now" data-open-now hidden></span><span><b>Δευ–Παρ</b> {{openWk}}–{{close}} · <b>Σαβ–Κυρ</b> {{openWe}}–{{close}}</span><span><b>{{athensDaily}}</b> λεωφορεία για Αθήνα την ημέρα</span><a class="season-link" href="ladi.html">Εποχή λαδιού: τενεκές για Αθήνα {{eur:athina:tenekes}} → </a><span><a href="{{maps}}" rel="noopener">Οδηγίες</a></span></div>
   </div>
-  <div class="board" data-board aria-label="Επόμενες αναχωρήσεις από Αγρίνιο">
+  <div class="hero-side"><section class="board" data-board aria-label="Επόμενες αναχωρήσεις από Αγρίνιο">
     <div class="board-head"><span>Αναχωρήσεις</span><time></time></div>
-    <table><thead><tr><th>Ώρα</th><th>Προορισμός</th><th></th></tr></thead><tbody>{{boardRows}}</tbody></table>
+    <table><thead><tr><th scope="col">Ώρα</th><th scope="col">Προορισμός</th><th scope="col"><span class="sr-only">Σημείωση</span></th></tr></thead><tbody>{{boardRows}}</tbody></table>
     <div class="board-foot">Φέρτε το δέμα τουλάχιστον {{cutoff}} λεπτά πριν από την αναχώρηση. Για τα πρωινά λεωφορεία, από το προηγούμενο βράδυ.</div>
+  </section>
+  <div class="hero-photo-wrap">{{photo:eisodos|Η είσοδος της αποθήκης, δεξιά από την είσοδο του σταθμού|The depot entrance, to the right of the station entrance}}</div>
   </div>
 </div></section>
 
@@ -56,31 +58,6 @@
   {{routesMap}}
 </div></section>
 
-<section class="section heritage" id="istoria"><div class="wrap">
-  <div class="section-head"><h2>Δέματα με το ΚΤΕΛ: μια ιστορία πάνω από 70 χρόνων</h2><p>Τα ασυνόδευτα δέματα δεν είναι κάτι καινούργιο στα ΚΤΕΛ. Ταξιδεύουν με τα λεωφορεία από τότε που υπάρχουν τα ίδια τα ΚΤΕΛ.</p></div>
-  <div class="history">
-    <div class="era"><h3><span>πριν το 1952</span>Πριν από τα ΚΤΕΛ</h3>
-      <p>Τα λεωφορεία κυκλοφορούσαν στην Ελλάδα πολύ πριν από τα ΚΤΕΛ. Κάθε λεωφορείο λειτουργούσε σχεδόν σαν ξεχωριστή επιχείρηση του ιδιοκτήτη του. Το 1937–1940 εμφανίζονται οι πρώτες κοινές διευθύνσεις λεωφορείων, που ο πόλεμος διέκοψε.</p></div>
-    <div class="era"><h3><span>1952</span>Ιδρύονται τα ΚΤΕΛ</h3>
-      <p>Με τον Ν. 2119/1952 οι λεωφορειούχοι κάθε περιοχής ενώνονται σε «Κοινά Ταμεία Εισπράξεων Λεωφορείων». Αντί για κάθε όχημα χωριστά, το έργο και οι εισπράξεις περνούν σε κοινό φορέα. Συγκροτούνται 104 ΚΤΕΛ, 59 υπεραστικά και 45 αστικά. Από τότε τα λεωφορεία δεν κουβαλούν μόνο επιβάτες. Πηγαίνουν δέματα και φακέλους, εφημερίδες, φάρμακα και είδη πρώτης ανάγκης στα χωριά και σε απομακρυσμένες περιοχές.</p></div>
-    <div class="era"><h3><span>1967–1984</span>Συγχωνεύσεις και νέα οργάνωση</h3>
-      <p>Το 1967–1968 τα τοπικά ΚΤΕΛ συγχωνεύονται σε μεγάλους περιφερειακούς οργανισμούς. Το Ν.Δ. 102/1973 επαναφέρει το σχήμα ανά νομό, που κράτησε για δεκαετίες. Ο Ν. 1437/1984 χωρίζει τα αστικά από τα υπεραστικά ΚΤΕΛ. Στο Αγρίνιο, ο σταθμός βρισκόταν τότε στο κέντρο της πόλης, στη γωνία Αναστασιάδη και Παπαθανάση. Από εκεί είναι και η εικόνα που θυμούνται οι παλιότεροι: δέματα, τσουβάλια και βαλίτσες δεμένα στη σχάρα της οροφής.</p></div>
-    <div class="era"><h3><span>2001–2003</span>Τα ΚΤΕΛ γίνονται εταιρείες</h3>
-      <p>Ο Ν. 2963/2001 μετατρέπει τα ΚΤΕΛ σε ανώνυμες εταιρείες με μετόχους τους ιδιοκτήτες των λεωφορείων. Οι μετατροπές ολοκληρώνονται το 2003. Ο ίδιος νόμος αναφέρει ρητά τα «ασυνόδευτα μικροδέματα» στο άρθρο 10. Η μεταφορά δεμάτων γίνεται έτσι επίσημο κομμάτι του θεσμικού πλαισίου.</p></div>
-    <div class="era"><h3><span>2022–σήμερα</span>Νέοι κανόνες, νέα εποχή</h3>
-      <p>Ο Ν. 4974/2022 φέρνει ανάθεση των γραμμών με συμβάσεις και διαγωνισμούς. Ρητά αναγνωρίζει τη διακίνηση ασυνόδευτων μικροδεμάτων μέσω σταθμών και εξουσιοδοτημένων πρακτόρων. Η απόφαση του 2023 για τα δικαιώματα των επιβατών υποχρεώνει κάθε υπεραστική γραμμή να έχει οργανωμένη υπηρεσία παραλαβής δεμάτων. <a href="nomothesia.html">Δείτε αναλυτικά τη νομοθεσία →</a></p></div>
-    <div class="era now"><h3><span>αύριο</span>Από τη σχάρα στο κινητό</h3>
-      <p>Το 2024 διακινήθηκαν στην Ελλάδα περίπου 105 εκατ. δέματα (ΕΕΤΤ). Ο κόσμος θέλει να ξέρει πού είναι το δέμα του και να το παραλαμβάνει όπως τον βολεύει. Γι' αυτό στο Αγρίνιο κάθε δέμα έχει απόδειξη, SMS όταν φτάσει και αναζήτηση online. Ετοιμάζουμε και <a href="spiti.html">παράδοση στο σπίτι</a>.</p></div>
-  </div>
-  <div class="gallery">
-    {{photo:palio-1|Λεωφορεία στη στάση, με φορτωμένες σχάρες στην οροφή|Buses at the stop, roof racks loaded}}
-    {{photo:palio-2|Φόρτωση αποσκευών και δεμάτων στη σχάρα|Loading luggage and parcels onto the roof rack}}
-    {{photo:palio-3|Δέματα από χέρι σε χέρι, πάνω στο λεωφορείο|Parcels passed hand to hand on the bus roof}}
-  </div>
-  <p class="caption">Φωτογραφίες από τη σελίδα «Λεωφορεία Αιτωλοακαρνανίας μιας άλλης εποχής» στο Facebook. Τα δικαιώματα των φωτογραφιών ανήκουν στους κατόχους τους.</p>
-  <p class="caption">Πηγές ιστορικών στοιχείων: ιστορικό Σταθμού Μακεδονία και ΚΤΕΛ Αχαΐας· Ν. 2119/1952, Ν.Δ. 102/1973, Ν. 1437/1984, Ν. 2963/2001, Ν. 4974/2022, ΥΑ 362897/2023· ΕΕΤΤ, έκθεση 2024· τοπικός τύπος Αγρινίου.</p>
-</div></section>
-
 <section class="section"><div class="wrap grid g2" style="align-items:start;gap:40px">
   <div class="section-head" style="margin:0"><h2>Στέλνετε κάθε μέρα;</h2><p>Καταστήματα, ανταλλακτικά, φαρμακαποθήκες και e-shop του Αγρινίου στέλνουν μαζί μας κάθε μέρα. Ο παραλήπτης ενημερώνεται με SMS.</p>
     <p style="margin-top:10px"><a class="btn btn-primary" href="epixeiriseis.html">{{i:shop}} Μιλήστε μαζί μας</a></p></div>
@@ -95,6 +72,16 @@
   <div class="section-head"><h2>Συχνές ερωτήσεις</h2></div>
   {{faqTop}}
   <p style="margin-top:18px"><a href="syxnes-erotiseis.html">Όλες οι ερωτήσεις →</a></p>
+</div></section>
+
+<section class="section heritage"><div class="wrap">
+  <div class="section-head"><h2>Πάνω από 70 χρόνια δέματα με το ΚΤΕΛ</h2><p>Από τη σχάρα στην οροφή του λεωφορείου, στο SMS όταν φτάσει. <a href="istoria.html">Διαβάστε την ιστορία →</a></p></div>
+  <div class="gallery" tabindex="0" role="region" aria-label="Παλιές φωτογραφίες">
+    {{photo:palio-1|Λεωφορεία στη στάση, με φορτωμένες σχάρες στην οροφή|Buses at the stop, roof racks loaded}}
+    {{photo:palio-2|Φόρτωση αποσκευών και δεμάτων στη σχάρα|Loading luggage and parcels onto the roof rack}}
+    {{photo:palio-3|Δέματα από χέρι σε χέρι, πάνω στο λεωφορείο|Parcels passed hand to hand on the bus roof}}
+  </div>
+  <p class="caption">Φωτογραφίες από τη σελίδα «Λεωφορεία Αιτωλοακαρνανίας μιας άλλης εποχής» στο Facebook. Τα δικαιώματα των φωτογραφιών ανήκουν στους κατόχους τους.</p>
 </div></section>
 
 <section class="cta-band"><div class="wrap">

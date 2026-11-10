@@ -37,7 +37,7 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --band: #0A2236; --paper: #0B1622; --surface: #12202E; --ink: #E3EAF1; --heading: #EEF3F8; --muted: #9DB0C3;
-    --line: #22364A; --rule: #CFE0EE; --teal: #45BCD4; --teal-soft: #0F3340; --on-band-muted: #9DB2C8;
+    --line: #22364A; --rule: #2C4A66; --teal: #45BCD4; --teal-soft: #0F3340; --on-band-muted: #9DB2C8;
     --board: #06121E; --board-line: #1A3550;
     --ok: #6FD39A; --ok-soft: #133022; --warn: #F2B866; --warn-soft: #362812; --bad: #F2928B; --bad-soft: #3B1A18;
     color-scheme: dark;
@@ -45,14 +45,15 @@
 }
 :root[data-theme="dark"] {
   --band: #0A2236; --paper: #0B1622; --surface: #12202E; --ink: #E3EAF1; --heading: #EEF3F8; --muted: #9DB0C3;
-  --line: #22364A; --rule: #CFE0EE; --teal: #45BCD4; --teal-soft: #0F3340; --on-band-muted: #9DB2C8;
+  --line: #22364A; --rule: #2C4A66; --teal: #45BCD4; --teal-soft: #0F3340; --on-band-muted: #9DB2C8;
   --board: #06121E; --board-line: #1A3550;
   --ok: #6FD39A; --ok-soft: #133022; --warn: #F2B866; --warn-soft: #362812; --bad: #F2928B; --bad-soft: #3B1A18;
   color-scheme: dark;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
-html { -webkit-text-size-adjust: 100%; scroll-padding-top: 76px; scroll-behavior: smooth; }
+html { -webkit-text-size-adjust: 100%; scroll-padding-top: 76px; scroll-padding-bottom: calc(var(--qb) + 16px); scroll-behavior: smooth; }
+a, button, label, input, select, summary { touch-action: manipulation; -webkit-tap-highlight-color: rgb(1 111 134 / .15); }
 body { margin: 0; background: var(--paper); color: var(--ink); font: 400 16px/1.6 var(--f-body); padding-bottom: var(--qb); }
 img { max-width: 100%; height: auto; }
 [hidden] { display: none !important; }
@@ -64,7 +65,7 @@ h1 { font-size: clamp(34px, 8vw, 64px); font-weight: 800; letter-spacing: -0.015
 h2 { font-size: clamp(26px, 4.6vw, 38px); font-weight: 700; letter-spacing: -0.01em; }
 h3 { font-size: 20px; font-weight: 700; }
 p { margin: 0; text-wrap: pretty; }
-.num, .mono { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+.num, .mono { font-family: inherit; font-variant-numeric: tabular-nums lining-nums; }
 .eyebrow { font: 600 14px/1.3 var(--f-body); color: var(--muted); }
 .muted { color: var(--muted); }
 .wrap { max-width: var(--wrap); margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
@@ -85,7 +86,7 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 .nav a { color: var(--on-band); text-decoration: none; font: 500 15px var(--f-body); padding: 8px 9px; white-space: nowrap; border-bottom: 3px solid transparent; }
 .nav a:hover { color: var(--teal-light); }
 .nav a[aria-current="page"] { border-bottom-color: var(--teal-light); }
-.nav .call { background: var(--sign); color: var(--on-sign); font-weight: 700; margin-left: 8px; border-radius: var(--r); border: 0; font-family: var(--f-mono); }
+.nav .call { background: var(--sign); color: var(--on-sign); font-weight: 700; margin-left: 8px; border-radius: var(--r); border: 0; font-family: var(--f-body); font-variant-numeric: tabular-nums; }
 .nav .call:hover { color: var(--on-sign); filter: brightness(1.05); }
 .menu-btn { display: none; margin-left: auto; background: transparent; color: var(--on-band); border: 2px solid rgba(255,255,255,.35); border-radius: var(--r); font: 600 15px var(--f-body); min-height: 44px; padding: 0 14px; cursor: pointer; }
 @media (max-width: 1180px) {
@@ -128,12 +129,13 @@ button.btn[disabled] { opacity: .6; cursor: default; }
 
 /* Γρήγορη αναζήτηση (αρχική) */
 .quicktrack { margin-top: 24px; background: #fff; color: #13283D; border-radius: var(--r); padding: 14px; border-left: 8px solid var(--sign); box-shadow: 0 10px 30px -12px rgba(4, 20, 36, .6); }
-.quicktrack label { display: block; font: 700 18px/1.2 var(--f-display); margin-bottom: 10px; }
-.quicktrack .row { display: grid; grid-template-columns: minmax(0, 1fr) 92px auto; gap: 8px; }
+.quicktrack .qt-title { display: block; font: 700 18px/1.2 var(--f-display); margin: 0 0 10px; }
+.quicktrack .qt-labels label { display: block; font: inherit; margin: 0; }
+.quicktrack .row { display: grid; grid-template-columns: minmax(0, 1fr) 104px auto; gap: 8px; }
 .quicktrack input { background: #F3F5F7 !important; color: #13283D !important; border-color: #8A9BAD !important; }
 .quicktrack input::placeholder { color: #5C6E80; }
 .quicktrack .btn { min-height: 50px; padding: 0 16px; background: var(--sign); color: var(--on-sign); border: 0; }
-.quicktrack small { display: block; margin-top: 8px; color: #56677A; font-size: 13px; }
+.quicktrack small { display: block; margin-top: 8px; color: #56677A; font-size: 14px; }
 @media (max-width: 520px) { .quicktrack .row { grid-template-columns: minmax(0, 1fr) 88px; } .quicktrack .btn { grid-column: 1 / -1; } }
 
 /* Πίνακας αναχωρήσεων */
@@ -142,18 +144,18 @@ button.btn[disabled] { opacity: .6; cursor: default; }
 .board-head span { font: 700 20px/1 var(--f-display); color: #fff; }
 .board-head time { font: 600 20px var(--f-mono); color: var(--teal-light); }
 .board table { width: 100%; border-collapse: collapse; font-size: 16px; }
-.board th { text-align: left; font: 500 12px var(--f-body); color: var(--board-dim); padding: 6px 4px; border-bottom: 1px solid var(--board-line); }
+.board th { text-align: left; font: 500 14px var(--f-body); color: var(--board-dim); padding: 6px 4px; border-bottom: 1px solid var(--board-line); }
 .board td { padding: 10px 4px; border-bottom: 1px solid var(--board-line); vertical-align: top; }
 .board tr:last-child td { border-bottom: 0; }
 .board .t { font: 600 19px var(--f-mono); color: var(--teal-light); width: 4.4em; }
 .board .d { font: 600 18px/1.25 var(--f-display); letter-spacing: .01em; }
-.board .x { color: var(--board-dim); font-size: 13px; text-align: right; white-space: nowrap; }
-.board-foot { margin-top: 8px; font-size: 13px; color: var(--board-dim); }
+.board .x { color: var(--board-dim); font-size: 14px; text-align: right; white-space: nowrap; }
+.board-foot { margin-top: 8px; font-size: 14px; color: var(--board-dim); }
 
 /* Ενότητες */
 .section { padding-block: 48px 56px; }
 .section.alt { background: var(--surface); }
-.section + .section { border-top: 2px solid var(--rule); }
+.section + .section { border-top: 1px solid var(--rule); }
 .section-head { display: flex; flex-direction: column; gap: 10px; margin-bottom: 24px; max-width: 70ch; }
 .section-head p { color: var(--muted); font-size: 17px; }
 .page-head { background: var(--band); color: var(--on-band); }
@@ -171,14 +173,15 @@ button.btn[disabled] { opacity: .6; cursor: default; }
 @media (max-width: 900px) { .g3, .g4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 600px) { .g2, .g3, .g4 { grid-template-columns: minmax(0, 1fr); } }
 
-.panel { background: var(--surface); border: 1px solid var(--line); border-top: 3px solid var(--rule); border-radius: var(--r); padding: 20px; min-width: 0; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 20px; min-width: 0; }
 .section.alt .panel { background: var(--paper); }
 
 /* Λίστα υπηρεσιών σαν πινακίδα κατευθύνσεων */
 .signs { list-style: none; margin: 0; padding: 0; border-top: 2px solid var(--rule); }
 .signs li { border-bottom: 1px solid var(--line); }
-.signs a { display: grid; grid-template-columns: minmax(0, 15rem) minmax(0, 1fr) auto; gap: 6px 24px; align-items: baseline; padding: 18px 4px; color: inherit; text-decoration: none; transition: background-color .15s ease, padding .15s ease; }
-.signs a:hover { background: var(--teal-soft); padding-left: 12px; }
+.signs a { display: grid; grid-template-columns: minmax(0, 15rem) minmax(0, 1fr) auto; gap: 6px 24px; align-items: baseline; padding: 18px 4px; color: inherit; text-decoration: none; transition: background-color .15s ease; }
+.signs a > * { transition: transform 150ms var(--ease-out); }
+@media (hover: hover) and (pointer: fine) { .signs a:hover { background: var(--teal-soft); } .signs a:hover > * { transform: translateX(8px); } }
 .signs b { font: 700 24px/1.1 var(--f-display); color: var(--heading); }
 .signs span { color: var(--muted); }
 .signs i { font-style: normal; font: 700 26px/1 var(--f-display); color: var(--teal); }
@@ -204,7 +207,7 @@ button.btn[disabled] { opacity: .6; cursor: default; }
 a.service:hover { border-color: var(--rule); }
 .ico { width: 40px; height: 40px; border-radius: var(--r); background: var(--teal-soft); color: var(--teal); display: grid; place-items: center; flex: none; }
 .ico svg { width: 22px; height: 22px; }
-.tag { display: inline-block; font: 700 12px/1 var(--f-body); padding: 5px 7px; border-radius: 2px; background: var(--teal-soft); color: var(--teal); vertical-align: middle; letter-spacing: .02em; }
+.tag { display: inline-block; font: 700 13px/1 var(--f-body); padding: 5px 7px; border-radius: 2px; background: var(--teal-soft); color: var(--teal); vertical-align: middle; letter-spacing: .02em; }
 .tag.ok { background: var(--ok-soft); color: var(--ok); }
 .tag.info { background: var(--teal-soft); color: var(--ink); }
 .draft { border: 2px dashed var(--warn); background: var(--warn-soft); color: var(--ink); border-radius: var(--r); padding: 12px 14px; font-size: 14px; }
@@ -219,26 +222,27 @@ a.service:hover { border-color: var(--rule); }
 .steps p { color: var(--muted); }
 
 /* Πίνακες */
-.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-top: 3px solid var(--rule); border-radius: var(--r); background: var(--surface); -webkit-overflow-scrolling: touch; }
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--r); background: var(--surface); -webkit-overflow-scrolling: touch; }
 table.data { border-collapse: collapse; width: 100%; font-size: 15px; }
 table.data th, table.data td { padding: 11px 12px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
 table.data th:first-child, table.data td:first-child { text-align: left; position: sticky; left: 0; background: var(--surface); box-shadow: 1px 0 0 var(--line); }
-table.data thead th { background: var(--band); color: #fff; font: 600 13px var(--f-body); }
+table.data thead th { background: var(--band); color: #fff; font: 600 14px var(--f-body); }
 table.data thead th:first-child { background: var(--band); }
 table.data td { font-variant-numeric: tabular-nums; }
 table.data tbody tr:last-child td { border-bottom: 0; }
 table.data td.na { color: var(--muted); }
-.caption { font-size: 13px; color: var(--muted); margin-top: 8px; }
+.caption { font-size: 14px; color: var(--muted); margin-top: 8px; }
 
 /* Φόρμες / υπολογιστής */
 .form { display: grid; gap: 16px; }
 .field { display: grid; gap: 6px; min-width: 0; }
 .field label, .legend { font: 600 14px var(--f-body); color: var(--ink); }
-.field .hint { font-size: 13px; color: var(--muted); }
+.field .hint { font-size: 14px; color: var(--muted); }
 input[type=text], input[type=search], input[type=tel], input[type=email], input[type=number], input:not([type]), select, textarea {
   font: inherit; font-size: 17px; color: var(--ink); background: var(--surface); border: 2px solid var(--line); border-radius: var(--r); padding: 10px 12px; min-height: 52px; width: 100%; transition: border-color .15s ease;
 }
-input:focus, select:focus, textarea:focus { border-color: var(--teal); outline: none; box-shadow: 0 0 0 3px var(--teal-soft); }
+input:focus, select:focus, textarea:focus { border-color: var(--teal); }
+input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3px solid var(--teal); outline-offset: 1px; }
 .panel input, .panel select, .panel textarea { background: var(--paper); }
 textarea { min-height: 110px; resize: vertical; }
 fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
@@ -246,7 +250,7 @@ fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
 .choice { position: relative; }
 .choice input { position: absolute; opacity: 0; inset: 0; }
 .choice span { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; justify-content: center; height: 100%; min-height: 52px; border: 2px solid var(--line); border-radius: var(--r); padding: 10px 12px; background: var(--surface); cursor: pointer; font-weight: 600; transition: border-color .15s ease, background-color .15s ease; }
-.choice span small { font-weight: 400; color: var(--muted); font-size: 13px; }
+.choice span small { font-weight: 400; color: var(--muted); font-size: 14px; }
 .choice input:checked + span { border-color: var(--teal); background: var(--teal-soft); box-shadow: inset 6px 0 0 var(--teal); padding-left: 16px; }
 .choice input:focus-visible + span { outline: 3px solid var(--teal); outline-offset: 2px; }
 .dims { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
@@ -303,7 +307,7 @@ details.q .a { padding: 0 2px 18px; color: var(--ink); max-width: 68ch; }
 /* Επικοινωνία */
 .contact-list { display: grid; gap: 14px; }
 .contact-list .row { display: flex; gap: 12px; align-items: flex-start; }
-.contact-list .row b { display: block; font-size: 13px; color: var(--muted); font-weight: 600; }
+.contact-list .row b { display: block; font-size: 14px; color: var(--muted); font-weight: 600; }
 .contact-list .row .v { font: 700 22px var(--f-display); color: var(--heading); }
 .hours { width: 100%; border-collapse: collapse; }
 .hours td { padding: 10px 0; border-bottom: 1px solid var(--line); }
@@ -311,8 +315,8 @@ details.q .a { padding: 0 2px 18px; color: var(--ink); max-width: 68ch; }
 
 /* Φωτογραφίες (μπαίνουν μόνο αν υπάρχει το αρχείο) */
 .photo { margin: 0; }
-.photo img { display: block; width: 100%; aspect-ratio: 3 / 2; object-fit: cover; border-radius: var(--r); border-top: 6px solid var(--teal); }
-.photo figcaption { font-size: 13px; color: var(--muted); margin-top: 6px; }
+.photo img { display: block; width: 100%; aspect-ratio: 3 / 2; object-fit: cover; border-radius: var(--r); }
+.photo figcaption { font-size: 14px; color: var(--muted); margin-top: 6px; }
 
 /* Μπάντα κλήσης */
 .cta-band { background: var(--teal-soft); color: var(--ink); border-top: 4px solid var(--teal); }
@@ -336,7 +340,7 @@ details.q .a { padding: 0 2px 18px; color: var(--ink); max-width: 68ch; }
 .quickbar { display: none; }
 @media (max-width: 900px) {
   :root { --qb: calc(64px + env(safe-area-inset-bottom, 0px)); }
-  .quickbar { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); position: fixed; left: 0; right: 0; bottom: 0; z-index: 25; background: var(--band); border-top: 3px solid #017F98; padding-bottom: env(safe-area-inset-bottom, 0px); padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px); }
+  .quickbar { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); position: fixed; left: 0; right: 0; bottom: 0; z-index: 25; background: var(--band); border-top: 3px solid #017F98; padding-bottom: env(safe-area-inset-bottom, 0px); padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px); }
   .quickbar a { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-height: 61px; color: #fff; text-decoration: none; font: 600 13px/1.1 var(--f-body); }
   .quickbar a + a { border-left: 1px solid rgba(255,255,255,.12); }
   .quickbar a:first-child { background: var(--sign); color: var(--on-sign); }
@@ -362,11 +366,11 @@ details.how ol { margin: 8px 0 0; padding-left: 20px; display: grid; gap: 6px; f
 details.how li { font-variant-numeric: tabular-nums; }
 
 /* Χάρτης και πίνακας προορισμών */
-.map-fig { margin: 0; background: #fff; border: 1px solid var(--line); border-top: 3px solid var(--rule); border-radius: var(--r); padding: 8px; }
+.map-fig { margin: 0; background: #fff; border: 1px solid var(--line); border-radius: var(--r); padding: 8px; }
 .map-fig img { display: block; width: 100%; height: auto; }
 .map-fig figcaption { padding: 6px 8px 2px; }
 .dest-table th[scope=row] { font-weight: 600; }
-.dest-table th[scope=row] small { display: block; font-weight: 400; color: var(--muted); font-size: 12px; }
+.dest-table th[scope=row] small { display: block; font-weight: 400; color: var(--muted); font-size: 14px; }
 .dest-table td.wrap-cell { white-space: normal; min-width: 220px; max-width: 320px; text-align: left; font-size: 14px; color: var(--muted); }
 .dest-table td { text-align: left; }
 .dest-table tr.off th, .dest-table tr.off td { color: var(--muted); }
@@ -375,7 +379,7 @@ form[data-poll] { display: grid; gap: 24px; }
 .head-photo:empty { display: none; }
 .head-photo { max-width: 720px; margin-top: 8px; }
 .head-photo figcaption { color: var(--on-band-muted); }
-@media (max-width: 1180px) { .brand { flex: 0 1 auto; min-width: 0; } .brand > span:last-child { min-width: 0; overflow: hidden; } .brand b, .brand small { overflow: hidden; text-overflow: ellipsis; } }
+@media (max-width: 1180px) { .brand { flex: 0 1 auto; min-width: 0; } .brand > span:last-child { min-width: 0; } .brand b { white-space: normal; line-height: 1.05; } }
 @media (max-width: 480px) {
   .site-head .wrap { gap: 10px; min-height: 58px; }
   .brand { gap: 8px; }
@@ -384,8 +388,11 @@ form[data-poll] { display: grid; gap: 24px; }
   .brand b { font-size: 17px; }
   .brand small { font-size: 12px; }
   .lang-switch { padding: 6px 8px; margin-left: auto; }
-  .menu-btn { padding: 0 10px; margin-left: 6px; }
+  .menu-btn { padding: 0; margin-left: 6px; width: 44px; display: grid; place-items: center; }
+  .menu-btn .mb-txt { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .menu-btn .mb-ico { display: block; }
 }
+@media (max-width: 360px) { .brand small { display: none; } }
 
 /* Χρονολόγιο (ιστορία δεμάτων ΚΤΕΛ) */
 .timeline { list-style: none; margin: 0; padding: 0; border-top: 2px solid var(--rule); }
@@ -515,7 +522,7 @@ table.season .m-deps { display: none; }
 input[type=text], input[type=search], input[type=tel], input[type=email], input[type=number], input:not([type]), select, textarea { border-color: #8A9BAD; }
 ::placeholder { color: var(--muted); opacity: 1; }
 [data-track-out], .result, .result .price { scroll-margin-bottom: calc(var(--qb) + 16px); scroll-margin-top: 90px; }
-.quicktrack .qt-labels { display: grid; grid-template-columns: minmax(0, 1fr) 92px auto; gap: 8px; font-size: 12px; line-height: 1.25; color: #56677A; margin-bottom: 4px; }
+.quicktrack .qt-labels { display: grid; grid-template-columns: minmax(0, 1fr) 104px auto; gap: 8px; font-size: 14px; line-height: 1.25; color: #56677A; margin-bottom: 4px; }
 .head-ctas { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
 .lang-switch { min-height: 44px; min-width: 44px; display: inline-flex; align-items: center; justify-content: center; }
 .site-foot ul a, .site-foot .legal a, .crumbs a, .season-link, .contact-list .row a:not(.btn) { display: inline-block; padding-block: 10px; }
@@ -529,7 +536,7 @@ input[type=text], input[type=search], input[type=tel], input[type=email], input[
   .dest-table th[scope=row] { grid-column: 1 / -1; position: static; box-shadow: none; border: 0; padding: 0; white-space: normal; font-size: 18px; }
   .dest-table td, .dest-table th[scope=row] { display: block; border: 0 !important; box-shadow: none !important; padding: 0 !important; white-space: normal; position: static; font-size: 15px; text-align: left !important; background: none !important; }
   .dest-table td:last-child { grid-column: 1 / -1; margin-top: 4px; }
-  .dest-table td[data-label]:not([data-label=""])::before { content: attr(data-label); display: block; font-size: 12px; color: var(--muted); }
+  .dest-table td[data-label]:not([data-label=""])::before { content: attr(data-label); display: block; font-size: 13px; color: var(--muted); }
   .dest-table td.wrap-cell { grid-column: 1 / -1; }
 }
 .partner-link { display: inline-block; vertical-align: middle; } .partner-link .brand-logo { height: 32px !important; }
@@ -542,7 +549,7 @@ input[type=text], input[type=search], input[type=tel], input[type=email], input[
 
 /* Εμφάνιση στο σκρολάρισμα: μόνο για ό,τι είναι εκτός οθόνης όταν φορτώνει η σελίδα (το client.js βάζει .rv) */
 .rv { opacity: 0; transform: translateY(16px); }
-.rv.in { opacity: 1; transform: none; transition: opacity 500ms var(--ease-out), transform 500ms var(--ease-out); transition-delay: calc(var(--rv, 0) * 60ms); }
+.rv.in { opacity: 1; transform: none; transition: opacity 400ms var(--ease-out), transform 400ms var(--ease-out); transition-delay: calc(var(--rv, 0) * 50ms); }
 
 /* Πίνακας αναχωρήσεων: οι γραμμές «γυρίζουν» σαν πινακίδα σταθμού όταν αλλάζουν */
 .board tbody { perspective: 600px; }
@@ -565,14 +572,14 @@ input[type=text], input[type=search], input[type=tel], input[type=email], input[
 .routes-svg .hub .pulse { fill: none; stroke: var(--m-hub); stroke-width: 3; opacity: 0; transform-box: fill-box; transform-origin: center; }
 .routes-svg .hub text { font-size: 28px; font-weight: 800; fill: var(--m-label); stroke: var(--m-halo); stroke-width: 6px; paint-order: stroke; }
 .routes-map .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; border-top: 1px solid var(--line); padding: 12px 6px 14px; }
-.routes-map .stats span { display: flex; flex-direction: column; font-size: 13px; color: var(--muted); line-height: 1.25; }
+.routes-map .stats span { display: flex; flex-direction: column; font-size: 14px; color: var(--muted); line-height: 1.25; }
 .routes-map .stats b { font: 700 30px/1.05 var(--f-display); color: var(--heading); font-variant-numeric: tabular-nums; }
 
 /* Πριν μπει στην οθόνη (μόνο με JavaScript): κρυμμένες διαδρομές και πόλεις */
 .routes-map.armed .rt { stroke-dashoffset: 1; }
 .routes-map.armed .ct { opacity: 0; transform: scale(.6); transform-box: fill-box; transform-origin: center; }
-.routes-map.armed.in .rt { animation: draw 900ms var(--ease-in-out) forwards; animation-delay: calc(var(--i) * 70ms); }
-.routes-map.armed.in .ct { opacity: 1; transform: none; transition: opacity 300ms var(--ease-out), transform 300ms var(--ease-out); transition-delay: calc(var(--i) * 70ms + 650ms); }
+.routes-map.armed.in .rt { animation: draw 900ms var(--ease-in-out) forwards; animation-delay: calc(var(--i) * 40ms); }
+.routes-map.armed.in .ct { opacity: 1; transform: none; transition: opacity 300ms var(--ease-out), transform 300ms var(--ease-out); transition-delay: calc(var(--i) * 40ms + 650ms); }
 .routes-map.in .hub .pulse { animation: pulse 1600ms var(--ease-out) 3; }
 @keyframes draw { to { stroke-dashoffset: 0; } }
 @keyframes pulse { from { opacity: .6; transform: scale(1); } to { opacity: 0; transform: scale(3); } }
@@ -602,7 +609,7 @@ input[type=text], input[type=search], input[type=tel], input[type=email], input[
 .j-main { margin: 0; font: 700 20px/1.25 var(--f-display); color: var(--heading); }
 .j-sub { margin: 4px 0 0; font-size: 14px; color: var(--muted); }
 .j-parcel { position: absolute; left: 0; top: 0; z-index: 2; width: 34px; height: 34px; border-radius: 8px; display: grid; place-items: center; background: var(--sign); color: var(--on-sign);
-  box-shadow: 0 4px 10px rgb(0 0 0 / .18); transition: transform 600ms var(--ease-in-out); pointer-events: none; }
+  box-shadow: 0 4px 10px rgb(0 0 0 / .18); transition: transform 480ms var(--ease-in-out); pointer-events: none; }
 .j-parcel svg { width: 20px; height: 20px; }
 .journey.still .j-parcel { display: none; }
 .j-ctas { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; align-items: center; }
@@ -613,3 +620,89 @@ input[type=text], input[type=search], input[type=tel], input[type=email], input[
   .j-steps > li { grid-template-columns: 1fr; gap: 10px; }
 }
 @media (prefers-reduced-motion: reduce) { .j-parcel { display: none; } }
+
+/* ---------- Διορθώσεις ελέγχου σχεδιασμού (11/2026) ---------- */
+.site-foot .legal { font-size: 14px; }
+.menu-btn .mb-ico { width: 24px; height: 24px; }
+@media (min-width: 481px) { .menu-btn .mb-ico { display: none; } }
+.hero .facts a:not(.season-link) { color: var(--teal-light); }
+/* Επικεφαλίδες ενοτήτων με σταθερό διάστημα (αντί για inline margin) */
+.section .wrap > h2 { margin: 40px 0 14px; }
+.section .wrap > h2:first-child { margin-top: 0; }
+/* Πίνακας 2 στηλών (τιμές ανά προορισμό): στενός, και το όνομα σπάει σε γραμμές */
+.table-wrap.narrow { max-width: 640px; }
+table.data.two th:first-child, table.data.two td:first-child { white-space: normal; }
+/* Πίνακες που γίνονται κάρτες στο κινητό */
+@media (max-width: 600px) {
+  table.stack thead { display: none; }
+  table.stack, table.stack tbody { display: block; min-width: 0 !important; width: 100%; }
+  table.stack tr { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+  table.stack th[scope=row] { grid-column: 1 / -1; white-space: normal; padding: 0 !important; border: 0 !important; font-size: 17px; background: none; position: static; box-shadow: none; }
+  table.stack td { display: block; border: 0 !important; padding: 0 !important; white-space: normal; text-align: left; font-size: 16px; }
+  table.stack td[data-label]::before { content: attr(data-label); display: block; font-size: 13px; color: var(--muted); }
+  .panel { padding: 16px 12px; }
+}
+/* Υπολογιστής: η τιμή σαν πινακίδα σταθμού */
+.price-board { background: var(--board); color: #fff; border-top: 6px solid var(--teal); border-radius: var(--r); padding: 16px 18px; margin: -4px -4px 4px; }
+.price-board .eyebrow { color: var(--board-dim); }
+.price-board .price .big { color: var(--sign); }
+.price-board .price .per { color: var(--board-dim); }
+.price-board .deadline { margin: 10px 0 0; font: 700 18px/1.3 var(--f-body); color: #fff; }
+.price-board .deadline small { display: block; font-weight: 400; font-size: 14px; color: var(--board-dim); margin-top: 2px; }
+.result .next-step { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+[data-calc] { min-height: 640px; }
+@media (max-width: 480px) { .kv { grid-template-columns: 1fr; } .kv dt { margin-top: 8px; } .kv dd { margin-left: 0; } }
+/* Αρχική: «ανοιχτά τώρα» και φωτογραφία εισόδου */
+.open-now { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; }
+.open-now::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: #3CCB7F; box-shadow: 0 0 0 3px rgb(60 203 127 / .25); }
+.open-now.closed::before { background: #F2B632; box-shadow: 0 0 0 3px rgb(242 182 50 / .25); }
+.hero-photo { margin: 16px 0 0; }
+.hero-photo img { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: var(--r); }
+.hero-photo figcaption { font-size: 14px; color: var(--on-band-muted); margin-top: 6px; }
+/* Πίνακας αναχωρήσεων: η πόλη ανοίγει την τιμή */
+.board td.d a { color: inherit; text-decoration: none; border-bottom: 1px dotted rgb(255 255 255 / .35); }
+.board td.d a:hover { border-bottom-color: currentColor; }
+/* «Ταξίδι»: τα κείμενα αλλάζουν απαλά όταν αλλάζει ο προορισμός */
+.journey.swap .j-main, .journey.swap .j-sub { animation: jfade 200ms var(--ease-out) both; animation-delay: calc(var(--n, 0) * 40ms); }
+@keyframes jfade { from { opacity: 0; transform: translateY(4px); } }
+/* Αναζήτηση: το αποτέλεσμα εμφανίζεται απαλά */
+[data-track-out] .notice { animation: jfade 200ms var(--ease-out) both; }
+/* Υπολογιστής: η τιμή «αναπηδά» ελαφρά όταν αλλάζει */
+.price .big.bump { animation: pricein 160ms var(--ease-out); }
+@keyframes pricein { from { opacity: .4; transform: translateY(3px); } }
+/* Μενού κινητού: ανοίγει απαλά */
+@media (max-width: 1180px) { .nav.open { animation: menuin 160ms var(--ease-out); } }
+@keyframes menuin { from { opacity: 0; transform: translateY(-6px); } }
+/* Συχνές ερωτήσεις: η απάντηση ανοίγει ομαλά (όπου το υποστηρίζει ο browser) */
+details.q { interpolate-size: allow-keywords; }
+details.q::details-content { block-size: 0; overflow: hidden; transition: block-size 220ms var(--ease-out), content-visibility 220ms allow-discrete; }
+details.q[open]::details-content { block-size: auto; }
+/* Σελίδα προορισμών: δημοφιλείς πόλεις, κενό αποτέλεσμα, μεγάλα κουμπιά */
+.dest-table td a { display: inline-flex; align-items: center; min-height: 44px; }
+.dest-more { margin-top: 12px; }
+.dest-empty { margin-top: 12px; }
+@media (prefers-reduced-motion: reduce) {
+  .journey.swap .j-main, .journey.swap .j-sub, [data-track-out] .notice, .price .big.bump, .nav.open { animation: none; }
+}
+/* Εκτύπωση: όλα ορατά, χωρίς κίνηση και χωρίς μπάρες */
+@media print {
+  .rv { opacity: 1 !important; transform: none !important; }
+  .routes-map.armed .rt { stroke-dashoffset: 0 !important; }
+  .routes-map.armed .ct { opacity: 1 !important; transform: none !important; }
+  .quickbar, .proto, .menu-btn, .j-parcel, .skip { display: none !important; }
+  body { padding-bottom: 0; }
+  details.q::details-content { block-size: auto; }
+}
+
+.sr-only { position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.hero-side { display: grid; gap: 16px; min-width: 0; }
+.hero-photo-wrap .photo { margin: 0; }
+.hero-photo-wrap .photo img { aspect-ratio: 4 / 3; object-position: 50% 40%; }
+.hero-photo-wrap .photo figcaption { color: var(--on-band-muted); }
+@media (max-width: 899px) { .hero-photo-wrap .photo img { aspect-ratio: 16 / 9; } }
+
+/* Γρήγορη αναζήτηση: ετικέτες και πεδία στο ίδιο πλέγμα, ώστε να στοιχίζονται */
+.quicktrack .qt-grid label { font-size: 14px; line-height: 1.25; color: #56677A; align-self: end; margin: 0; }
+.quicktrack .qt-grid input { grid-row: 2; }
+.quicktrack .qt-grid .btn { grid-row: 2; grid-column: 3; }
+@media (max-width: 520px) { .quicktrack .qt-grid .btn { grid-row: 3; grid-column: 1 / -1; } }
