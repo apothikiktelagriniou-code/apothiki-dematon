@@ -510,6 +510,7 @@ table.season .m-deps { display: none; }
 .btn.btn-wa, .btn.btn-vb, .notice a.btn, .notice .chat-btns a { color: #fff; }
 .btn-wa { background: #15803D; } .btn-wa:hover { background: #116B33; }
 .btn-vb { background: #665CD9; } .btn-vb:hover { background: #5548C4; }
+.btn-wa .brand-logo, .btn-vb .brand-logo { background: #fff; border-radius: 50%; padding: 3px; height: 28px !important; box-sizing: border-box; }
 .site-head :focus-visible, .hero :focus-visible, .page-head :focus-visible, .site-foot :focus-visible, .quickbar :focus-visible, .board :focus-visible, .band :focus-visible { outline-color: var(--sign); }
 input[type=text], input[type=search], input[type=tel], input[type=email], input[type=number], input:not([type]), select, textarea { border-color: #8A9BAD; }
 ::placeholder { color: var(--muted); opacity: 1; }
