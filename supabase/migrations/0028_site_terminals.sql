@@ -31,15 +31,15 @@ update public.site_destinations set terminal = 'Υπεραστικό ΚΤΕΛ Μ
 update public.site_destinations set terminal = 'Υπεραστικό ΚΤΕΛ Άρτας', terminal_addr = 'Πλατεία Κρυστάλλη, Άρτα', terminal_phone = '26810 27348' where name = 'Άρτα' and terminal is null;
 update public.site_destinations set terminal = 'ΚΤΕΛ Λευκάδας', terminal_addr = 'Φιλοσόφων & Τζεβελέκη, Λευκάδα', terminal_phone = '26450 22364' where name = 'Λευκάδα' and terminal is null;
 update public.site_destinations set terminal = 'Υπεραστικός σταθμός ΚΤΕΛ Μεσσηνίας', terminal_addr = 'Τέρμα Αρτέμιδος, Καλαμάτα', terminal_phone = '27210 28581' where name = 'Καλαμάτα' and terminal is null;
-update public.site_destinations set terminal = 'Σταθμός ΚΤΕΛ Λαμίας', terminal_addr = null, terminal_phone = '22310 22802' where name = 'Λαμία' and terminal is null;
+update public.site_destinations set terminal = 'Υπεραστικό ΚΤΕΛ Φθιώτιδας (σταθμός Λαμίας)', terminal_addr = 'Τέρμα Ταϋγέτου, Λαμία', terminal_phone = '22310 22802, 22310 51345' where name = 'Λαμία' and terminal is null;
 update public.site_destinations set terminal = 'Πρακτορείο ΚΤΕΛ Κοζάνης (Βέροια)', terminal_addr = 'Πιερίων 155, Βέροια', terminal_phone = '23310 75170, 23310 75172' where name = 'Βέροια' and terminal is null;
 update public.site_destinations set terminal = '«Πίνδος» (πρακτορείο ΚΤΕΛ Αιτωλοακαρνανίας)', terminal_addr = '3ο χλμ Γρεβενών – Κοζάνης, Γρεβενά', terminal_phone = '24620 81511' where name = 'Γρεβενά' and terminal is null;
 update public.site_destinations set terminal = 'Υπεραστικός σταθμός ΚΤΕΛ Κοζάνης', terminal_addr = 'Ε. Γιάνναρη 22, Κοζάνη', terminal_phone = '24610 34454' where name = 'Κοζάνη' and terminal is null;
-update public.site_destinations set terminal = 'Σταθμός ΚΤΕΛ Ισθμού', terminal_addr = null, terminal_phone = '27410 73987' where name = 'Ισθμός' and terminal is null;
+update public.site_destinations set terminal = 'Σταθμός ΚΤΕΛ Κορινθίας Ισθμού', terminal_addr = 'Ισθμός Κορίνθου', terminal_phone = '27410 73987' where name = 'Ισθμός' and terminal is null;
 update public.site_destinations set terminal = 'Υπεραστικός σταθμός ΚΤΕΛ Εύβοιας', terminal_addr = 'Φαβιέρου 28, Χαλκίδα', terminal_phone = '22210 22640' where name = 'Χαλκίδα' and terminal is null;
 update public.site_destinations set terminal = 'Υπεραστικός σταθμός ΚΤΕΛ Λιβαδειάς', terminal_addr = 'Τέρμα Χαιρωνείας, Λιβαδειά', terminal_phone = '22610 28272' where name = 'Λιβαδειά' and terminal is null;
 update public.site_destinations set terminal = 'Πρακτορείο ΚΤΕΛ Φωκίδας Ιτέας', terminal_addr = '28ης Οκτωβρίου 31, Ιτέα', terminal_phone = '22650 32336' where name = 'Ιτέα' and terminal is null;
 update public.site_destinations set terminal = 'Υπεραστικό ΚΤΕΛ Κέρκυρας', terminal_addr = 'Εθνική Οδός Λευκίμμης 13, Κέρκυρα', terminal_phone = '26610 28900' where name = 'Κέρκυρα' and terminal is null;
 update public.site_destinations set terminal = 'Υπεραστικός σταθμός ΚΤΕΛ Ηλείας', terminal_addr = 'Ερυθρού Σταυρού 6, Πύργος', terminal_phone = '26210 20600' where name = 'Πύργος' and terminal is null;
-update public.site_destinations set terminal = 'ΚΤΕΛ Ηρακλείου – Λασιθίου', terminal_addr = null, terminal_phone = '2810 246538' where name = 'Ηράκλειο' and terminal is null;
+update public.site_destinations set terminal = 'Κεντρικός σταθμός ΚΤΕΛ Ηρακλείου – Λασιθίου', terminal_addr = 'Λιμάνι Ηρακλείου, Ηράκλειο', terminal_phone = '2810 246538, 2810 245020' where name = 'Ηράκλειο' and terminal is null;
 select 'OK — σταθμοί παραλαβής έτοιμοι' as αποτέλεσμα;
