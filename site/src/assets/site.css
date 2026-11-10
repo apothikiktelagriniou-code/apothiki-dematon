@@ -532,3 +532,4 @@ input[type=text], input[type=search], input[type=tel], input[type=email], input[
   .dest-table td[data-label]:not([data-label=""])::before { content: attr(data-label); display: block; font-size: 12px; color: var(--muted); }
   .dest-table td.wrap-cell { grid-column: 1 / -1; }
 }
+.partner-link { display: inline-block; vertical-align: middle; } .partner-link .brand-logo { height: 32px !important; }
