@@ -412,7 +412,7 @@
       out.textContent = "";
       const pre = h("pre", { class: "panel", style: "white-space:pre-wrap;font:15px/1.5 var(--f-body);margin:0" }, text);
       const copy = h("button", { type: "button", class: "btn btn-ghost" }, T("Αντιγραφή κειμένου", "Copy text"));
-      copy.addEventListener("click", async () => { try { await navigator.clipboard.writeText(text); copy.textContent = T("Αντιγράφηκε", "Copied"); } catch { const r = document.createRange(); r.selectNodeContents(pre); const s = getSelection(); s.removeAllRanges(); s.addRange(r); copy.textContent = T("Επιλέχθηκε — πατήστε Αντιγραφή", "Selected — press Copy"); } });
+      copy.addEventListener("click", async () => { try { await navigator.clipboard.writeText(text); copy.textContent = T("Αντιγράφηκε", "Copied"); copy.classList.remove("done"); void copy.offsetWidth; copy.classList.add("done"); } catch { const r = document.createRange(); r.selectNodeContents(pre); const s = getSelection(); s.removeAllRanges(); s.addRange(r); copy.textContent = T("Επιλέχθηκε — πατήστε Αντιγραφή", "Selected — press Copy"); } });
       out.append(h("div", { class: "notice info" }, h("b", {}, T("Το μήνυμά σας είναι έτοιμο", "Your message is ready")), T("Στείλτε το με WhatsApp ή email. Δεν αποθηκεύεται πουθενά στην ιστοσελίδα.", "Send it by WhatsApp or email. Nothing is stored on this website.")), pre,
         h("div", { style: "display:flex;flex-wrap:wrap;gap:10px" },
           h("a", { class: "btn btn-primary", href: "https://wa.me/30" + B.mobile + "?text=" + encodeURIComponent(text), target: "_blank", rel: "noopener" }, T("Αποστολή με WhatsApp", "Send by WhatsApp")),

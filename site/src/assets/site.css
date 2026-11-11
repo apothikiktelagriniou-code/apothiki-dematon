@@ -100,8 +100,8 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 @media (max-width: 380px) { .brand .chip { display: none; } }
 
 /* Buttons */
-.btn { display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 52px; padding: 0 22px; border-radius: var(--r); font: 600 17px/1.1 var(--f-body); text-decoration: none; border: 2px solid transparent; cursor: pointer; transition: transform .12s ease, background-color .15s ease, filter .15s ease; text-align: center; }
-.btn:active { transform: translateY(1px); }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 52px; padding: 0 22px; border-radius: var(--r); font: 600 17px/1.1 var(--f-body); text-decoration: none; border: 2px solid transparent; cursor: pointer; transition: transform 120ms var(--ease-out), background-color .15s ease, filter .15s ease; text-align: center; }
+.btn:active { transform: translateY(1px) scale(.97); }
 .btn-primary { background: var(--sign); color: var(--on-sign); border-color: var(--on-sign); }
 .btn-light { background: var(--sign); color: var(--on-sign); }
 .btn-ghost { background: transparent; color: var(--heading); border-color: var(--heading); }
@@ -838,3 +838,30 @@ table.data.times td:first-child { width: 4.5em; }
 /* Πίνακας προορισμών: κείμενα που αναδιπλώνονται */
 table.data.dest-table td, table.data.dest-table th[scope=row] { overflow-wrap: anywhere; }
 table.data.times tr > th:last-child, table.data.times tr > td:last-child { text-align: left; }
+
+/* ---- Μικρές κινήσεις (11/11): εικονίδια υπηρεσιών, parallax φωτογραφίας, επιβεβαίωση κουμπιών ---- */
+.signs .si { display: inline-flex; width: 26px; height: 26px; margin-right: 12px; vertical-align: -3px; color: var(--teal); font-style: normal; }
+.signs .si svg { width: 100%; height: 100%; transform-origin: 50% 60%; }
+@media (prefers-reduced-motion: no-preference) {
+  .signs a:is(:hover, :focus-visible, :active)[data-a="lift"] .si svg { animation: si-lift 520ms var(--ease-out); }
+  .signs a:is(:hover, :focus-visible, :active)[data-a="drop"] .si svg { animation: si-drop 520ms var(--ease-out); }
+  .signs a:is(:hover, :focus-visible, :active)[data-a="pop"] .si svg { animation: si-pop 420ms var(--ease-out); }
+  .signs a:is(:hover, :focus-visible, :active)[data-a="drive"] .si svg { animation: si-drive 620ms var(--ease-in-out); }
+  .signs a:is(:hover, :focus-visible, :active)[data-a="swing"] .si svg { animation: si-swing 620ms var(--ease-out); transform-origin: 50% 10%; }
+  @keyframes si-lift { 0% { transform: none; } 40% { transform: translateY(-5px) rotate(-6deg); } 100% { transform: none; } }
+  @keyframes si-drop { 0% { transform: translateY(-6px); opacity: .4; } 60% { transform: translateY(1px); opacity: 1; } 100% { transform: none; } }
+  @keyframes si-pop { 0% { transform: scale(1); } 45% { transform: scale(1.18); } 100% { transform: scale(1); } }
+  @keyframes si-drive { 0% { transform: none; } 45% { transform: translateX(5px); } 60% { transform: translateX(4px) translateY(-1px); } 100% { transform: none; } }
+  @keyframes si-swing { 0% { transform: rotate(0); } 30% { transform: rotate(12deg); } 60% { transform: rotate(-8deg); } 100% { transform: rotate(0); } }
+
+  /* Πολύ ήπιο parallax στη φωτογραφία της εισόδου: κινείται μόνο το κάδρο της εικόνας (object-position), όχι η σελίδα */
+  @supports (animation-timeline: view()) {
+    .hero-photo-wrap .photo img { animation: hp-par linear both; animation-timeline: view(); animation-range: cover; }
+    @keyframes hp-par { from { object-position: 50% 25%; } to { object-position: 50% 60%; } }
+  }
+
+  /* Κουμπί αντιγραφής: μικρή επιβεβαίωση */
+  .btn.done { animation: btn-done 360ms var(--ease-out); }
+  @keyframes btn-done { 0% { transform: scale(.96); } 60% { transform: scale(1.03); } 100% { transform: none; } }
+}
+.btn.done::before { content: "✓"; font-weight: 800; color: var(--teal); }
