@@ -2,7 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { SUPABASE_URL, SUPABASE_KEY } from "./config.js";
 import {
   HOME, norm, shelfFor, cleanPhone, fmtPhone, parseGrDate, fmtGr, toLocalInput, money, hoursSince, daysSince,
-  tripsOf, tripLabel, sortTrips, isClosed, isTransit, parseLabel, fillTemplate, toCSV, cleanIdDoc, sameReceipt, likelySameParcel, sameNameTrip, smsFor, soundKey, safeAutoPhone, phoneFits, mixedCustomer, greeklishToGreek, greekName, isGreeklishName, surnameFirst, expectHelp, expectProgress } from "./lib.js";
+  tripsOf, tripLabel, sortTrips, isClosed, isTransit, parseLabel, fillTemplate, toCSV, cleanIdDoc, sameReceipt, likelySameParcel, sameNameTrip, smsFor, soundKey, safeAutoPhone, phoneFits, mixedCustomer, fetchAll, greeklishToGreek, greekName, isGreeklishName, surnameFirst, expectHelp, expectProgress } from "./lib.js";
 import { initCamera } from "./camera.js";
 import { initCapture, pendingReviewCount, toJpegB64, loadQueue } from "./capture.js";
 import { openManifest } from "./manifest.js";
@@ -114,9 +114,9 @@ async function loadSettings() {
 // ---------------------------------------------------------------- δεδομένα
 async function loadParcels() {
   const since = new Date(Date.now() - 45 * 864e5).toISOString();
-  const { data, error } = await sb.from("parcels").select("*")
+  const { data, error } = await fetchAll(() => sb.from("parcels").select("*")
     .or(`status.in.(arrived,notified,transit),created_at.gte.${since}`)
-    .order("created_at", { ascending: false }).limit(5000);
+    .order("created_at", { ascending: false }).order("id"));
   if (error) { show($("netMsg"), "Δεν φορτώθηκαν τα δέματα. Έλεγξε τη σύνδεση και ανανέωσε τη σελίδα.", "bad"); return; }
   rows = new Map(data.map(p => [p.id, p]));
   render(); purgeAllClosed(); cleanStaleNotes(); fixKindOnce(); greeklishFixOnce(); gemiStats();
@@ -960,10 +960,10 @@ $("tg-smsauto").onclick = async () => {
   renderAutoSms();
 };
 async function bulkSms() {
-  const { data } = await sb.from("customers").select("id").eq("channel", "sms").limit(5000);
+  const { data } = await fetchAll(() => sb.from("customers").select("id").eq("channel", "sms").order("id"));
   const smsIds = new Set((data || []).map(c => c.id));
   let other = new Set();
-  if (autoSmsOn()) { const r2 = await sb.from("customers").select("id").not("channel", "is", null).neq("channel", "sms").limit(5000); other = new Set((r2.data || []).map(c => c.id)); }
+  if (autoSmsOn()) { const r2 = await fetchAll(() => sb.from("customers").select("id").not("channel", "is", null).neq("channel", "sms").order("id")); other = new Set((r2.data || []).map(c => c.id)); }
   const list = [...rows.values()].filter(p => p.status === "arrived" && /^69/.test(p.recipient_phone || "") && !(p.phone_source === "handwritten" && !p.phone_confirmed) && !(p.tags || []).includes(SMS_FAIL_TAG) &&
     (smsIds.has(p.customer_id) || (autoSmsOn() && autoSmsOk(p) && !other.has(p.customer_id))));
   return list;
@@ -1268,7 +1268,7 @@ $("customersBtn").onclick = async () => {
   const body = $("dlgBody"); body.textContent = ""; body.append(el("h2", null, "Πελάτες"));
   const q = inp("", { type: "search", placeholder: "Αναζήτηση πελάτη" }); const nw = el("button", "btn small", "＋ Νέος πελάτης"); nw.type = "button"; nw.onclick = () => { $("dlg").close(); openCustomer(null, { full_name: q.value, phones: [] }); };
   const ex = el("button", "btn small", "✉ Εξαγωγή email (μόνο με συγκατάθεση)"); ex.type = "button";
-  ex.onclick = async () => { const { data } = await sb.from("customers").select("full_name,email,area,is_business,marketing_consent_at").eq("marketing_consent", true).not("email", "is", null).limit(10000);
+  ex.onclick = async () => { const { data } = await fetchAll(() => sb.from("customers").select("full_name,email,area,is_business,marketing_consent_at").eq("marketing_consent", true).not("email", "is", null).order("id"));
     const csv = toCSV(data || [], [["full_name", "Όνομα"], ["email", "Email"], ["area", "Περιοχή"], ["b", "Επιχείρηση", r => r.is_business ? "Ναι" : ""], ["c", "Συγκατάθεση από", r => fmtGr(r.marketing_consent_at)]]);
     const a = el("a"); a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" })); a.download = "email-enimerotika.csv"; a.click(); ex.textContent = "✉ " + (data || []).length + " email"; };
   const mixed = custCache.filter(mixedCustomer);
@@ -1483,9 +1483,9 @@ $("notifBtn").onclick = async () => {
 // ---------------------------------------------------------------- πελάτες: μνήμη, καρτέλα, προτάσεις τηλεφώνου
 let custCache = [], custT = null;
 async function loadCustomers() {
-  let { data, error } = await sb.from("customers").select("id,full_name,name_key,surname_key,phones,parcels_count,last_parcel_at,is_business,aliases,starred,email,area,notes").limit(10000);
-  if (error) ({ data, error } = await sb.from("customers").select("id,full_name,name_key,surname_key,phones,parcels_count,last_parcel_at,is_business,aliases").limit(10000));
-  if (error) ({ data } = await sb.from("customers").select("id,full_name,name_key,surname_key,phones,parcels_count,last_parcel_at,is_business").limit(10000));
+  let { data, error } = await fetchAll(() => sb.from("customers").select("id,full_name,name_key,surname_key,phones,parcels_count,last_parcel_at,is_business,aliases,starred,email,area,notes").order("id"), 50000);
+  if (error) ({ data, error } = await fetchAll(() => sb.from("customers").select("id,full_name,name_key,surname_key,phones,parcels_count,last_parcel_at,is_business,aliases").order("id"), 50000));
+  if (error) ({ data } = await fetchAll(() => sb.from("customers").select("id,full_name,name_key,surname_key,phones,parcels_count,last_parcel_at,is_business").order("id"), 50000));
   if (data) { custCache = data; scheduleRender(); }
 }
 const loadCustomersSoon = () => { clearTimeout(custT); custT = setTimeout(loadCustomers, 800); };
@@ -1765,12 +1765,12 @@ async function openCash(dayStr) {
   const b = $("dlgBody"); b.textContent = "";
   const di = inp(day, { type: "date" }); di.onchange = () => openCash(di.value);
   b.append(el("h2", null, "💶 Ταμείο ημέρας"), di);
-  const { data, error } = await sb.from("parcels").select("id,receipt_no,recipient_name,picked_by_name,picked_up_at,cod_amount_eur,cod_collected,home_delivery,operator")
-    .eq("status", "done").gte("picked_up_at", from.toISOString()).lt("picked_up_at", to.toISOString()).limit(2000);
+  const { data, error } = await fetchAll(() => sb.from("parcels").select("id,receipt_no,recipient_name,picked_by_name,picked_up_at,cod_amount_eur,cod_collected,home_delivery,operator")
+    .eq("status", "done").gte("picked_up_at", from.toISOString()).lt("picked_up_at", to.toISOString()).order("id"));
   if (error) { b.append(el("div", "msg bad", "Δεν φορτώθηκαν τα στοιχεία. Δοκίμασε ξανά.")); if (!$("dlg").open) $("dlg").showModal(); return; }
   // δέματα που μπήκαν στην αποθήκη τη μέρα αυτή (με κόμιστρο)
-  const { data: inData } = await sb.from("parcels").select("id,fare_eur,operator,status,bypassed,source,tags,receipt_no,recipient_name,created_at")
-    .gte("created_at", from.toISOString()).lt("created_at", to.toISOString()).limit(5000);
+  const { data: inData } = await fetchAll(() => sb.from("parcels").select("id,fare_eur,operator,status,bypassed,source,tags,receipt_no,recipient_name,created_at")
+    .gte("created_at", from.toISOString()).lt("created_at", to.toISOString()).order("id"));
   const ins = (inData || []).filter(p => !(p.status === "not_arrived" || p.source === "manifest") && !(p.tags || []).includes("Παλιό απόθεμα"));
   const fares = ins.filter(p => Number(p.fare_eur) > 0); const fareSum = fares.reduce((s, p) => s + Number(p.fare_eur), 0);
   const ps = data || []; const fee = DELIVERY_FEE();

@@ -22,6 +22,17 @@ export function shelfFor(name) {
 }
 
 /** Κινητό/σταθερό 10 ψηφίων. Επιστρέφει "" αν δεν είναι έγκυρο. */
+/** Όλες οι γραμμές ενός ερωτήματος σε σελίδες των 1000 — το Supabase δίνει έως 1000 γραμμές τη φορά («Max rows»).
+ *  make() φτιάχνει ΝΕΟ query κάθε φορά (με σταθερή ταξινόμηση, π.χ. .order("id")). */
+export async function fetchAll(make, max = 20000) {
+  const out = [];
+  for (let i = 0; i < max; i += 1000) {
+    const { data, error } = await make().range(i, Math.min(i + 999, max - 1));
+    if (error) return { data: out.length ? out : null, error };
+    out.push(...(data || [])); if (!data || data.length < 1000) break;
+  }
+  return { data: out, error: null };
+}
 /** Αυτόματο κινητό από το αρχείο πελατών — ΜΟΝΟ αν ο πελάτης έχει ΕΝΑ κινητό και
  *  (είναι ⭐ τακτικός ή το όνομα στο δέμα έχει και μικρό όνομα, όχι μόνο επώνυμο).
  *  Αλλιώς επιστρέφει "" και η εφαρμογή ρωτά «ποιος είναι;». */
