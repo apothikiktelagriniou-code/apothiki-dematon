@@ -106,6 +106,15 @@ export function dropOff(business, dow, time) {
   return { same: false, by: ev, dayOffset: -1, min: toMin(ev) - 1440 };
 }
 
+// Ημερομηνία + k μέρες (YYYY-MM-DD, χωρίς ζώνες ώρας).
+export function addDays(ymd, k) { const d = new Date(ymd + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() + k); return d.toISOString().slice(0, 10); }
+// Αργίες (κλειστά): ένα δρομολόγιο «μετράει» μόνο αν είμαστε ανοιχτά και τη μέρα που φέρνετε το δέμα και τη μέρα που φεύγει.
+export function openFor(business, ymd, d) {
+  const closed = business.closedDates || [];
+  if (!closed.length || !ymd) return true;
+  return ![d.rel, d.rel + ((d.drop && d.drop.dayOffset) || 0)].some(k => closed.includes(addDays(ymd, k)));
+}
+
 // Ποια στήλη τιμοκαταλόγου ισχύει: του προορισμού· στις ανταποκρίσεις, αν δεν έχει δική του, του σταθμού ανταπόκρισης.
 export function tariffKey(site, d) {
   if (d.tariff && site.TARIFFS[d.tariff]) return d.tariff;

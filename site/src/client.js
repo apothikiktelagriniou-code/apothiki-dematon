@@ -28,7 +28,9 @@
   const G1 = { a: "α", b: "β", v: "β", g: "γ", d: "δ", e: "ε", z: "ζ", h: "η", i: "ι", y: "υ", k: "κ", c: "κ", q: "κ", l: "λ", m: "μ", n: "ν", x: "ξ", o: "ο", p: "π", r: "ρ", s: "σ", t: "τ", u: "ου", f: "φ", w: "ω", j: "τζ" };
   const toGreek = s => { s = s.toLowerCase(); for (const [a, b] of G2) s = s.split(a).join(b); return s.replace(/[a-z]/g, c => G1[c] || c); };
   // απλοποίηση για σύγκριση: ι/η/υ/ει/οι → ι, ο/ω → ο, ε/αι → ε
-  const loose = s => norm(s).replace(/ει|οι|υι/g, "ι").replace(/[ηυ]/g, "ι").replace(/ω/g, "ο").replace(/αι/g, "ε").replace(/(.)\1/g, "$1");
+  // τοπικές ονομασίες πόλεων → η επίσημη (μετά την απλοποίηση): «Γιάννενα/Γιάννινα» = Ιωάννινα
+  const SYN = [[/γιαν[ιε]να/g, "ιοανινα"]];
+  const loose = s => SYN.reduce((x, [r, v]) => x.replace(r, v), norm(s).replace(/ει|οι|υι/g, "ι").replace(/[ηυ]/g, "ι").replace(/ω/g, "ο").replace(/αι/g, "ε").replace(/(.)\1/g, "$1"));
 
   // Χάρτης διαδρομών: φωτίζει τη διαδρομή της πόλης που δείχνει/εστιάζει ο επισκέπτης
   for (const svg of document.querySelectorAll(".routes-svg")) {
@@ -84,8 +86,14 @@
       const closedDay = d => (B.closedDates || []).includes(d);
       const today = hrs(n.dow), isOpen = today && !closedDay(n.ymd) && n.minutes >= mins(today.schema.o) && n.minutes < mins(today.schema.c);
       if (isOpen) { openEl.textContent = T(`Ανοιχτά τώρα, έως ${today.schema.c}`, `Open now, until ${today.schema.c}`); openEl.classList.remove("closed"); }
-      else { const next = today && n.minutes < mins(today.schema.o) && !closedDay(n.ymd) ? today : hrs((n.dow + 1) % 7);
-        openEl.textContent = T(`Κλειστά τώρα · ανοίγει ${next && next !== today ? "αύριο " : ""}${next ? next.schema.o : ""}`, `Closed now · opens ${next && next !== today ? "tomorrow " : ""}${next ? next.schema.o : ""}`); openEl.classList.add("closed"); }
+      else {
+        // πότε ανοίγει: σήμερα (αν δεν έχει ανοίξει ακόμα) ή η επόμενη μέρα που ΔΕΝ είναι αργία
+        let k = 0, next = null;
+        if (today && !closedDay(n.ymd) && n.minutes < mins(today.schema.o)) next = today;
+        else for (k = 1; k <= 7; k++) { const hk = hrs((n.dow + k) % 7); if (hk && !closedDay(addDays(n.ymd, k))) { next = hk; break; } }
+        const DEL = ["τη Δευτέρα", "την Τρίτη", "την Τετάρτη", "την Πέμπτη", "την Παρασκευή", "το Σάββατο", "την Κυριακή"];
+        const wEl = !next || k === 0 ? "" : k === 1 ? "αύριο " : DEL[(n.dow + k) % 7] + " ", wEn = !next || k === 0 ? "" : k === 1 ? "tomorrow " : "on " + DOWS[(n.dow + k) % 7] + " ";
+        openEl.textContent = T(`Κλειστά τώρα · ανοίγει ${wEl}${next ? next.schema.o : ""}`, `Closed now · opens ${wEn}${next ? next.schema.o : ""}`); openEl.classList.add("closed"); }
       openEl.hidden = false;
     };
     upd(); setInterval(upd, 60000);
@@ -119,9 +127,9 @@
       const now = athensNow();
       const rows = [];
       // Μόνο λεωφορεία που προλαβαίνει ακόμα ένα δέμα (ίδιος κανόνας με τον υπολογιστή και το «ταξίδι»).
-      for (const k of picks) { const n = nextDepartures(SITE.SCHEDULE, [k], now, 4, LANG).map(d => ({ ...d, drop: dropOff(B, d.dow, d.time) })).find(d => d.rel * 1440 + d.drop.min > now.minutes && !d.drop.early); if (n) rows.push({ k, ...n }); }
+      for (const k of picks) { const n = nextDepartures(SITE.SCHEDULE, [k], now, 30, LANG).map(d => ({ ...d, drop: dropOff(B, d.dow, d.time) })).find(d => d.rel * 1440 + d.drop.min > now.minutes && !d.drop.early && openFor(B, now.ymd, d)); if (n) rows.push({ k, ...n }); }
       // λίγες γραμμές (π.χ. αλλαγές στη διαχείριση): συμπληρώνουμε από τους υπόλοιπους προορισμούς
-      if (rows.length < 4) for (const k of [...new Set(SITE.SCHEDULE.map(x => x.dest))].filter(k => !picks.includes(k))) { if (rows.length >= 7) break; const n = nextDepartures(SITE.SCHEDULE, [k], now, 4, LANG).map(d => ({ ...d, drop: dropOff(B, d.dow, d.time) })).find(d => d.rel * 1440 + d.drop.min > now.minutes && !d.drop.early); if (n) rows.push({ k, ...n }); }
+      if (rows.length < 4) for (const k of [...new Set(SITE.SCHEDULE.map(x => x.dest))].filter(k => !picks.includes(k))) { if (rows.length >= 7) break; const n = nextDepartures(SITE.SCHEDULE, [k], now, 30, LANG).map(d => ({ ...d, drop: dropOff(B, d.dow, d.time) })).find(d => d.rel * 1440 + d.drop.min > now.minutes && !d.drop.early && openFor(B, now.ymd, d)); if (n) rows.push({ k, ...n }); }
       const order = r => Math.min(r.rel, 2) * 1440 + Number(r.time.slice(0, 2)) * 60 + Number(r.time.slice(3));
       rows.sort((a, b) => order(a) - order(b));
       const tb = $("tbody", board);
@@ -237,8 +245,8 @@
       const keys = q.dest.sched && q.dest.sched.length ? q.dest.sched : q.hub ? q.hub.sched : null;
       const now = athensNow();
       // Κρατάμε μόνο λεωφορεία που προλαβαίνει ακόμα ο πελάτης (μαζί με όσα θέλουν το δέμα από το προηγούμενο βράδυ).
-      const deps = keys ? nextDepartures(SITE.SCHEDULE, keys, now, 8, LANG).map(d => ({ ...d, drop: dropOff(B, d.dow, d.time) }))
-        .filter(d => d.rel * 1440 + d.drop.min > now.minutes && !d.drop.early).slice(0, 3) : [];
+      const deps = keys ? nextDepartures(SITE.SCHEDULE, keys, now, 30, LANG).map(d => ({ ...d, drop: dropOff(B, d.dow, d.time) }))
+        .filter(d => d.rel * 1440 + d.drop.min > now.minutes && !d.drop.early && openFor(B, now.ymd, d)).slice(0, 3) : [];
       const cap = w => w.charAt(0).toUpperCase() + w.slice(1);
       const dayTxt = d => d.rel < 2 ? d.day.toLowerCase() : T("την ", "on ") + d.day;
       const d0 = deps[0];
@@ -789,8 +797,8 @@
     const fill = () => {
       const d = SITE.DESTINATIONS.find(x => x.name === sel.value); if (!d) return;
       const now = athensNow();
-      const dep = nextDepartures(SITE.SCHEDULE, d.sched || [], now, 8, LANG).map(x => ({ ...x, drop: dropOff(B, x.dow, x.time) }))
-        .find(x => x.rel * 1440 + x.drop.min > now.minutes && !x.drop.early);
+      const dep = nextDepartures(SITE.SCHEDULE, d.sched || [], now, 30, LANG).map(x => ({ ...x, drop: dropOff(B, x.dow, x.time) }))
+        .find(x => x.rel * 1440 + x.drop.min > now.minutes && !x.drop.early && openFor(B, now.ymd, x));
       const cap = w => w.charAt(0).toUpperCase() + w.slice(1);
       if (dep) {
         const dayTxt = dep.rel < 2 ? dep.day.toLowerCase() : T("την ", "on ") + dep.day;
@@ -877,11 +885,13 @@
       }
       return best;
     };
-    const has = (txt, list) => { const t = lz(txt); return list.some(w => t.includes(w)); };
+    // μονολεκτικά κλειδιά ταιριάζουν στην ΑΡΧΗ λέξης (αλλιώς το «ώρα» βρίσκεται μέσα στο «τώρα»)
+    const has = (txt, list) => { const t = lz(txt), ws = t.split(/[^a-zα-ω0-9]+/).filter(Boolean); return list.some(w => /[^a-zα-ω0-9]/.test(w) ? t.includes(w) : ws.some(x => x.startsWith(w))); };
     // Λέξεις-κλειδιά σε φυσική γραφή· περνούν από την ίδια απλοποίηση με την ερώτηση (τόνοι, ι/η/υ, greeklish).
     const KW = {
       track: ["έφτασε", "ήρθε", "δέμα μου", "δέματός μου", "αναζήτηση", "βρίσκεται", "πού είναι το", "track", "arrived", "αριθμό απόδειξης"],
-      hours: ["ωράριο", "ανοιχτά", "ανοιχτοί", "κλειστά", "κλείνετε", "ανοίγετε", "κυριακή", "σάββατο", "αργία", "αργίες", "γιορτή", "hours", "opening", "closed"],
+      hours: ["ωράριο", "ανοιχτά", "ανοιχτοί", "κλειστά", "κλείνετε", "ανοίγετε", "κυριακή", "σάββατο", "αργία", "αργίες", "γιορτή", "hours", "opening", "closed", "close", "open", "what time do you"],
+      phone: ["τηλέφωνο", "τηλέφωνό", "τηλ ", "κινητό σας", "να σας πάρω", "να σας καλέσω", "phone", "call you", "number"],
       where: ["πού είστε", "διεύθυνση", "πώς θα έρθω", "πώς έρχομαι", "χάρτη", "πάρκινγκ", "parking", "where", "address", "οδηγίες"],
       price: ["πόσο", "τιμή", "τιμές", "κοστίζει", "κόστος", "χρέωση", "price", "cost", "how much", "€", "ευρώ"],
       oil: ["λάδι", "λαδιού", "τενεκέ", "τενεκές", "ελαιόλαδο", "olive"],
@@ -903,8 +913,8 @@
       const keys = d.sched && d.sched.length ? d.sched : (d.type === "transfer" && SITE.HUBS[d.hub] ? SITE.HUBS[d.hub].sched : null);
       if (!keys) return [];
       const now = athensNow();
-      return nextDepartures(SITE.SCHEDULE, keys, now, 12, LANG).map(x => ({ ...x, drop: dropOff(B, x.dow, x.time) }))
-        .filter(x => x.rel * 1440 + x.drop.min > now.minutes && !x.drop.early && (!tomorrow || x.rel >= 1)).slice(0, 3);
+      return nextDepartures(SITE.SCHEDULE, keys, now, 40, LANG).map(x => ({ ...x, drop: dropOff(B, x.dow, x.time) }))
+        .filter(x => x.rel * 1440 + x.drop.min > now.minutes && !x.drop.early && openFor(B, now.ymd, x) && (!tomorrow || x.rel >= 1)).slice(0, 3);
     };
     const dropTxt = x => {
       if (x.drop.same) return T(`φέρτε το έως ${x.drop.by}`, `bring it by ${x.drop.by}`);
@@ -962,12 +972,17 @@
     const ansStore = () => say(h("p", {}, T(`Το δέμα σας περιμένει δωρεάν ${SITE.STORAGE.freeDays} μέρες. Μετά ${eur(SITE.STORAGE.perDay)} την ημέρα, έως ${eur(SITE.STORAGE.cap)} συνολικά.`, `Your parcel waits free for ${SITE.STORAGE.freeDays} days. After that ${eur(SITE.STORAGE.perDay)} a day, up to ${eur(SITE.STORAGE.cap)} in total.`)));
     const ansPack = () => say(h("p", {}, T("Ναι: το συσκευάζουμε εμείς, ή αγοράζετε μόνο την κούτα και το πακετάρετε στον πάγκο.", "Yes: we pack it for you, or buy just the box and pack it at the counter.")), row(btn(`${CALC}.html#syskevasia`, T("Τιμές συσκευασίας", "Packing prices"))));
     const ansHome = () => say(h("p", {}, T("Η παράδοση στο σπίτι ξεκινά σύντομα στο Αγρίνιο, και στην Αθήνα με την ASAP Courier. Μέχρι τότε, το δέμα παραλαμβάνεται από τον σταθμό.", "Home delivery starts soon in Agrinio, and in Athens with ASAP Courier. Until then, parcels are collected at the station.")), row(btn(`${HOMEP}.html`, T("Δηλώστε ενδιαφέρον", "Register interest"))));
+    const ansPhone = () => say(h("p", {}, T("Τηλέφωνο ", "Phone "), h("a", { href: "tel:+30" + B.phone, class: "num" }, B.phoneDisplay), " · WhatsApp / Viber ", h("a", { href: "https://wa.me/30" + B.mobile, class: "num" }, B.mobileDisplay)), row(callBtn(), waBtn("")));
+    const ansBanned = w => say(h("p", {}, h("b", {}, T("Αυτό μάλλον δεν μεταφέρεται. ", "This probably can't be sent. ")), T("Εύφλεκτα, εκρηκτικά, αέρια, χημικά, όπλα, αιχμηρά και ζωντανά ζώα δεν μεταφέρονται με το ΚΤΕΛ. Αν δεν είστε σίγουροι, ρωτήστε μας πριν έρθετε.", "Flammables, explosives, gas, chemicals, weapons, sharp objects and live animals are not carried. If unsure, ask us before you come.")), row(callBtn()));
     const ansUnknown = q => say(h("p", {}, T("Δεν είμαι σίγουρος ότι κατάλαβα. Γράψτε μου μια πόλη (π.χ. «Αθήνα») ή ρωτήστε μας απευθείας:", "I'm not sure I understood. Type a town (e.g. \"Athens\") or ask us directly:")), row(waBtn(q), callBtn()));
 
     let lastCity = null, want = null;
     const answer = q => {
       const d = findCity(q) || null;
-      if (/\d{8,}/.test(q.replace(/\D/g, "")) || has(q, RX.track)) return ansTrack();
+      const digs = q.replace(/\D/g, ""), isPhone = /^(69|2)\d{8}$/.test(digs); // κινητό/σταθερό ≠ αριθμός απόδειξης
+      const banned = prohibitedHit(SITE.PROHIBITED, q); if (banned) return ansBanned(banned);
+      if ((digs.length >= 8 && !isPhone) || has(q, RX.track)) return ansTrack();
+      if (has(q, RX.phone) || isPhone) return ansPhone();
       if (has(q, RX.oil)) { if (d) lastCity = d; return ansOil(d); }
       if (d) { lastCity = d; const w = want; want = null; return w === "price" ? ansPrice(d) : ansCity(d, q); }
       if (has(q, RX.hours)) return ansHours();
