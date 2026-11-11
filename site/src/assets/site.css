@@ -236,7 +236,7 @@ table.data td.na { color: var(--muted); }
 
 /* Φόρμες / υπολογιστής */
 .form { display: grid; gap: 16px; }
-.field { display: grid; gap: 6px; min-width: 0; }
+.field { display: grid; gap: 6px; min-width: 0; align-content: start; }
 .field label, .legend { font: 600 14px var(--f-body); color: var(--ink); }
 .field .hint { font-size: 14px; color: var(--muted); }
 input[type=text], input[type=search], input[type=tel], input[type=email], input[type=number], input:not([type]), select, textarea {
