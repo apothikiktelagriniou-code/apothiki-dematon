@@ -147,7 +147,7 @@ export async function enqueueShot(file) {
 async function processOne(it) {
   const pkgIdx = typeof it.pkgIdx === "number" ? it.pkgIdx : -1;
   // αν το AI την είχε ήδη διαβάσει (αλλά έπεσε το internet πριν αποθηκευτεί), δεν ξαναπληρώνουμε ανάγνωση
-  let data = it.extracted ? { data: JSON.parse(JSON.stringify(it.extracted)) } : null, error = null;
+  let data = it.extracted ? { data: JSON.parse(JSON.stringify(it.extracted)) } : null, error = null; const t0 = Date.now();
   if (!data) ({ data, error } = await D.sb.functions.invoke("extract-receipt", { body: { images: it.imgs.map(d => ({ data: d, media_type: "image/jpeg" })), package_index: pkgIdx } }));
   if (error) {
     const st = error.context && error.context.status;
@@ -160,6 +160,7 @@ async function processOne(it) {
     report(it.id, { ok: false, name: "Δεν διαβάστηκε", sub: "Πήγε στο «Για έλεγχο» — ξαναφωτογράφισε πιο καθαρά" }); return "review";
   }
   const raw = JSON.parse(JSON.stringify(data.data));
+  const secs = it.extracted ? "" : " · " + ((Date.now() - t0) / 1000).toFixed(1).replace(".", ",") + "″"; // πόση ώρα πήρε η ανάγνωση
   // «Για έλεγχο» που δεν πέρασε (π.χ. έπεσε το internet): η φωτογραφία μένει στη συσκευή με ό,τι διάβασε το AI και ξαναδοκιμάζεται
   const review = async (dd, pr) => { try { await toQueue(it, dd, pr); return true; } catch { await obPut({ ...it, extracted: raw }).catch(() => {}); return false; } };
   const d = data.data; if (it.old) d.old_stock = true;
@@ -205,7 +206,7 @@ async function processOne(it) {
     const ins = await D.saveParcel(p);
     if (ins.error && ins.error.code === "23505" && (Number(d.pieces) || 1) > 1 && await addPiece()) return "ok";
     if (ins.error) { const pr = [ins.error.code === "23505" ? "duplicate" : "ai_unavailable"]; if (!await review(d, pr)) return "offline"; stats.review++; report(it.id, { ok: false, name: d.recipient || d.receipt_no || "", sub: pr.map(problemText).join(" · ") + " → «Για έλεγχο»" }); }
-    else { D.onSaved(ins.data); if (it.pkg) await D.attachPackage(ins.data.id, it.pkg, d.package_desc); stats.auto++; report(it.id, { ok: true, name: ins.data.recipient_name || "", sub: subOk(ins.data) }); }
+    else { D.onSaved(ins.data); if (it.pkg) await D.attachPackage(ins.data.id, it.pkg, d.package_desc); stats.auto++; report(it.id, { ok: true, name: ins.data.recipient_name || "", sub: subOk(ins.data) + secs }); }
   } else { if (!await review(d, dec.problems)) return "offline"; stats.review++; report(it.id, { ok: false, name: d.recipient || d.receipt_no || "", sub: dec.problems.map(problemText).join(" · ") + " → «Για έλεγχο»" }); }
   await obDel(it.id);
   return "ok";

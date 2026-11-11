@@ -136,7 +136,14 @@ Deno.serve(async req => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   const url = new URL(req.url);
   const key = Deno.env.get("ANTHROPIC_API_KEY");
-  if (url.searchParams.get("health") === "1") return json({ ok: true, hasKey: !!key, model: MODEL, version: "2026-11-06-people" });
+  if (url.searchParams.get("health") === "1") return json({ ok: true, hasKey: !!key, model: MODEL, version: "2026-11-11-fast" });
+  // μόνο συνδεδεμένοι χρήστες της εφαρμογής
+  const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY") ?? req.headers.get("apikey") ?? "", {
+    global: { headers: { Authorization: req.headers.get("Authorization") ?? "" } },
+  });
+  const { data: { user } } = await sb.auth.getUser();
+  if (!user) return json({ error: "unauthorized" }, 401);
+  // διαγνωστικά που καλούν το AI (κοστίζουν) — ΜΟΝΟ για συνδεδεμένους (πριν ήταν ανοιχτά σε όλους)
   if (url.searchParams.get("health") === "2") {
     // διαγνωστικό: μια μικρή κλήση στο AI για να φανεί αν δουλεύουν κλειδί/μοντέλο/πίστωση (δεν επιστρέφει το κλειδί)
     if (!key) return json({ ok: false, error: "missing_key" });
@@ -158,12 +165,6 @@ Deno.serve(async req => {
     return json({ ok: r.ok, status: r.status, stop_reason: j.stop_reason, blocks: (j.content || []).map((c: { type: string }) => c.type), usage: j.usage, text: text.slice(0, 600), error: j?.error?.message || null });
   }
 
-  // μόνο συνδεδεμένοι χρήστες της εφαρμογής
-  const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY") ?? req.headers.get("apikey") ?? "", {
-    global: { headers: { Authorization: req.headers.get("Authorization") ?? "" } },
-  });
-  const { data: { user } } = await sb.auth.getUser();
-  if (!user) return json({ error: "unauthorized" }, 401);
   if (!key) return json({ error: "missing_key" }, 500);
 
   let body: { mode?: string; images?: { data: string; media_type?: string }[] };
@@ -189,35 +190,41 @@ Deno.serve(async req => {
     const r = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: { "x-api-key": key!, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-      body: JSON.stringify({ model: MODEL, max_tokens: manifest || cash || people ? 16000 : MAX_TOKENS, system: people ? SYSTEM_PEOPLE : cash ? SYSTEM_CASH : manifest ? SYSTEM_MANIFEST : classify ? SYSTEM_CLASSIFY : describe ? SYSTEM_DESCRIBE : SYSTEM, messages: [{ role: "user", content }] }),
+      // η οδηγία (system) είναι ίδια σε κάθε φωτογραφία → cache: πιο γρήγορη έναρξη και ~90% φθηνότερη στο επαναλαμβανόμενο κομμάτι
+      body: JSON.stringify({ model: MODEL, max_tokens: manifest || cash || people ? 16000 : MAX_TOKENS,
+        system: [{ type: "text", text: people ? SYSTEM_PEOPLE : cash ? SYSTEM_CASH : manifest ? SYSTEM_MANIFEST : classify ? SYSTEM_CLASSIFY : describe ? SYSTEM_DESCRIBE : SYSTEM, cache_control: { type: "ephemeral" } }],
+        messages: [{ role: "user", content }] }),
     });
     const j = await r.json();
     if (!r.ok) throw new Error("anthropic " + r.status + ": " + (j?.error?.message || ""));
     return j;
   }
 
-  let parsed: Record<string, unknown> | null = null, usage = { input_tokens: 0, output_tokens: 0 }, err = "";
+  let parsed: Record<string, unknown> | null = null, usage = { input_tokens: 0, output_tokens: 0, cache_read: 0, cache_write: 0 }, err = "";
+  const t0 = Date.now();
   for (let attempt = 0; attempt < 2 && !parsed; attempt++) {
     try {
       const j = await call();
       usage.input_tokens += j.usage?.input_tokens || 0; usage.output_tokens += j.usage?.output_tokens || 0;
+      usage.cache_read += j.usage?.cache_read_input_tokens || 0; usage.cache_write += j.usage?.cache_creation_input_tokens || 0;
       const text = (j.content || []).filter((c: { type: string }) => c.type === "text").map((c: { text?: string }) => c.text || "").join("");
       const m = text.match(/\{[\s\S]*\}/);
       if (m) { try { parsed = JSON.parse(m[0]); } catch { err = "invalid_json: " + text.slice(0, 200); } }
       else err = "no_json (stop=" + j.stop_reason + ", blocks=" + (j.content || []).map((c: { type: string }) => c.type).join("+") + ", out=" + (j.usage?.output_tokens ?? "?") + "): " + text.slice(0, 200);
     } catch (e) { err = String(e); }
   }
-  const cost = usage.input_tokens * PRICE_IN + usage.output_tokens * PRICE_OUT;
+  const cost = usage.input_tokens * PRICE_IN + usage.cache_write * PRICE_IN * 1.25 + usage.cache_read * PRICE_IN * 0.1 + usage.output_tokens * PRICE_OUT;
+  const ms = Date.now() - t0;
   await sb.from("ai_usage").insert({ input_tokens: usage.input_tokens, output_tokens: usage.output_tokens, cost_usd: cost, ok: !!parsed });
   if (!parsed) { console.error("extract_failed", err); return json({ error: "extract_failed", detail: err.slice(0, 300) }, 502); }
   if (describe) {
     const p = parsed as Record<string, unknown>;
     const ph = String(p.phone ?? "").replace(/\D/g, "").replace(/^0030(?=\d{10}$)/, "").replace(/^30(?=\d{10}$)/, "");
-    return json({ data: { package_desc: String(p.package_desc ?? "").replace(/\s+/g, " ").trim().slice(0, 80), phone: ph, damage_visible: p.damage_visible === true }, usage, cost_usd: cost });
+    return json({ data: { package_desc: String(p.package_desc ?? "").replace(/\s+/g, " ").trim().slice(0, 80), phone: ph, damage_visible: p.damage_visible === true }, usage, cost_usd: cost, ms });
   }
   if (classify) {
     const t = Array.isArray((parsed as { types?: unknown[] }).types) ? (parsed as { types: unknown[] }).types : [];
-    return json({ data: { types: imgs.map((_, i) => (t[i] === "parcel" ? "parcel" : "label")) }, usage, cost_usd: cost });
+    return json({ data: { types: imgs.map((_, i) => (t[i] === "parcel" ? "parcel" : "label")) }, usage, cost_usd: cost, ms });
   }
   if (people) {
     const p = parsed as { items?: Record<string, unknown>[] };
@@ -227,7 +234,7 @@ Deno.serve(async req => {
       receipt_no: String(it.receipt_no ?? "").replace(/\s/g, ""), sender: String(it.sender ?? "").trim().toUpperCase(), sender_phone: tel(it.sender_phone), sender_is_business: yes(it.sender_is_business),
       recipient: String(it.recipient ?? "").trim().toUpperCase(), recipient_phone: tel(it.recipient_phone), recipient_is_business: yes(it.recipient_is_business),
       destination: up(it.destination), unsure: yes(it.unsure) })).filter(it => it.receipt_no);
-    return json({ data: { items }, usage, cost_usd: cost });
+    return json({ data: { items }, usage, cost_usd: cost, ms });
   }
   if (cash) {
     const p = parsed as { items?: Record<string, unknown>[] } & Record<string, unknown>;
@@ -236,7 +243,7 @@ Deno.serve(async req => {
     const items = (Array.isArray(p.items) ? p.items : []).map(it => ({
       receipt_no: String(it.receipt_no ?? "").replace(/\s/g, ""), issued: String(it.issued ?? "").trim(), from: up(it.from), to: up(it.to),
       departure: String(it.departure ?? "").trim(), amount: num(it.amount), unsure: !!it.unsure })).filter(it => it.receipt_no);
-    return json({ data: { date: String(p.date ?? ""), user: String(p.user ?? ""), total_count: num(p.total_count), total_amount: num(p.total_amount), items }, usage, cost_usd: cost });
+    return json({ data: { date: String(p.date ?? ""), user: String(p.user ?? ""), total_count: num(p.total_count), total_amount: num(p.total_amount), items }, usage, cost_usd: cost, ms });
   }
   if (manifest) {
     const p = parsed as { items?: Record<string, unknown>[] } & Record<string, unknown>;
@@ -246,9 +253,9 @@ Deno.serve(async req => {
       fare_eur: it.fare_eur == null || it.fare_eur === "" ? null : Number(String(it.fare_eur).replace(",", ".")),
       checked: it.checked === true || it.checked === "true", unsure: !!it.unsure }));
     return json({ data: { origin_city: up(p.origin_city), departure: String(p.departure ?? ""), agency: String(p.agency ?? ""), items,
-      total_declared: p.total_declared == null || p.total_declared === "" ? null : Number(p.total_declared), notes: String(p.notes ?? "") }, usage, cost_usd: cost });
+      total_declared: p.total_declared == null || p.total_declared === "" ? null : Number(p.total_declared), notes: String(p.notes ?? "") }, usage, cost_usd: cost, ms });
   }
-  return json({ data: clean(parsed), usage, cost_usd: cost });
+  return json({ data: clean(parsed), usage, cost_usd: cost, ms });
 });
 
 
