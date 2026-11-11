@@ -26,9 +26,10 @@ export function shelfFor(name) {
  *  (είναι ⭐ τακτικός ή το όνομα στο δέμα έχει και μικρό όνομα, όχι μόνο επώνυμο).
  *  Αλλιώς επιστρέφει "" και η εφαρμογή ρωτά «ποιος είναι;». */
 export function safeAutoPhone(c, name) {
-  const ph = (c && c.phones) || [];
-  if (ph.length !== 1) return "";
-  return c.starred || norm(name).split(" ").filter(Boolean).length >= 2 ? ph[0] : "";
+  const ph = (c && c.phones) || [], mob = ph.filter(p => /^69/.test(p));
+  // ένα κινητό (ο σταθερός δεν μετράει)· αν δεν έχει κινητό, ένα μόνο σταθερό
+  const pick = mob.length === 1 ? mob[0] : !mob.length && ph.length === 1 ? ph[0] : "";
+  return pick && (c.starred || norm(name).split(" ").filter(Boolean).length >= 2) ? pick : "";
 }
 /** «Ανακατεμένος» πελάτης: πάνω από ένα κινητό στο ίδιο όνομα — μπορεί να είναι διαφορετικοί άνθρωποι. */
 export function mixedCustomer(c) { return ((c && c.phones) || []).filter(p => /^69/.test(p)).length > 1; }

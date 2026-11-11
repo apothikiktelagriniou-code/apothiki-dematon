@@ -44,11 +44,12 @@ async function smsWatch() {
     const since = Date.now() - 48 * 3600e3;
     const listOf = () => D.rows().filter(p => p.notify_channel === "sms" && p.notified_at && new Date(p.notified_at).getTime() > since);
     const openOf = l => l.filter(p => p.sms_message_id && !FINAL.includes(p.sms_state || ""));
-    const open = openOf(listOf());
+    const open = openOf(listOf()).sort((a, b) => new Date(a.sms_state_at || 0) - new Date(b.sms_state_at || 0)); // πρώτα όσα δεν ελέγχθηκαν ποτέ / πιο παλιά
     for (const p of open.slice(0, 15)) {
       const { data, error } = await D.sb.functions.invoke("send-sms", { body: { status: p.sms_message_id } });
       if (error) { let b = {}; try { b = await error.context.json(); } catch { /* */ } if (b.error === "invalid_phone" || b.error === "bad_text") { state.sms.unsupported = true; break; } continue; }
-      const st = data && data.state; if (!st || st === p.sms_state) continue;
+      const st = data && data.state; if (!st) continue;
+      if (st === p.sms_state) { D.updateParcel(p.id, { sms_state_at: new Date().toISOString() }).catch(() => {}); continue; } // ελέγχθηκε → πάει στο τέλος της σειράς
       const patch = { sms_state: st, sms_state_at: new Date().toISOString() };
       if (st === "Failed") Object.assign(patch, { status: p.status === "notified" ? "arrived" : p.status, tags: [...new Set([...(p.tags || []), SMS_FAIL_TAG])] });
       try { await D.updateParcel(p.id, patch); } catch { /* χωρίς 0021: η στήλη δεν υπάρχει */ state.devErr = state.devErr || "Τρέξε το 0021_health.sql στο Supabase."; break; }
@@ -60,7 +61,7 @@ async function smsWatch() {
     state.sms.pending = op.length;
     const age = p => Date.now() - new Date(p.notified_at).getTime();
     // κόλλησε στο κινητό SMS (δεν έφυγε καθόλου) → πρόβλημα · έφυγε («Sent») αλλά δεν ήρθε αναφορά παράδοσης → απλή πληροφορία
-    state.sms.stuckList = op.filter(p => p.sms_state !== "Sent" && age(p) > 30 * 60000);
+    state.sms.stuckList = op.filter(p => (p.sms_state === "Pending" || p.sms_state === "Processed") && age(p) > 30 * 60000); // μόνο όσα ελέγχθηκαν και ΔΕΝ έφυγαν
     state.sms.noReport = op.filter(p => p.sms_state === "Sent" && age(p) > 2 * 3600e3);
     state.sms.stuck = state.sms.stuckList.length;
   } finally { smsBusy = false; banner(); }

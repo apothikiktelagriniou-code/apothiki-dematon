@@ -331,7 +331,7 @@ async function lookupCustomerForForm() {
   if (!norm(name) || $("recipient_phone").value.trim()) return;
   const list = (await findCustomers(name)).filter(c => (c.phones || []).length);
   if (list.length === 1 && safeAutoPhone(list[0], name)) {
-    $("recipient_phone").value = list[0].phones[0]; $("recipient_phone").classList.add("ai");
+    $("recipient_phone").value = safeAutoPhone(list[0], name); $("recipient_phone").classList.add("ai");
     $("recipient_phone").dataset.src = "customer_db"; customerChoice = list[0].id;
     hint.textContent = "📇 Τηλέφωνο από το αρχείο πελατών.";
   } else if (list.length) {
@@ -929,7 +929,7 @@ async function setChannel(p, ch) {
 async function sendSms(p, text) {
   const { data, error } = await sb.functions.invoke("send-sms", { body: { phone: p.recipient_phone, text } });
   if (error) { let b = {}; try { b = await error.context.json(); } catch {} const why = b.error === "missing_credentials" ? "δεν έχουν μπει τα στοιχεία του κινητού στο Supabase" : (b.detail || b.error || "σφάλμα δικτύου"); if (b.error === "sms_failed") smsSendFailed(p, why); return { ok: false, error: why }; }
-  if (data && data.id) updateParcel(p.id, { sms_message_id: data.id }).catch(() => {});
+  if (data && data.id) updateParcel(p.id, { sms_message_id: data.id, sms_state: null, sms_state_at: null }).catch(() => {}); // νέο SMS = νέα παρακολούθηση
   return { ok: true };
 }
 // ---------------------------------------------------------------- 📩 ΑΥΤΟΜΑΤΟ SMS με την καταχώρηση
@@ -1138,7 +1138,7 @@ function undoBox(p) {
   acts.append(ok, cancel); box.append(acts);
   box.onsubmit = async e => { e.preventDefault(); if (needOperator()) return;
     const w = why.value.trim(); if (w.length < 3) { msg.textContent = "Γράψε τον λόγο με λίγες λέξεις."; msg.hidden = false; why.focus(); return; }
-    ok.disabled = true;
+    ok.disabled = true; p = rows.get(p.id) || p; // πιο πρόσφατη εικόνα του δέματος (π.χ. Παρατηρήσεις από άλλη συσκευή)
     const had = [p.picked_by_name, p.picked_by_phone ? fmtPhone(p.picked_by_phone) : ""].filter(Boolean).join(" ");
     const line = "↶ Αναίρεση παράδοσης " + fmtGr(new Date().toISOString()) + " (" + (operator() || "—") + "): " + w + (had ? " · είχε γραφτεί ότι το πήρε: " + had : "") + (p.cod_collected ? " · είχε σημειωθεί είσπραξη " + money(p.cod_amount_eur) : "");
     try {
@@ -1490,7 +1490,12 @@ async function loadCustomers() {
 }
 const loadCustomersSoon = () => { clearTimeout(custT); custT = setTimeout(loadCustomers, 800); };
 const toks = s => norm(String(s || "").replace(/\./g, "").replace(/,/g, " ")).split(" ").filter(Boolean);
-const custOf = p => { const k = norm(p.recipient_name || "-"); return (p.customer_id && custCache.find(c => c.id === p.customer_id)) || custCache.find(c => c.name_key === k) || custCache.find(c => (c.aliases || []).includes(k)); };
+// πελάτης ενός δέματος: η σύνδεση (customer_id) ή — μόνο αν είναι ΜΟΝΟΣΗΜΑΝΤΟ — το όνομα
+const custOf = p => {
+  if (p.customer_id) { const c = custCache.find(c => c.id === p.customer_id); if (c) return c; }
+  const k = norm(p.recipient_name || "-"), m = custCache.filter(c => c.name_key === k || (c.aliases || []).includes(k));
+  return m.length === 1 && phoneFits(m[0], cleanPhone(p.recipient_phone) || "", p.recipient_name) ? m[0] : undefined;
+};
 // το όνομα όπως γράφτηκε στην ετικέτα γίνεται «ψευδώνυμο» του πελάτη → την επόμενη φορά αναγνωρίζεται αμέσως
 async function addAlias(cid, name) {
   const k = norm(name || ""); if (!cid || !k) return;
@@ -1822,7 +1827,8 @@ async function notifyRegular(c, list, hint) {
   if (!smsReady) { hint.textContent = "Τα SMS δεν είναι έτοιμα (κινητό SMS Gateway)."; return { ok: 0, fail: 0 }; }
   let ok = 0, fail = 0; const ph0 = (c.phones || []).find(x => /^69/.test(x));
   for (let p of list.filter(p => p.status === "arrived")) {
-    if (!/^69/.test(p.recipient_phone || "") && ph0) { await updateParcel(p.id, { recipient_phone: ph0, phone_source: "customer_db", phone_confirmed: true }).catch(() => {}); p = rows.get(p.id) || { ...p, recipient_phone: ph0 }; }
+    const sure = p.customer_id === c.id ? ph0 : safeAutoPhone(c, p.recipient_name); // κινητό σε δέμα μόνο αν είναι σίγουρα αυτός
+    if (!/^69/.test(p.recipient_phone || "") && /^69/.test(sure || "")) { await updateParcel(p.id, { recipient_phone: sure, phone_source: "customer_db", phone_confirmed: true, customer_id: c.id }).catch(() => {}); p = rows.get(p.id) || { ...p, recipient_phone: sure }; }
     if (!/^69/.test(p.recipient_phone || "")) { fail++; continue; }
     hint.textContent = "📩 " + (ok + fail + 1) + "/" + list.length + "…";
     const r = await sendSms(p, smsFor(/delivery|σπίτι/i.test(settings.sms_template || "") ? "" : settings.sms_template, p));

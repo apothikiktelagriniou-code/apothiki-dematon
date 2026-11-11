@@ -492,3 +492,11 @@ test("αρχείο πελατών: αυτόματο κινητό μόνο ότα
   assert.equal(mixedCustomer(two), true); assert.equal(mixedCustomer(one), false);
   assert.equal(mixedCustomer({ phones: ["6971111111", "2641022222"] }), false);
 });
+
+test("αρχείο πελατών: σταθερό + κινητό → παίρνει το κινητό", () => {
+  const biz = { phones: ["2641022222", "6971111111"], starred: true };
+  assert.equal(safeAutoPhone(biz, "ΦΑΡΜΑΚΕΙΟ"), "6971111111");
+  assert.equal(safeAutoPhone({ phones: ["2641022222"], starred: true }, "ΦΑΡΜΑΚΕΙΟ"), "2641022222");
+  assert.equal(safeAutoPhone({ phones: ["2641022222", "2641033333"], starred: true }, "Χ"), "");
+  assert.equal(phoneFits(biz, "", "ΦΑΡΜΑΚΕΙΟ"), true);
+});
