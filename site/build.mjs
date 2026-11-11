@@ -175,15 +175,31 @@ const MAP = (() => {
   const plain = s => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toUpperCase();
   for (const c of cities) c.dest = DATA.DESTINATIONS.find(x => plain(x.name) === c.label);
   cities.sort((a, b) => Math.hypot(a.x - hub.x, a.y - hub.y) - Math.hypot(b.x - hub.x, b.y - hub.y));
-  return { d, cities, hub };
+  // Πόλεις με ανταπόκριση (μικροί κύκλοι στο map.svg + λίγες ακόμα της Β. Ελλάδας), συνδεδεμένες με την πόλη μεταφόρτωσης
+  const loose = s => plain(s).replace(/^ΑΓ\. /, "ΑΓΙΟΣ ").replace(/ \(.*\)$/, "");
+  const extra = [{ x: 1266, y: 104.8, tx: 1276, ty: 98, anchor: "start", label: "Ορεστιάδα" },
+                 { x: 807.3, y: 198.5, tx: 807.3, ty: 184, anchor: "middle", label: "Έδεσσα" }];
+  const via = [...[...src.matchAll(/<circle cx="([\d.]+)" cy="([\d.]+)" r="5"[^>]*>(?:<\/circle>)?\s*<text x="([\d.]+)" y="([\d.]+)" text-anchor="(\w+)"[^>]*>([^<]+)<\/text>/g)]
+    .map(m => ({ x: +m[1], y: +m[2], tx: +m[3], ty: +m[4], anchor: m[5], label: m[6] })), ...extra]
+    .map(c => ({ ...c, dest: DATA.DESTINATIONS.find(x => x.hub && loose(x.name) === loose(c.label)) }))
+    .filter(c => c.dest)
+    .map(c => { const hs = DATA.HUBS[c.dest.hub].sched.map(k => cities.find(h => h.label === k) || (k === "ΑΘΗΝΑ" && c.dest.hub === "korinthos" ? cities.find(h => h.label === "ΙΣΘΜΟΣ") : null)).filter(Boolean);
+      const from = c.dest.hub === "korinthos" ? cities.find(h => h.label === "ΙΣΘΜΟΣ") : hs.sort((a, b) => Math.hypot(a.x - c.x, a.y - c.y) - Math.hypot(b.x - c.x, b.y - c.y))[0];
+      return { ...c, from }; }).filter(c => c.from);
+  return { d, cities, hub, via };
 })();
 const routesSvg = (lang, L) => {
-  const { d, cities, hub } = MAP, r1 = n => Math.round(n * 10) / 10;
+  const { d, cities, hub, via } = MAP, r1 = n => Math.round(n * 10) / 10, N = cities.length;
   const routes = cities.map((c, i) => { const mx = (hub.x + c.x) / 2, my = (hub.y + c.y) / 2, dx = c.x - hub.x, dy = c.y - hub.y, k = 0.16 * (i % 2 ? 1 : -1);
     return `<path class="rt" pathLength="1" style="--i:${i}" d="M${hub.x},${hub.y}Q${r1(mx - dy * k)},${r1(my + dx * k)} ${c.x},${c.y}"/>`; }).join("");
   const dots = cities.map((c, i) => `<g class="ct" style="--i:${i}"><circle cx="${c.x}" cy="${c.y}" r="7"/><text x="${c.tx}" y="${c.ty}" text-anchor="${c.anchor}">${esc(c.dest ? L(c.dest.name) : c.label)}</text></g>`).join("");
-  return `<svg class="routes-svg" viewBox="545 130 645 810" role="img" aria-labelledby="rm-t"><title id="rm-t">${lang === "en" ? "Direct parcel routes from Agrinio" : "Απευθείας διαδρομές δεμάτων από το Αγρίνιο"}</title>`
-    + `<path class="land" d="${d}"/><g class="rts">${routes}</g>${dots}`
+  const vRoutes = via.map((c, i) => `<path class="rt via" style="--i:${N + i}" d="M${c.from.x},${c.from.y}L${c.x},${c.y}"/>`).join("");
+  const vDots = via.map((c, i) => `<g class="ct via" style="--i:${N + i}"><circle cx="${c.x}" cy="${c.y}" r="5"/><text x="${c.tx}" y="${c.ty}" text-anchor="${c.anchor}">${esc(L(c.dest.name))}</text></g>`).join("");
+  const lx = 560, ly = 905, en = lang === "en";
+  const legend = `<g class="legend"><path class="rt" d="M${lx},${ly}h46"/><circle class="lg-d" cx="${lx + 46}" cy="${ly}" r="7"/><text x="${lx + 62}" y="${ly + 7}">${en ? "Direct" : "Απευθείας"}</text>`
+    + `<path class="rt via" d="M${lx},${ly + 36}h46"/><circle class="lg-v" cx="${lx + 46}" cy="${ly + 36}" r="5"/><text x="${lx + 62}" y="${ly + 43}">${en ? "With a connection" : "Με ανταπόκριση"}</text></g>`;
+  return `<svg class="routes-svg" viewBox="545 60 905 925" role="img" aria-labelledby="rm-t"><title id="rm-t">${en ? "Parcel routes from Agrinio, direct and with a connection" : "Διαδρομές δεμάτων από το Αγρίνιο, απευθείας και με ανταπόκριση"}</title>`
+    + `<path class="land" d="${d}"/><g class="rts">${vRoutes}${routes}</g>${vDots}${dots}${legend}`
     + `<g class="hub"><circle class="pulse" cx="${hub.x}" cy="${hub.y}" r="13"/><circle cx="${hub.x}" cy="${hub.y}" r="12"/><text x="${hub.x - 18}" y="${hub.y + 40}" text-anchor="end">${lang === "en" ? "AGRINIO" : "ΑΓΡΙΝΙΟ"}</text></g></svg>`;
 };
 

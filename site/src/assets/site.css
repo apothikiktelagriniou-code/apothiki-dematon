@@ -568,6 +568,16 @@ input[type=text], input[type=search], input[type=tel], input[type=email], input[
 .routes-svg .rt { fill: none; stroke: var(--m-route); stroke-width: 2.6; stroke-linecap: round; stroke-dasharray: 1; stroke-dashoffset: 0; }
 .routes-svg .ct circle { fill: var(--m-dot); stroke: var(--m-route); stroke-width: 3; }
 .routes-svg .ct text { font-size: 21px; font-weight: 700; fill: var(--m-label); stroke: var(--m-halo); stroke-width: 5px; paint-order: stroke; }
+.routes-svg .rt.via { stroke-width: 1.8; opacity: .75; stroke-dasharray: 6 6; stroke-dashoffset: 0; }
+.routes-map.armed .rt.via { opacity: 0; stroke-dashoffset: 0; }
+.routes-map.armed.in .rt.via { animation: none; opacity: .75; transition: opacity 500ms var(--ease-out); transition-delay: calc(var(--i) * 40ms + 300ms); }
+.routes-svg .ct.via circle { stroke-width: 2.2; }
+.routes-svg .ct.via text { font-size: 16px; font-weight: 600; stroke-width: 4px; }
+.routes-svg .legend text { font-size: 18px; font-weight: 600; fill: var(--m-label); }
+.routes-svg .legend .rt { stroke-dasharray: none; animation: none !important; stroke-dashoffset: 0 !important; }
+.routes-svg .legend .rt.via { stroke-dasharray: 6 6; }
+.routes-svg .legend circle { fill: var(--m-dot); stroke: var(--m-route); stroke-width: 3; }
+.routes-svg .legend .lg-v { stroke-width: 2.2; }
 .routes-svg .hub circle { fill: var(--m-hub); stroke: var(--m-halo); stroke-width: 3; }
 .routes-svg .hub .pulse { fill: none; stroke: var(--m-hub); stroke-width: 3; opacity: 0; transform-box: fill-box; transform-origin: center; }
 .routes-svg .hub text { font-size: 28px; font-weight: 800; fill: var(--m-label); stroke: var(--m-halo); stroke-width: 6px; paint-order: stroke; }
@@ -592,7 +602,7 @@ input[type=text], input[type=search], input[type=tel], input[type=email], input[
   .routes-map.armed .ct { transform: none; }
   .routes-map.armed.in .rt, .routes-map.in .hub .pulse { animation: none; }
 }
-@media (max-width: 600px) { .routes-svg .ct text { font-size: 25px; stroke-width: 6px; } .routes-svg .ct circle { r: 8; } .routes-svg .hub text { font-size: 32px; } }
+@media (max-width: 600px) { .routes-svg .ct text { font-size: 25px; stroke-width: 6px; } .routes-svg .ct.via text { font-size: 19px; stroke-width: 5px; } .routes-svg .legend text { font-size: 24px; } .routes-svg .ct circle { r: 8; } .routes-svg .hub text { font-size: 32px; } }
 
 /* «Το ταξίδι του δέματος» */
 .journey { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 18px 16px; }
