@@ -1244,10 +1244,11 @@ $("customersBtn").onclick = async () => {
     const a = el("a"); a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" })); a.download = "email-enimerotika.csv"; a.click(); ex.textContent = "✉ " + (data || []).length + " email"; };
   const mixed = custCache.filter(mixedCustomer);
   const mx = el("button", "btn small", "⚠ Ανακατεμένοι (" + mixed.length + ")"); mx.type = "button"; mx.title = "Ένα όνομα με πολλά κινητά — μπορεί να είναι διαφορετικοί άνθρωποι";
-  body.append(el("div", "hint", "Πάτα έναν πελάτη για την καρτέλα του."), q, el("div", "quick"), nw, ex, ...(mixed.length ? [mx] : [])); const l = el("div", "hist"); body.append(l);
+  body.append(el("div", "hint", "Πάτα έναν πελάτη για την καρτέλα του."), q, el("div", "quick"), nw, ex, mx, el("div", "hint", "Έκδοση εφαρμογής: " + (typeof __BUILD__ !== "undefined" ? __BUILD__ : "—"))); const l = el("div", "hist"); body.append(l);
   const row = c => { const b = el("button", "custrow", (c.is_business ? "🏢 " : "👤 ") + (c.starred ? "⭐ " : "") + c.full_name + " · " + ((c.phones || []).map(fmtPhone).join(", ") || "χωρίς τηλέφωνο") + " · " + (c.parcels_count || 0) + " δέματα" + (c.last_parcel_at ? " · τελευταίο " + fmtGr(c.last_parcel_at, false) : ""));
     b.type = "button"; b.onclick = () => { $("dlg").close(); openCustomer(c.id); }; return b; };
   mx.onclick = () => { l.textContent = "";
+    if (!mixed.length) { l.append(el("div", "msg ok", "✓ Κανένα όνομα με πολλά κινητά — το αρχείο είναι καθαρό.")); return; }
     l.append(el("div", "msg warn", "Αυτά τα ονόματα έχουν πάνω από ένα κινητό — συνήθως γιατί ήρθαν δέματα μόνο με επώνυμο για διαφορετικούς ανθρώπους. Άνοιξε τον καθένα, κράτα μόνο το σωστό κινητό (ή φτιάξε «＋ Νέος πελάτης» για τον άλλον) και πάτα ⭐ όσους είναι σίγουρα τακτικοί."));
     mixed.slice().sort((a, b) => (b.parcels_count || 0) - (a.parcels_count || 0)).forEach(c => l.append(row(c))); };
   const load = async () => { let r = sb.from("customers").select("*").order("last_parcel_at", { ascending: false, nullsFirst: false }).limit(100);
