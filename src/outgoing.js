@@ -2,7 +2,7 @@
 // Ροή: 1) «📄 Κατάσταση δρομολογίου» από το σύστημα ΚΤΕΛ → γραμμές «περιμένει»
 //      2) στη φόρτωση «📷 Φωτογραφίες αποδείξεων» → συμπληρώνονται στοιχεία + «φορτώθηκε»
 //      3) ο έλεγχος δείχνει: στην κατάσταση χωρίς φωτογραφία / φωτογραφία εκτός κατάστασης.
-import { busesFor, nextBusFor, senderStats, ktelNo, cashReconcile, cashFix, routeOf, isAgrinioReceipt, norm, fmtGr, fmtPhone, cleanPhone, money, parseGrDate, cityFromStation, extractedToOutgoing, sameOutgoing, fillBlanks, outCheck, outCash, outSmsFor, surnameFirst } from "./lib.js";
+import { fetchAll, busesFor, nextBusFor, senderStats, ktelNo, cashReconcile, cashFix, routeOf, isAgrinioReceipt, norm, fmtGr, fmtPhone, cleanPhone, money, parseGrDate, cityFromStation, extractedToOutgoing, sameOutgoing, fillBlanks, outCheck, outCash, outSmsFor, surnameFirst } from "./lib.js";
 import { toJpegB64 } from "./capture.js";
 import { SCHEDULE_TIMES, SCHEDULE_LINES } from "./schedule-seed.js";
 import { getWorker, getWorkers, find228, grabBand, sound } from "./scan.js";
@@ -285,8 +285,8 @@ let regCache = { at: 0, rows: [] };
 async function regRows() {
   if (Date.now() - regCache.at < 60e3) return regCache.rows;
   const since = new Date(Date.now() - 365 * 864e5).toISOString();
-  const { data } = await D.sb.from("outgoing").select("customer_id,recipient_name,recipient_phone,destination_city,fare_eur,status,created_at,sender_name,sender_phone")
-    .not("customer_id", "is", null).gte("created_at", since).order("created_at", { ascending: false }).limit(5000);
+  const { data } = await fetchAll(() => D.sb.from("outgoing").select("customer_id,recipient_name,recipient_phone,destination_city,fare_eur,status,created_at,sender_name,sender_phone")
+    .not("customer_id", "is", null).gte("created_at", since).order("created_at", { ascending: false }).order("id"));
   regCache = { at: Date.now(), rows: data || [] }; return regCache.rows;
 }
 async function renderRegulars() {
@@ -332,9 +332,9 @@ const dayRange = () => { const s = new Date($("outDay").value + "T00:00:00"); co
 function inDay(r) { const [s, e] = dayRange(); const t = new Date(r.departure_at || r.issued_at || r.created_at); return t >= s && t < e; }
 async function load() {
   const [s, e] = dayRange(); const S = s.toISOString(), E = e.toISOString();
-  const { data, error } = await D.sb.from("outgoing").select("*")
+  const { data, error } = await fetchAll(() => D.sb.from("outgoing").select("*")
     .or(`and(departure_at.gte.${S},departure_at.lt.${E}),and(departure_at.is.null,issued_at.gte.${S},issued_at.lt.${E}),and(departure_at.is.null,issued_at.is.null,created_at.gte.${S},created_at.lt.${E})`)
-    .order("departure_at", { ascending: true }).limit(2000);
+    .order("departure_at", { ascending: true }).order("id"));
   if (error) { show($("outMsg"), "Δεν φορτώθηκαν τα εξερχόμενα: " + error.message + (/outgoing/.test(error.message) ? " — λείπει το 0014 στη βάση;" : ""), "bad"); return; }
   rows = new Map((data || []).map(r => [r.id, r]));
   for (const t of await loadTransit(S, E)) rows.set(t.id, t);
@@ -862,8 +862,8 @@ async function runCashClose(files) {
     const cashDay = dayKey(cd);
     // εξερχόμενα γύρω από την ημέρα του ταμείου (έκδοση/αναχώρηση/καταχώριση −2…+4 μέρες)
     const s = new Date(cd); s.setDate(s.getDate() - 2); const e = new Date(cd); e.setDate(e.getDate() + 5); const S = s.toISOString(), E = e.toISOString();
-    const { data: near, error: nerr } = await D.sb.from("outgoing").select("*")
-      .or(`and(issued_at.gte.${S},issued_at.lt.${E}),and(departure_at.gte.${S},departure_at.lt.${E}),and(created_at.gte.${S},created_at.lt.${E})`).limit(3000);
+    const { data: near, error: nerr } = await fetchAll(() => D.sb.from("outgoing").select("*")
+      .or(`and(issued_at.gte.${S},issued_at.lt.${E}),and(departure_at.gte.${S},departure_at.lt.${E}),and(created_at.gte.${S},created_at.lt.${E})`).order("id"));
     if (nerr) throw nerr;
     let rec = cashReconcile(items, near || []), fx = null, merged = 0;
     // άθροισμα ή πλήθος δεν ταιριάζει με την αναφορά → 2η ανεξάρτητη ανάγνωση, συμπλήρωση γραμμών που έλειψαν, διόρθωση ποσών με το σύνολο
@@ -941,8 +941,8 @@ async function runPeople(files) {
     const list = [...seen.values()];
     if (!list.length) throw new Error(fails.length ? fails.join(" · ") : "δεν βρήκα αποδείξεις 228 — μήπως η εφαρμογή στον server είναι παλιά; (ξανά-deploy το extract-receipt)");
     const [s0] = dayRange(); const s = new Date(s0); s.setDate(s.getDate() - 3); const e = new Date(s0); e.setDate(e.getDate() + 3); const S = s.toISOString(), E = e.toISOString();
-    const { data: near, error: nerr } = await D.sb.from("outgoing").select("*")
-      .or(`and(created_at.gte.${S},created_at.lt.${E}),and(departure_at.gte.${S},departure_at.lt.${E}),and(issued_at.gte.${S},issued_at.lt.${E})`).limit(3000);
+    const { data: near, error: nerr } = await fetchAll(() => D.sb.from("outgoing").select("*")
+      .or(`and(created_at.gte.${S},created_at.lt.${E}),and(departure_at.gte.${S},departure_at.lt.${E}),and(issued_at.gte.${S},issued_at.lt.${E})`).order("id"));
     if (nerr) throw nerr;
     const byNo = new Map((near || []).map(r => [ktelNo(r.receipt_no), r]));
     let upd = 0, ins = 0, starredHits = 0; const errs = [], diffs = [];

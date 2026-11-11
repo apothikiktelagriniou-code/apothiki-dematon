@@ -500,3 +500,11 @@ test("αρχείο πελατών: σταθερό + κινητό → παίρν�
   assert.equal(safeAutoPhone({ phones: ["2641022222", "2641033333"], starred: true }, "Χ"), "");
   assert.equal(phoneFits(biz, "", "ΦΑΡΜΑΚΕΙΟ"), true);
 });
+
+import { fetchAll } from "../src/lib.js";
+test("fetchAll: φέρνει όλες τις σελίδες πάνω από το όριο των 1000", async () => {
+  const all = Array.from({ length: 2345 }, (_, i) => i);
+  const make = () => ({ range: async (a, b) => ({ data: all.slice(a, Math.min(b, a + 999) + 1), error: null }) });
+  const r = await fetchAll(make); assert.equal(r.data.length, 2345); assert.equal(r.data[2344], 2344);
+  const r2 = await fetchAll(() => ({ range: async () => ({ data: null, error: { message: "x" } }) })); assert.ok(r2.error);
+});
