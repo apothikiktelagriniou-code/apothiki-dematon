@@ -14,7 +14,7 @@ const ls = { get: k => { try { return localStorage.getItem(k); } catch { return 
 const DEV_ID = ls.get("deviceId") || (() => { const id = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random())).slice(0, 8); ls.set("deviceId", id); return id; })();
 const KIND = matchMedia("(pointer:fine)").matches ? "υπολογιστής" : "κινητό";
 const ago = t => { const m = Math.round((Date.now() - new Date(t).getTime()) / 60000); return m < 1 ? "τώρα" : m < 60 ? m + "′ πριν" : m < 1440 ? Math.round(m / 60) + " ώρ. πριν" : Math.round(m / 1440) + " μ. πριν"; };
-const FINAL = ["Delivered", "Failed", "Error"];
+const FINAL = ["Delivered", "Failed", "Error", "Dismissed"]; // Dismissed = «το ξέρω, κλείσ' το» από τον χρήστη
 export const SMS_FAIL_TAG = "SMS απέτυχε";
 
 const state = { fns: [], devices: null, devErr: null, sms: { sent: 0, delivered: 0, failed: [], pending: 0, stuck: 0, unsupported: false }, backup: null, at: null };
@@ -58,7 +58,11 @@ async function smsWatch() {
     state.sms.delivered = list.filter(p => p.sms_state === "Delivered").length;
     state.sms.failed = list.filter(p => p.sms_state === "Failed" || p.sms_state === "Error");
     state.sms.pending = op.length;
-    state.sms.stuck = op.filter(p => Date.now() - new Date(p.notified_at).getTime() > 30 * 60000).length;
+    const age = p => Date.now() - new Date(p.notified_at).getTime();
+    // κόλλησε στο κινητό SMS (δεν έφυγε καθόλου) → πρόβλημα · έφυγε («Sent») αλλά δεν ήρθε αναφορά παράδοσης → απλή πληροφορία
+    state.sms.stuckList = op.filter(p => p.sms_state !== "Sent" && age(p) > 30 * 60000);
+    state.sms.noReport = op.filter(p => p.sms_state === "Sent" && age(p) > 2 * 3600e3);
+    state.sms.stuck = state.sms.stuckList.length;
   } finally { smsBusy = false; banner(); }
 }
 /** Αποτυχία αποστολής από το ίδιο το gateway (π.χ. κινητό εκτός) — καταγράφεται στο δέμα. */
@@ -89,7 +93,7 @@ function problems() {
   state.fns.filter(f => !f.ok && !f.optional).forEach(f => out.push("❌ " + f.label + ": " + f.note));
   staleDevices().forEach(d => out.push("📴 " + (d.operator || "Συσκευή") + " (" + d.kind + "): " + (d.pending_in + d.pending_out) + " καταχωρίσεις δεν έχουν σταλεί — άνοιξε την εφαρμογή εκεί με internet"));
   if (state.sms.failed.length) out.push("📩 " + state.sms.failed.length + " SMS δεν παραδόθηκαν — ξαναμπήκαν στο «Να ειδοποιηθούν» (κάλεσέ τους)");
-  if (state.sms.stuck) out.push("📩 " + state.sms.stuck + " SMS περιμένουν πάνω από 30′ — έλεγξε ότι το κινητό SMS είναι ανοιχτό, με μπαταρία και σήμα");
+  if (state.sms.stuck) out.push("📩 " + state.sms.stuck + " SMS δεν έφυγαν από το κινητό SMS εδώ και 30′ — πάτα για να δεις ποια (και να τα κλείσεις αν ειδοποίησες αλλιώς)");
   return out;
 }
 function banner() {
@@ -121,7 +125,17 @@ export async function openHealth() {
   const s = state.sms; sec("SMS (τελευταίες 48 ώρες)", !s.failed.length && !s.stuck);
   body.append(el("div", "hrow", "Στάλθηκαν " + s.sent + " · παραδόθηκαν " + s.delivered + " · σε εξέλιξη " + s.pending + " · απέτυχαν " + s.failed.length));
   if (s.unsupported) body.append(el("div", "hrow warn", "Η παρακολούθηση παράδοσης θέλει τη νέα έκδοση του send-sms — ξανανέβασέ το στο Supabase."));
-  if (s.stuck) body.append(el("div", "hrow bad", s.stuck + " SMS δεν έχουν φύγει μετά από 30′: το κινητό SMS είναι κλειστό, χωρίς μπαταρία ή χωρίς σήμα;"));
+  // «κλείσ' το»: σημειώνει το SMS ως τακτοποιημένο ώστε να μη χτυπά άλλο (το δέμα μένει όπως είναι)
+  const dismiss = async (list, b) => { b.disabled = true; for (const p of list) { try { await D.updateParcel(p.id, { sms_state: "Dismissed", sms_state_at: new Date().toISOString() }); } catch { /* */ } }
+    await smsWatch(); openHealth(); };
+  const who = p => (p.recipient_name || "—") + " · " + (p.recipient_phone || "") + (p.receipt_no ? " · απόδ. " + p.receipt_no : "") + " · " + new Date(p.notified_at).toLocaleString("el-GR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+  if (s.stuck) {
+    body.append(el("div", "hrow bad", s.stuck + " SMS δεν έφυγαν από το κινητό SMS μετά από 30′. Έλεγξε ότι το κινητό είναι ανοιχτό, με μπαταρία, σήμα και ανοιχτή την εφαρμογή SMS Gateway — μόλις συνδεθεί, φεύγουν μόνα τους."));
+    for (const p of s.stuckList.slice(0, 20)) { const r = el("div", "hrow bad", "⏳ " + who(p) + " ");
+      const b = el("button", "btn small", "✓ Το ειδοποίησα αλλιώς — κλείσ' το"); b.type = "button"; b.onclick = () => dismiss([p], b); r.append(b); body.append(r); }
+  }
+  if ((s.noReport || []).length) { const r = el("div", "hrow", "ℹ " + s.noReport.length + " SMS έφυγαν από το κινητό αλλά δεν ήρθε επιβεβαίωση παράδοσης (συνήθως κλειστό κινητό παραλήπτη ή εταιρεία που δεν στέλνει αναφορά). Δεν χρειάζεται κάτι. ");
+    const b = el("button", "btn small", "✓ Κλείσ' τα"); b.type = "button"; b.onclick = () => dismiss(s.noReport, b); r.append(b); body.append(r); }
   s.failed.slice(0, 20).forEach(p => body.append(el("div", "hrow bad", "✗ " + (p.recipient_name || "—") + " · " + (p.recipient_phone || "") + " · " + (p.sms_state === "Error" ? "δεν στάλθηκε" : "δεν παραδόθηκε"))));
   if (s.lastError) body.append(el("div", "hint", "Τελευταίο σφάλμα αποστολής: " + s.lastError));
   // Αντίγραφο
