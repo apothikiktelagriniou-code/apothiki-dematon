@@ -171,7 +171,7 @@
     const num = (id, label, ph, step = "1") => h("div", { class: "field" }, h("label", { for: id }, label), h("input", { id, type: "text", inputmode: "decimal", autocomplete: "off", pattern: "[0-9]*[.,]?[0-9]*", placeholder: T("π.χ. ", "e.g. ") + ph }));
     const form = h("form", { class: "form panel", novalidate: true },
       h("div", { class: "grid g2" },
-        h("div", { class: "field" }, h("label", { for: "c-dest" }, T("1. Πού το στέλνετε;", "1. Where to?")), sel),
+        h("div", { class: "field" }, h("label", { for: "c-dest" }, T("1. Πού το στέλνετε;", "1. Where to?")), sel, h("p", { class: "hint" }, T("Δεν βρίσκετε τον προορισμό σας; ", "Can't find your destination? "), telA(B.phone, B.phoneDisplay), T(" — θα βρούμε τρόπο να σας εξυπηρετήσουμε.", " — we will find a way to help."))),
         h("div", { class: "field" }, h("label", { for: "c-n" }, T("Τεμάχια", "Items")), h("input", { id: "c-n", type: "number", inputmode: "numeric", min: "1", max: "99", value: "1" }))),
       h("fieldset", {}, h("legend", { class: "legend" }, T("2. Τι στέλνετε;", "2. What are you sending?")),
         h("div", { class: "choices", style: "margin-top:8px" }, KINDS.map((k, i) => h("label", { class: "choice" }, h("input", { type: "radio", name: "kind", value: k.id, checked: i === 1 }), h("span", {}, k.name, h("small", {}, k.sub)))))),
@@ -381,7 +381,7 @@
   if (dq) {
     const rows = $$(".dest-table tbody tr"), cnt = $("[data-dest-count]");
     dq.addEventListener("focus", () => { if (matchMedia("(max-width: 900px)").matches) setTimeout(() => dq.scrollIntoView({ behavior: SMOOTH, block: "start" }), 250); });
-    const empty = h("div", { class: "notice info dest-empty", hidden: true }, h("b", {}, T("Δεν βρέθηκε", "Not found")), T("Δεν τη βρίσκουμε στη λίστα. Ρωτήστε μας: μπορεί να πηγαίνει με ανταπόκριση. ", "It is not on the list. Ask us: it may go with a connection. "), ...contactNodes());
+    const empty = h("div", { class: "notice info dest-empty", hidden: true }, h("b", {}, T("Δεν βρέθηκε", "Not found")), T("Δεν τη βρίσκουμε στη λίστα. Καλέστε μας και θα βρούμε τρόπο να σας εξυπηρετήσουμε. ", "It is not on the list. Call us and we will find a way to help. "), ...contactNodes());
     cnt.after(empty);
     const mobile = matchMedia("(max-width: 600px)").matches;
     let showAll = !mobile;

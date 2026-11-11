@@ -361,7 +361,8 @@ function makeLang(lang) {
         return r.replace(/<td( class="[^"]*")?>/g, (m, c) => `<td${c || ""} data-label="${esc(lab[i++] || "")}">`); }).join("");
       return `<div class="field" style="max-width:420px;margin-bottom:12px"><label for="dt-q">${t("Βρείτε πόλη", "Find a town")}</label><input id="dt-q" type="search" data-dest-filter placeholder="${t("π.χ. Τρίπολη", "e.g. Tripoli")}" autocomplete="off"></div>
 <div class="table-wrap"><table class="data dest-table"><thead><tr><th scope="col">${t("Προορισμός", "Destination")}</th><th scope="col">${t("Πώς πάει", "Route")}</th><th scope="col">${t("Τιμοκατάλογος", "Price list")}</th><th scope="col">${t("Φάκελος", "Envelope")}</th><th scope="col">${t("Μέρες δρομολογίου", "Bus days")}</th><th scope="col">${t("Παράδοση", "Delivery")}</th><th scope="col"><span class="sr-only">${t("Υπολογισμός τιμής", "Price calculator")}</span></th></tr></thead><tbody>${rows}</tbody></table></div>
-<p class="caption" data-dest-count role="status" aria-live="polite"></p>`;
+<p class="caption" data-dest-count role="status" aria-live="polite"></p>
+<div class="notice info dest-help" style="margin-top:16px;max-width:70ch"><b>${t("Δεν βρίσκετε τον προορισμό σας;", "Can't find your destination?")}</b>${t("Καλέστε μας και θα βρούμε τρόπο να σας εξυπηρετήσουμε: ", "Call us and we will find a way to help: ")}<a class="num" href="tel:+30${B.phone}">${lang === "en" ? "+30 " : ""}${B.phoneDisplay}</a> · <a href="${WA_URL}">WhatsApp</a></div>`;
     },
     "{{packingTable}}": () => { const P = DATA.PACKING, m = n => (lang === "en" ? `€${Number.isInteger(n) ? n : n.toFixed(2)}` : `${Number.isInteger(n) ? n : n.toFixed(2).replace(".", ",")} €`);
       return `<div class="table-wrap"><table class="data stack"><thead><tr><th scope="col">${t("Είδος", "Item")}</th><th scope="col">${t("Μόνο υλικό", "Material only")}</th><th scope="col">${t("Το πακετάρουμε εμείς", "We pack it")}</th></tr></thead><tbody>${
