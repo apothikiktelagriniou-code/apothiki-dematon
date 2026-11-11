@@ -188,13 +188,15 @@ const MAP = (() => {
       return { ...c, from }; }).filter(c => c.from);
   return { d, cities, hub, via };
 })();
-const routesSvg = (lang, L) => {
+const routesSvg = (lang, L, link) => {
+  const href = d => { const dp = DEST_PAGES.find(p => p.d.name === d.name); return dp ? link(dp.gr) : `${link("apostoli")}?to=${encodeURIComponent(d.name)}#ypologismos`; };
+  const lbl = d => esc(L(d.name)) + (lang === "en" ? ": price and times" : ": τιμή και ώρες");
   const { d, cities, hub, via } = MAP, r1 = n => Math.round(n * 10) / 10, N = cities.length;
   const routes = cities.map((c, i) => { const mx = (hub.x + c.x) / 2, my = (hub.y + c.y) / 2, dx = c.x - hub.x, dy = c.y - hub.y, k = 0.16 * (i % 2 ? 1 : -1);
-    return `<path class="rt" pathLength="1" style="--i:${i}" d="M${hub.x},${hub.y}Q${r1(mx - dy * k)},${r1(my + dx * k)} ${c.x},${c.y}"/>`; }).join("");
-  const dots = cities.map((c, i) => `<g class="ct" style="--i:${i}"><circle cx="${c.x}" cy="${c.y}" r="7"/><text x="${c.tx}" y="${c.ty}" text-anchor="${c.anchor}">${esc(c.dest ? L(c.dest.name) : c.label)}</text></g>`).join("");
-  const vRoutes = via.map((c, i) => `<path class="rt via" style="--i:${N + i}" d="M${c.from.x},${c.from.y}L${c.x},${c.y}"/>`).join("");
-  const vDots = via.map((c, i) => `<g class="ct via" style="--i:${N + i}"><circle cx="${c.x}" cy="${c.y}" r="5"/><text x="${c.tx}" y="${c.ty}" text-anchor="${c.anchor}">${esc(L(c.dest.name))}</text></g>`).join("");
+    return `<path class="rt" data-r="${i}" pathLength="1" style="--i:${i}" d="M${hub.x},${hub.y}Q${r1(mx - dy * k)},${r1(my + dx * k)} ${c.x},${c.y}"/>`; }).join("");
+  const dots = cities.map((c, i) => (c.dest ? `<a href="${href(c.dest)}" aria-label="${lbl(c.dest)}" data-r="${i}">` : "") + `<g class="ct" style="--i:${i}"><circle class="hit" cx="${c.x}" cy="${c.y}" r="16"/><circle cx="${c.x}" cy="${c.y}" r="7"/><text x="${c.tx}" y="${c.ty}" text-anchor="${c.anchor}">${esc(c.dest ? L(c.dest.name) : c.label)}</text></g>` + (c.dest ? "</a>" : "")).join("");
+  const vRoutes = via.map((c, i) => `<path class="rt via" data-r="v${i}" style="--i:${N + i}" d="M${c.from.x},${c.from.y}L${c.x},${c.y}"/>`).join("");
+  const vDots = via.map((c, i) => `<a href="${href(c.dest)}" aria-label="${lbl(c.dest)}" data-r="v${i} ${cities.indexOf(c.from)}"><g class="ct via" style="--i:${N + i}"><circle class="hit" cx="${c.x}" cy="${c.y}" r="14"/><circle cx="${c.x}" cy="${c.y}" r="5"/><text x="${c.tx}" y="${c.ty}" text-anchor="${c.anchor}">${esc(L(c.dest.name))}</text></g></a>`).join("");
   const lx = 560, ly = 905, en = lang === "en";
   const legend = `<g class="legend"><path class="rt" d="M${lx},${ly}h46"/><circle class="lg-d" cx="${lx + 46}" cy="${ly}" r="7"/><text x="${lx + 62}" y="${ly + 7}">${en ? "Direct" : "Απευθείας"}</text>`
     + `<path class="rt via" d="M${lx},${ly + 36}h46"/><circle class="lg-v" cx="${lx + 46}" cy="${ly + 36}" r="5"/><text x="${lx + 62}" y="${ly + 43}">${en ? "With a connection" : "Με ανταπόκριση"}</text></g>`;
@@ -314,7 +316,7 @@ function makeLang(lang) {
   <div class="j-ctas"><a class="btn" data-j-calc href="${link("apostoli")}?to=${encodeURIComponent(d0.name)}#ypologismos">${t("Ακριβής τιμή", "Exact price")} →</a>${chatButtons()}</div>
 </div>`;
     },
-    "{{routesMap}}": () => `<figure class="routes-map" data-routes>${routesSvg(lang, L)}</figure>`,
+    "{{routesMap}}": () => `<figure class="routes-map" data-routes>${routesSvg(lang, L, link)}<figcaption class="map-hint">${t("Πατήστε μια πόλη για τιμή και ώρες.", "Tap a city for price and times.")}</figcaption></figure>`,
     "{{asapLogo}}": () => `<a class="partner-link" href="https://asapcouriers.gr/" rel="noopener" target="_blank">${brandImg("asap", "ASAP Courier", 28) || "<b>ASAP Courier</b>"}</a>`,
     "{{phone}}": () => `<a class="num" href="tel:+30${B.phone}">${lang === "en" ? "+30 " : ""}${B.phoneDisplay}</a>`,
     "{{mobile}}": () => `<a class="num" href="tel:+30${B.mobile}">${lang === "en" ? "+30 " : ""}${B.mobileDisplay}</a>`,

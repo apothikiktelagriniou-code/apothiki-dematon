@@ -797,3 +797,14 @@ details.q[open]::details-content { block-size: auto; }
 .ctas .desk-only { display: contents; }
 .ctas .chat-btns, .head-chat .chat-btns { display: inline-flex; flex-wrap: wrap; gap: 10px; }
 @media (max-width: 900px) { .desk-only, .ctas .desk-only { display: none !important; } }
+
+/* Χάρτης: κάθε πόλη πατιέται — φωτίζει τη διαδρομή της και ανοίγει τιμή/ώρες */
+.routes-svg a { cursor: pointer; outline: none; }
+.routes-svg .hit { fill: transparent !important; stroke: none !important; }
+.routes-svg a:hover .ct text, .routes-svg a:focus-visible .ct text { fill: var(--m-route); text-decoration: underline; }
+.routes-svg a:hover .ct circle:not(.hit), .routes-svg a:focus-visible .ct circle:not(.hit) { fill: var(--m-route); }
+.routes-svg a:focus-visible .ct circle:not(.hit) { stroke: var(--m-hub); stroke-width: 4; }
+.routes-svg .rt { transition: stroke-width 160ms var(--ease-out), opacity 160ms var(--ease-out); }
+.routes-svg.hl .rt:not(.on) { opacity: .25; }
+.routes-svg .rt.on { stroke-width: 4.5; opacity: 1 !important; }
+.routes-map .map-hint { margin: 0; padding: 8px 8px 10px; font-size: 14px; color: var(--muted); }

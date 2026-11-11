@@ -23,6 +23,15 @@
   const telA = (n, txt) => h("a", { class: "num", href: "tel:+30" + String(n).replace(/\D/g, "") }, txt || n);
   const contactNodes = () => [T("Καλέστε μας στο ", "Call us on "), telA(B.phone, B.phoneDisplay), T(" ή γράψτε μας στο ", " or message us on "), h("a", { href: "https://wa.me/30" + B.mobile }, "WhatsApp"), "."];
 
+  // Χάρτης διαδρομών: φωτίζει τη διαδρομή της πόλης που δείχνει/εστιάζει ο επισκέπτης
+  for (const svg of document.querySelectorAll(".routes-svg")) {
+    const on = r => { svg.classList.toggle("hl", r != null); const set = r ? r.split(" ") : []; svg.querySelectorAll(".rt").forEach(p => p.classList.toggle("on", set.includes(p.dataset.r))); };
+    svg.querySelectorAll("a[data-r]").forEach(a => {
+      a.addEventListener("pointerenter", () => on(a.dataset.r)); a.addEventListener("pointerleave", () => on(null));
+      a.addEventListener("focus", () => on(a.dataset.r)); a.addEventListener("blur", () => on(null));
+    });
+  }
+
   // Μέτρηση κλικ: μόνο «πόσα» ανά μέρα, σελίδα και σημείο. Χωρίς cookies, χωρίς IP, χωρίς στοιχεία επισκέπτη.
   const PAGE = (location.pathname.replace(/^\/+|\.html$/g, "") || "index").replace(/\/$/, "/index").toLowerCase();
   const TEST = /^(localhost|127\.|\[?::1)/.test(location.hostname) ? null : /^dokimi\./.test(location.hostname) ? "dokimi/" : "";
