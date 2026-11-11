@@ -22,6 +22,23 @@ export function shelfFor(name) {
 }
 
 /** Κινητό/σταθερό 10 ψηφίων. Επιστρέφει "" αν δεν είναι έγκυρο. */
+/** Αυτόματο κινητό από το αρχείο πελατών — ΜΟΝΟ αν ο πελάτης έχει ΕΝΑ κινητό και
+ *  (είναι ⭐ τακτικός ή το όνομα στο δέμα έχει και μικρό όνομα, όχι μόνο επώνυμο).
+ *  Αλλιώς επιστρέφει "" και η εφαρμογή ρωτά «ποιος είναι;». */
+export function safeAutoPhone(c, name) {
+  const ph = (c && c.phones) || [];
+  if (ph.length !== 1) return "";
+  return c.starred || norm(name).split(" ").filter(Boolean).length >= 2 ? ph[0] : "";
+}
+/** «Ανακατεμένος» πελάτης: πάνω από ένα κινητό στο ίδιο όνομα — μπορεί να είναι διαφορετικοί άνθρωποι. */
+export function mixedCustomer(c) { return ((c && c.phones) || []).filter(p => /^69/.test(p)).length > 1; }
+/** Νέο δέμα με κινητό `phone` για τον πελάτη `c`: ταιριάζει; (διαφορετικό κινητό = διαφορετικός άνθρωπος) */
+export function phoneFits(c, phone, name) {
+  const ph = (c && c.phones) || [];
+  if (phone) return !ph.length || ph.includes(phone);
+  return !ph.length || !!safeAutoPhone(c, name);
+}
+
 export function cleanPhone(s) {
   let d = String(s ?? "").replace(/\D/g, "");
   d = d.replace(/^0030(?=\d{10}$)/, "").replace(/^30(?=\d{10}$)/, "");

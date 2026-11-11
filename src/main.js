@@ -2,7 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { SUPABASE_URL, SUPABASE_KEY } from "./config.js";
 import {
   HOME, norm, shelfFor, cleanPhone, fmtPhone, parseGrDate, fmtGr, toLocalInput, money, hoursSince, daysSince,
-  tripsOf, tripLabel, sortTrips, isClosed, isTransit, parseLabel, fillTemplate, toCSV, cleanIdDoc, sameReceipt, likelySameParcel, sameNameTrip, smsFor, soundKey, greeklishToGreek, greekName, isGreeklishName, surnameFirst, expectHelp, expectProgress } from "./lib.js";
+  tripsOf, tripLabel, sortTrips, isClosed, isTransit, parseLabel, fillTemplate, toCSV, cleanIdDoc, sameReceipt, likelySameParcel, sameNameTrip, smsFor, soundKey, safeAutoPhone, phoneFits, mixedCustomer, greeklishToGreek, greekName, isGreeklishName, surnameFirst, expectHelp, expectProgress } from "./lib.js";
 import { initCamera } from "./camera.js";
 import { initCapture, pendingReviewCount, toJpegB64, loadQueue } from "./capture.js";
 import { openManifest } from "./manifest.js";
@@ -315,7 +315,10 @@ async function linkCustomer(name, phone) {
   const k = norm(name); if (!k) return null;
   let c = null;
   if (phone) { const { data } = await sb.from("customers").select("*").contains("phones", [phone]).limit(1); c = data && data[0]; }
-  if (!c) { const list = await findCustomers(name); if (list.length === 1) c = list[0]; }
+  if (!c) { const list = await findCustomers(name);
+    // ίδιο όνομα ΔΕΝ σημαίνει ίδιος άνθρωπος: ενώνουμε μόνο αν το κινητό ταιριάζει (ή ο πελάτης δεν έχει κινητό)
+    if (list.length === 1 && phoneFits(list[0], phone, name)) c = list[0];
+    else if (!phone && list.length) return null; }
   if (c) {
     if (phone && !(c.phones || []).includes(phone)) { await sb.from("customers").update({ phones: [phone, ...(c.phones || [])] }).eq("id", c.id); loadCustomersSoon(); }
     return c.id;
@@ -327,15 +330,16 @@ async function lookupCustomerForForm() {
   const name = $("recipient_name").value; const hint = $("custHint"); hint.textContent = ""; customerChoice = null;
   if (!norm(name) || $("recipient_phone").value.trim()) return;
   const list = (await findCustomers(name)).filter(c => (c.phones || []).length);
-  if (list.length === 1) {
+  if (list.length === 1 && safeAutoPhone(list[0], name)) {
     $("recipient_phone").value = list[0].phones[0]; $("recipient_phone").classList.add("ai");
     $("recipient_phone").dataset.src = "customer_db"; customerChoice = list[0].id;
     hint.textContent = "📇 Τηλέφωνο από το αρχείο πελατών.";
-  } else if (list.length > 1) {
-    hint.textContent = "Βρέθηκαν " + list.length + " πελάτες με αυτό το όνομα: ";
-    list.forEach(c => { const b = el("button", "btn small", fmtPhone(c.phones[0])); b.type = "button";
-      b.onclick = () => { $("recipient_phone").value = c.phones[0]; $("recipient_phone").dataset.src = "customer_db"; customerChoice = c.id; hint.textContent = "📇 Επιλέχθηκε."; };
-      hint.append(" ", b); });
+  } else if (list.length) {
+    // πάνω από ένας, ή ένα όνομα με πολλά κινητά, ή μόνο επώνυμο χωρίς ⭐ → διαλέγει ο άνθρωπος
+    hint.textContent = "📇 Στο αρχείο υπάρχουν αυτά τα κινητά για «" + name.trim() + "» — διάλεξε μόνο αν είσαι σίγουρος: ";
+    list.forEach(c => (c.phones || []).forEach(ph => { const b = el("button", "btn small", fmtPhone(ph) + (list.length > 1 ? " (" + c.full_name + ")" : "")); b.type = "button";
+      b.onclick = () => { $("recipient_phone").value = ph; $("recipient_phone").dataset.src = "customer_db"; customerChoice = (c.phones || []).length === 1 ? c.id : null; hint.textContent = "📇 Επιλέχθηκε."; };
+      hint.append(" ", b); }));
   }
 }
 
@@ -1238,12 +1242,18 @@ $("customersBtn").onclick = async () => {
   ex.onclick = async () => { const { data } = await sb.from("customers").select("full_name,email,area,is_business,marketing_consent_at").eq("marketing_consent", true).not("email", "is", null).limit(10000);
     const csv = toCSV(data || [], [["full_name", "Όνομα"], ["email", "Email"], ["area", "Περιοχή"], ["b", "Επιχείρηση", r => r.is_business ? "Ναι" : ""], ["c", "Συγκατάθεση από", r => fmtGr(r.marketing_consent_at)]]);
     const a = el("a"); a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" })); a.download = "email-enimerotika.csv"; a.click(); ex.textContent = "✉ " + (data || []).length + " email"; };
-  body.append(el("div", "hint", "Πάτα έναν πελάτη για την καρτέλα του."), q, el("div", "quick"), nw, ex); const l = el("div", "hist"); body.append(l);
+  const mixed = custCache.filter(mixedCustomer);
+  const mx = el("button", "btn small", "⚠ Ανακατεμένοι (" + mixed.length + ")"); mx.type = "button"; mx.title = "Ένα όνομα με πολλά κινητά — μπορεί να είναι διαφορετικοί άνθρωποι";
+  body.append(el("div", "hint", "Πάτα έναν πελάτη για την καρτέλα του."), q, el("div", "quick"), nw, ex, ...(mixed.length ? [mx] : [])); const l = el("div", "hist"); body.append(l);
+  const row = c => { const b = el("button", "custrow", (c.is_business ? "🏢 " : "👤 ") + (c.starred ? "⭐ " : "") + c.full_name + " · " + ((c.phones || []).map(fmtPhone).join(", ") || "χωρίς τηλέφωνο") + " · " + (c.parcels_count || 0) + " δέματα" + (c.last_parcel_at ? " · τελευταίο " + fmtGr(c.last_parcel_at, false) : ""));
+    b.type = "button"; b.onclick = () => { $("dlg").close(); openCustomer(c.id); }; return b; };
+  mx.onclick = () => { l.textContent = "";
+    l.append(el("div", "msg warn", "Αυτά τα ονόματα έχουν πάνω από ένα κινητό — συνήθως γιατί ήρθαν δέματα μόνο με επώνυμο για διαφορετικούς ανθρώπους. Άνοιξε τον καθένα, κράτα μόνο το σωστό κινητό (ή φτιάξε «＋ Νέος πελάτης» για τον άλλον) και πάτα ⭐ όσους είναι σίγουρα τακτικοί."));
+    mixed.slice().sort((a, b) => (b.parcels_count || 0) - (a.parcels_count || 0)).forEach(c => l.append(row(c))); };
   const load = async () => { let r = sb.from("customers").select("*").order("last_parcel_at", { ascending: false, nullsFirst: false }).limit(100);
     const s = norm(q.value); if (s) r = r.ilike("name_key", "%" + s + "%");
     const { data } = await r; l.textContent = "";
-    (data || []).forEach(c => { const b = el("button", "custrow", (c.is_business ? "🏢 " : "👤 ") + c.full_name + " · " + ((c.phones || []).map(fmtPhone).join(", ") || "χωρίς τηλέφωνο") + " · " + c.parcels_count + " δέματα" + (c.last_parcel_at ? " · τελευταίο " + fmtGr(c.last_parcel_at, false) : ""));
-      b.type = "button"; b.onclick = () => { $("dlg").close(); openCustomer(c.id); }; l.append(b); });
+    (data || []).forEach(c => l.append(row(c)));
     if (!l.childNodes.length) l.append(el("div", null, "Κανένας πελάτης ακόμα.")); };
   q.oninput = () => { clearTimeout(q._t); q._t = setTimeout(load, 300); }; load(); $("dlg").showModal();
 };
@@ -1770,7 +1780,7 @@ async function toggleStarP(p) {
   if (needOperator()) return;
   let cid = p.customer_id || (custOf(p) || {}).id;
   if (!cid) { if (!p.recipient_name) { show($("formMsg"), "Το δέμα δεν έχει όνομα παραλήπτη.", "warn"); return; }
-    cid = await linkCustomer(p.recipient_name, p.recipient_phone); if (!cid) return; await updateParcel(p.id, { customer_id: cid }).catch(() => {}); await loadCustomers(); }
+    cid = await linkCustomer(p.recipient_name, p.recipient_phone); if (!cid) { show($("formMsg"), "Υπάρχουν κι άλλοι με αυτό το όνομα — βάλε πρώτα το κινητό στο δέμα και μετά ⭐.", "warn"); return; } await updateParcel(p.id, { customer_id: cid }).catch(() => {}); await loadCustomers(); }
   const c = custCache.find(x => x.id === cid);
   const on = !(c && c.starred);
   if (on && c && !c.is_business && (bizLike(c.full_name) || (p.extraction_confidence && p.extraction_confidence.biz))) { await sb.from("customers").update({ is_business: true }).eq("id", cid); c.is_business = true; }
@@ -1815,6 +1825,7 @@ function renderRegularsIn() {
     const card = el("article", "regcard");
     const h = el("div", "reghead"); h.append(el("b", null, "⭐ " + c.full_name)); if (c.is_business) h.append(el("span", "badge", "🏢 επιχείρηση")); card.append(h);
     card.append(el("div", "hint", [(c.phones || []).map(fmtPhone).join(" · ") || "⚠ χωρίς τηλέφωνο", c.email || "", c.area || "", (c.parcels_count || 0) + " δέματα συνολικά", c.notes || ""].filter(Boolean).join(" · ")));
+    if (mixedCustomer(c)) card.append(el("div", "msg warn", "⚠ Πολλά κινητά σε αυτό το όνομα. Η ειδοποίηση πάει στο πρώτο (" + fmtPhone((c.phones || []).find(x => /^69/.test(x))) + "). Αν δεν είναι όλα του ίδιου ανθρώπου, πάτα «✎ Στοιχεία» και σβήσε τα ξένα."));
     if (w.length) { const ul = el("div", "regwait"); for (const p of w) ul.append(el("div", null, "📦 " + (p.receipt_no || "—") + (p.origin_city ? " · από " + p.origin_city : "") + (p.shelf ? " · Ράφι " + p.shelf : "") + " · " + (STATUS[p.status] || p.status))); card.append(el("div", "lbl", "Περιμένουν τώρα: " + w.length), ul); }
     const acts = el("div", "acts"); const h2 = el("div", "hint");
     const ar = w.filter(p => p.status === "arrived");
