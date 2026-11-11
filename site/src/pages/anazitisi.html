@@ -9,11 +9,11 @@
   <div class="grid" style="gap:14px">
     <form class="form panel" data-track autocomplete="off" novalidate>
       <div class="field"><label for="t-rc">Αριθμός απόδειξης</label>
-        <input id="t-rc" class="mono" inputmode="numeric" placeholder="π.χ. 228-336-12345" required>
-        <span class="hint">Στην απόδειξη που σας έδωσε ο αποστολέας («Αρ. Απόδειξης»). Στις χειρόγραφες αποδείξεις: ο κόκκινος αριθμός.</span></div>
+        <input id="t-rc" aria-describedby="t-rc-hint" class="mono" inputmode="numeric" placeholder="π.χ. 228-336-12345" required>
+        <span class="hint" id="t-rc-hint">Στην απόδειξη που σας έδωσε ο αποστολέας («Αρ. Απόδειξης»). Στις χειρόγραφες αποδείξεις: ο κόκκινος αριθμός.</span></div>
       <div class="field"><label for="t-nm">3 πρώτα γράμματα επωνύμου παραλήπτη</label>
-        <input id="t-nm" maxlength="20" autocapitalize="characters" placeholder="π.χ. ΠΑΠ" required>
-        <span class="hint">Ζητάμε μόνο 3 γράμματα, για να μη βλέπει άλλος τα δέματά σας.</span></div>
+        <input id="t-nm" aria-describedby="t-nm-hint" maxlength="20" autocapitalize="characters" placeholder="π.χ. ΠΑΠ" required>
+        <span class="hint" id="t-nm-hint">Ζητάμε μόνο 3 γράμματα, για να μη βλέπει άλλος τα δέματά σας.</span></div>
       <button class="btn btn-primary" type="submit">{{i:search}} Έλεγχος</button>
     </form>
     <div data-track-out role="status" aria-live="polite"></div>

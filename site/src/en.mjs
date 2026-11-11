@@ -25,7 +25,8 @@ export const EN = {
   "Χανιά · Ηράκλειο · Κέρκυρα": "Chania · Heraklion · Corfu",
 
   // Χρόνοι / σημειώσεις
-  "Αυθημερόν, με τα δρομολόγια της ημέρας": "Same day, with that day's buses",
+  "Την ίδια μέρα, με τα δρομολόγια που αναγράφονται": "The same day, on the listed schedules",
+  "Αυθημερόν, με τα δρομολόγια της ημέρας": "The same day, on the listed schedules",
   "Παραδίδεται αυθημερόν στον Σταθμό Μακεδονία και συνεχίζει με το ΚΤΕΛ του προορισμού.": "Handed over the same day at Macedonia Bus Station, then continues with the local KTEL.",
   "Φτάνει την επόμενη ημέρα, μέσω Ιωαννίνων.": "Arrives the next day, via Ioannina.",
   "Αυθημερόν, αν το δέμα φτάσει στην Κόρινθο πριν τη 13:00· αλλιώς την επόμενη ημέρα.": "Same day if the parcel reaches Corinth before 13:00; otherwise the next day.",

@@ -10,7 +10,7 @@
 <section class="section"><div class="wrap">
   <div class="grid g4">
     <div class="panel"><span class="eyebrow">Αθήνα</span><p class="num" style="font-size:32px;font-weight:600;color:var(--heading);margin-top:6px">{{eur:athina:mikro}}</p><p class="muted">μικρό κουτί για Αθήνα</p></div>
-    <div class="panel"><span class="eyebrow">Πάτρα</span><p class="num" style="font-size:32px;font-weight:600;color:var(--heading);margin-top:6px">{{patraDaily}}</p><p class="muted">αναχωρήσεις την ημέρα</p></div>
+    <div class="panel"><span class="eyebrow">Πάτρα</span><p class="num" style="font-size:32px;font-weight:600;color:var(--heading);margin-top:6px"><small style="font-size:16px">έως </small>{{patraDaily}}</p><p class="muted">αναχωρήσεις την ημέρα</p></div>
     <div class="panel"><span class="eyebrow">Σαβ–Κυρ</span><p class="num" style="font-size:32px;font-weight:600;color:var(--heading);margin-top:6px">{{openWe}}</p><p class="muted">ανοιχτά και το Σαββατοκύριακο</p></div>
     <div class="panel"><span class="eyebrow">Ανοιχτά</span><p class="num" style="font-size:32px;font-weight:600;color:var(--heading);margin-top:6px">{{openWk}}</p><p class="muted">από Δευτέρα ως Παρασκευή</p></div>
   </div>
@@ -20,14 +20,14 @@
   <div>
     <div class="section-head"><h2>Ήδη στέλνουν μαζί μας</h2></div>
     <ul style="padding-left:20px;margin:0;display:grid;gap:8px">
-      <li><b>Ανταλλακτικά αυτοκινήτων</b> προς συνεργεία σε όλη την Ελλάδα.</li>
-      <li><b>Φαρμακαποθήκες</b> και αποστολές φαρμάκων.</li>
+      <li><b>Ανταλλακτικά αυτοκινήτων</b> προς συνεργεία.</li>
+      <li><b>Ελαιοτριβεία</b> που στέλνουν λάδι σε πελάτες.</li>
       <li><b>Λιπαντικά</b> και τεχνικά είδη.</li>
       <li><b>Καταστήματα και e-shops</b> που στέλνουν παραγγελίες πελατών.</li>
     </ul>
     <div class="section-head" style="margin-top:28px"><h2 style="font-size:24px">Τι κερδίζετε</h2></div>
     <ul style="padding-left:20px;margin:0;display:grid;gap:8px">
-      <li>Το δέμα φεύγει με το επόμενο δρομολόγιο της ίδιας μέρας, όχι την επόμενη.</li>
+      <li>Το δέμα φεύγει με το επόμενο δρομολόγιο που προλαβαίνει, και για λεωφορεία πριν ανοίξουμε, από το προηγούμενο βράδυ.</li>
       <li>Ο παραλήπτης παίρνει SMS όταν φτάσει, και βλέπει την κατάσταση online.</li>
       <li>Ένα σημείο για όλους τους προορισμούς του ΚΤΕΛ, μέσα στην πόλη.</li>
     </ul>
@@ -50,6 +50,6 @@
       <button class="btn btn-primary" type="submit">Ετοιμάστε το μήνυμα</button>
       <p class="hint" style="font-size:13px;color:var(--muted)">Το μήνυμα στέλνεται από εσάς με WhatsApp ή email. Δείτε το <a href="aporrito.html">απόρρητο</a>.</p>
     </form>
-    <div data-msg-out class="grid" style="gap:12px"></div>
+    <div data-msg-out class="grid" style="gap:12px" role="status"></div>
   </div>
 </div></section>

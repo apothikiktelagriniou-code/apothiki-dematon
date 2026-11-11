@@ -9,11 +9,11 @@
   <div class="grid" style="gap:14px">
     <form class="form panel" data-track autocomplete="off" novalidate>
       <div class="field"><label for="t-rc">Receipt number</label>
-        <input id="t-rc" class="mono" inputmode="numeric" placeholder="e.g. 228-336-12345" required>
-        <span class="hint">On the receipt the sender gave you. On handwritten receipts: the red number.</span></div>
+        <input id="t-rc" aria-describedby="t-rc-hint" class="mono" inputmode="numeric" placeholder="e.g. 228-336-12345" required>
+        <span class="hint" id="t-rc-hint">On the receipt the sender gave you. On handwritten receipts: the red number.</span></div>
       <div class="field"><label for="t-nm">First 3 letters of the recipient's surname</label>
-        <input id="t-nm" maxlength="20" autocapitalize="characters" placeholder="e.g. ΠΑΠ" required>
-        <span class="hint">Use the letters as written on the receipt, usually in Greek. We ask for only 3 letters so no one else can see your parcels.</span></div>
+        <input id="t-nm" aria-describedby="t-nm-hint" maxlength="20" autocapitalize="characters" placeholder="e.g. ΠΑΠ" required>
+        <span class="hint" id="t-nm-hint">Use the letters as written on the receipt, usually in Greek. We ask for only 3 letters so no one else can see your parcels.</span></div>
       <button class="btn btn-primary" type="submit">{{i:search}} Check</button>
     </form>
     <div data-track-out role="status" aria-live="polite"></div>

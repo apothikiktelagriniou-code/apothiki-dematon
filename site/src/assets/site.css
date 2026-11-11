@@ -76,7 +76,7 @@ p { margin: 0; text-wrap: pretty; }
 body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 30; background: var(--band); }
 .site-head { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: var(--band); color: var(--on-band); border-bottom: 4px solid #017F98; }
 .site-head .wrap { display: flex; align-items: center; gap: 16px; min-height: 64px; }
-.brand { display: flex; align-items: center; gap: 12px; color: var(--on-band); text-decoration: none; flex: none; }
+.brand { display: flex; align-items: center; min-height: 44px; gap: 12px; color: var(--on-band); text-decoration: none; flex: none; }
 .brand .chip { background: #fff; border-radius: 3px; padding: 3px 6px; display: grid; place-items: center; flex: none; }
 .brand .chip img { width: 54px; height: 27px; display: block; }
 .brand b { font: 700 19px/1 var(--f-display); display: block; }
@@ -228,6 +228,7 @@ table.data th, table.data td { padding: 11px 12px; border-bottom: 1px solid var(
 table.data th:first-child, table.data td:first-child { text-align: left; position: sticky; left: 0; background: var(--surface); box-shadow: 1px 0 0 var(--line); }
 table.data thead th { background: var(--band); color: #fff; font: 600 14px var(--f-body); }
 table.data thead th:first-child { background: var(--band); }
+table.data:not(.dest-table) thead th { white-space: normal; vertical-align: bottom; }
 table.data td { font-variant-numeric: tabular-nums; }
 table.data tbody tr:last-child td { border-bottom: 0; }
 table.data td.na { color: var(--muted); }
@@ -311,7 +312,7 @@ details.q .a { padding: 0 2px 18px; color: var(--ink); max-width: 68ch; }
 .contact-list .row .v { font: 700 22px var(--f-display); color: var(--heading); }
 .hours { width: 100%; border-collapse: collapse; }
 .hours td { padding: 10px 0; border-bottom: 1px solid var(--line); }
-.hours td:last-child { text-align: right; font-family: var(--f-mono); }
+.hours td:last-child { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
 
 /* Φωτογραφίες (μπαίνουν μόνο αν υπάρχει το αρχείο) */
 .photo { margin: 0; }
@@ -333,7 +334,7 @@ details.q .a { padding: 0 2px 18px; color: var(--ink); max-width: 68ch; }
 .site-foot a { color: var(--on-band-muted); text-decoration: none; }
 .site-foot a:hover { color: #fff; text-decoration: underline; }
 .site-foot ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
-.site-foot .legal { grid-column: 1 / -1; border-top: 1px solid rgba(255,255,255,.12); padding-top: 18px; font-size: 13px; display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: space-between; }
+.site-foot .legal { align-items: baseline; grid-column: 1 / -1; border-top: 1px solid rgba(255,255,255,.12); padding-top: 18px; font-size: 13px; display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: space-between; }
 @media (max-width: 800px) { .site-foot .wrap { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .site-foot .wrap > :first-child { grid-column: 1 / -1; } }
 
 /* Κάτω μπάρα για κινητό: κλήση · αναζήτηση · τιμή */
@@ -373,6 +374,8 @@ details.how li { font-variant-numeric: tabular-nums; }
 .dest-table th[scope=row] small { display: block; font-weight: 400; color: var(--muted); font-size: 14px; }
 .dest-table td.wrap-cell { white-space: normal; min-width: 220px; max-width: 320px; text-align: left; font-size: 14px; color: var(--muted); }
 .dest-table td { text-align: left; }
+.dest-table td:nth-child(2) { white-space: normal; min-width: 10rem; }
+.dest-table td .tag { white-space: normal; line-height: 1.25; }
 .dest-table tr.off th, .dest-table tr.off td { color: var(--muted); }
 fieldset.field legend { font: inherit; margin-bottom: 10px; padding: 0; }
 form[data-poll] { display: grid; gap: 24px; }
@@ -443,9 +446,10 @@ form[data-poll] { display: grid; gap: 24px; }
 /* Σελίδες εποχής (λάδι, φοιτητές) */
 .oil-facts .fact { border-top: 3px solid var(--rule); padding-top: 12px; }
 .oil-facts .fact b { display: block; font: 800 44px/1 var(--f-display); color: var(--heading); }
-.oil-facts .fact span { display: block; margin-top: 6px; color: var(--muted); font-size: 16px; }
+.oil-facts .fact > span { display: block; margin-top: 6px; color: var(--muted); font-size: 16px; }
 @media (max-width: 600px) { .oil-facts .fact b { font-size: 36px; } }
 table.season th[scope=row] { font-weight: 600; }
+table.season th.deps-col { text-align: left; }
 table.season td.deps-cell { text-align: left; white-space: normal; min-width: 7.5rem; color: var(--muted); font-size: 14px; }
 .hero .season-link { color: var(--teal-light); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
 @media (max-width: 600px) { table.season th, table.season td { padding: 10px 8px; font-size: 14px; } table.season td.deps-cell { font-size: 13px; } }
@@ -453,9 +457,9 @@ table.season .m-deps { display: none; }
 @media (max-width: 600px) { table.season .deps-col, table.season td.deps-cell { display: none; } table.season .m-deps { display: block; font-weight: 400; font-size: 12px; color: var(--muted); white-space: normal; } table.season th[scope=row] { white-space: normal; } }
 .head-photo .photo img { aspect-ratio: auto; width: auto; max-width: 100%; max-height: 72vh; border-top: 0; }
 @media (min-width: 900px) {
-  .page-head .wrap:has(.head-photo .photo) { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 40px; align-content: start; }
+  .page-head .wrap:has(.head-photo .photo) { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: repeat(4, auto) 1fr; column-gap: 40px; align-content: start; }
   .page-head .wrap:has(.head-photo .photo) > * { grid-column: 1; }
-  .page-head .wrap:has(.head-photo .photo) > .head-photo { grid-column: 2; grid-row: 1 / span 4; margin-top: 0; }
+  .page-head .wrap:has(.head-photo .photo) > .head-photo { grid-column: 2; grid-row: 1 / span 5; margin-top: 0; }
   .head-photo .photo img { max-height: 400px; }
 }
 @media (max-width: 899px) { .head-photo .photo img { max-height: 60vh; } }
@@ -523,16 +527,16 @@ input[type=text], input[type=search], input[type=tel], input[type=email], input[
 ::placeholder { color: var(--muted); opacity: 1; }
 [data-track-out], .result, .result .price { scroll-margin-bottom: calc(var(--qb) + 16px); scroll-margin-top: 90px; }
 .quicktrack .qt-labels { display: grid; grid-template-columns: minmax(0, 1fr) 104px auto; gap: 8px; font-size: 14px; line-height: 1.25; color: #56677A; margin-bottom: 4px; }
-.head-ctas { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+.head-ctas { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; align-items: flex-start; }
 .lang-switch { min-height: 44px; min-width: 44px; display: inline-flex; align-items: center; justify-content: center; }
 .site-foot ul a, .site-foot .legal a, .crumbs a, .season-link, .contact-list .row a:not(.btn) { display: inline-block; padding-block: 10px; }
 @media (max-width: 760px) { .gallery { scroll-padding-inline: 16px; } }
 .map-fig figcaption { color: #56677A; } .map-fig figcaption a { color: #016F86; }
 [data-calc] { min-height: 1100px; } @media (min-width: 901px) { [data-calc] { min-height: 760px; } }
-@media (max-width: 600px) {
+@media (max-width: 900px) {
   .dest-table thead { display: none; }
   .dest-table, .dest-table tbody { display: block; min-width: 0 !important; width: 100%; }
-  .dest-table tr { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 12px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .dest-table tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 12px; padding: 12px 0; border-bottom: 1px solid var(--line); }
   .dest-table th[scope=row] { grid-column: 1 / -1; position: static; box-shadow: none; border: 0; padding: 0; white-space: normal; font-size: 18px; }
   .dest-table td, .dest-table th[scope=row] { display: block; border: 0 !important; box-shadow: none !important; padding: 0 !important; white-space: normal; position: static; font-size: 15px; text-align: left !important; background: none !important; }
   .dest-table td:last-child { grid-column: 1 / -1; margin-top: 4px; }
@@ -643,15 +647,15 @@ input[type=text], input[type=search], input[type=tel], input[type=email], input[
 .table-wrap.narrow { max-width: 640px; }
 table.data.two th:first-child, table.data.two td:first-child { white-space: normal; }
 /* Πίνακες που γίνονται κάρτες στο κινητό */
-@media (max-width: 600px) {
+@media (max-width: 900px) {
   table.stack thead { display: none; }
   table.stack, table.stack tbody { display: block; min-width: 0 !important; width: 100%; }
   table.stack tr { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; padding: 12px 14px; border-bottom: 1px solid var(--line); }
   table.stack th[scope=row] { grid-column: 1 / -1; white-space: normal; padding: 0 !important; border: 0 !important; font-size: 17px; background: none; position: static; box-shadow: none; }
   table.stack td { display: block; border: 0 !important; padding: 0 !important; white-space: normal; text-align: left; font-size: 16px; }
   table.stack td[data-label]::before { content: attr(data-label); display: block; font-size: 13px; color: var(--muted); }
-  .panel { padding: 16px 12px; }
 }
+@media (max-width: 600px) { .panel { padding: 16px 12px; } }
 /* Υπολογιστής: η τιμή σαν πινακίδα σταθμού */
 .price-board { background: var(--board); color: #fff; border-top: 6px solid var(--teal); border-radius: var(--r); padding: 16px 18px; margin: -4px -4px 4px; }
 .price-board .eyebrow { color: var(--board-dim); }
@@ -768,9 +772,9 @@ details.q[open]::details-content { block-size: auto; }
 .pack-ico svg { width: 26px; height: 26px; }
 .pack-grid { list-style: none; margin: 20px 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; counter-reset: none; }
 .pack-card { position: relative; background: var(--surface); border: 1px solid var(--olive-line); border-radius: var(--r); padding: 18px; }
-.pack-card h3 { margin: 12px 0 6px; font: 700 18px/1.2 var(--f-display); color: var(--olive-ink); }
+.pack-card h3 { padding-right: 28px; margin: 12px 0 6px; font: 700 18px/1.2 var(--f-display); color: var(--olive-ink); }
 .pack-card p { margin: 0; color: var(--ink); font-size: 16px; }
-.pack-n { position: absolute; top: 14px; right: 16px; font: 800 28px/1 var(--f-display); color: var(--olive-line); font-variant-numeric: tabular-nums; }
+.pack-n { position: absolute; top: 14px; right: 16px; font: 800 28px/1 var(--f-display); color: var(--tin-dark); font-variant-numeric: tabular-nums; }
 @media (max-width: 900px) { .pack-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 560px) { .pack-grid { grid-template-columns: minmax(0, 1fr); } .pack-card { display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: 4px 14px; } .pack-card .pack-ico { grid-row: 1 / span 2; } .pack-card h3 { margin-top: 2px; } .pack-n { top: 12px; } }
 /* Τενεκές: «το συσκευάζουμε εμείς» και νέα εικονογράφηση */
@@ -808,3 +812,29 @@ details.q[open]::details-content { block-size: auto; }
 .routes-svg.hl .rt:not(.on) { opacity: .25; }
 .routes-svg .rt.on { stroke-width: 4.5; opacity: 1 !important; }
 .routes-map .map-hint { margin: 0; padding: 8px 8px 10px; font-size: 14px; color: var(--muted); }
+
+/* Τηλέφωνα: ποτέ σπασμένα στη μέση */
+a.num, .num a, a[href^="tel:"] { white-space: nowrap; }
+
+/* Δέματα Αγρίνιο – Χ: αναχωρήσεις χωρίς κόψιμο στο κινητό */
+table.data.times th, table.data.times td { text-align: left; white-space: normal; }
+table.data.times td:first-child { width: 4.5em; }
+/* Σκοτεινό θέμα: ο χάρτης-εικόνα να μη «θαμπώνει» */
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .map-fig { background: #DCE3EA; } :root:not([data-theme="light"]) .map-fig img { filter: brightness(.9); } }
+:root[data-theme="dark"] .map-fig { background: #DCE3EA; } :root[data-theme="dark"] .map-fig img { filter: brightness(.9); }
+/* Κάρτα λαδιού αρχικής και κεφαλίδα λαδιού σε κινητό */
+@media (max-width: 520px) {
+  .oil-band .oil-copy { display: contents; }
+  .oil-band .wrap { grid-template-columns: 96px minmax(0, 1fr); gap: 0 16px; align-items: center; }
+  .oil-band .oil-art { grid-row: 1 / span 2; }
+  .oil-band .oil-kicker { justify-self: start; align-self: end; }
+  .oil-band h2 { grid-column: 2; align-self: start; }
+  .oil-band .oil-copy > p, .oil-band .oil-prices, .oil-band .oil-ctas { grid-column: 1 / -1; }
+  .oil-band .oil-copy > p:not(.oil-ctas) { margin-top: 12px; }
+  .page-head.oil-head .wrap { grid-template-columns: minmax(0, 1fr) 96px; }
+  .oil-head-art { grid-row: 1 / span 2; align-self: end; }
+  .page-head.oil-head .wrap > p:not(.oil-head-art) { grid-column: 1 / -1; }
+}
+/* Πίνακας προορισμών: κείμενα που αναδιπλώνονται */
+table.data.dest-table td, table.data.dest-table th[scope=row] { overflow-wrap: anywhere; }
+table.data.times tr > th:last-child, table.data.times tr > td:last-child { text-align: left; }

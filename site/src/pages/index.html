@@ -1,12 +1,12 @@
-<!--meta {"title":"Αποστολή δεμάτων Αγρίνιο · Αποθήκη Δεμάτων ΚΤΕΛ","description":"Αποστολή και παραλαβή δεμάτων με τα λεωφορεία του ΚΤΕΛ από το Αγρίνιο προς Αθήνα, Πάτρα, Θεσσαλονίκη και όλη την Ελλάδα. Τιμές, δρομολόγια, αναζήτηση δέματος.","ld":"business"}-->
+<!--meta {"title":"Αποστολή δεμάτων Αγρίνιο · Αποθήκη Δεμάτων ΚΤΕΛ","description":"Αποστολή και παραλαβή δεμάτων με ΚΤΕΛ από το Αγρίνιο προς Αθήνα, Πάτρα, Θεσσαλονίκη και πολλές πόλεις. Τιμές, δρομολόγια, αναζήτηση δέματος.","ld":"business"}-->
 <section class="hero"><div class="wrap">
   <div>
     <h1>Αποστολή δεμάτων με ΚΤΕΛ από το Αγρίνιο</h1>
-    <p class="lead">{{slogan}} Αποθήκη δεμάτων μέσα στον σταθμό ΚΤΕΛ Αγρινίου. Φέρτε το δέμα {{cutoff}} λεπτά πριν και φεύγει με το επόμενο δρομολόγιο, για όλη την Ελλάδα.</p>
+    <p class="lead">{{slogan}} Αποθήκη δεμάτων μέσα στον σταθμό ΚΤΕΛ Αγρινίου. Φέρτε το δέμα τουλάχιστον {{cutoff}} λεπτά πριν και φεύγει με το επόμενο δρομολόγιο, για τις περισσότερες πόλεις της Ελλάδας.</p>
     <form class="quicktrack" action="anazitisi.html" method="get" autocomplete="off">
       <p class="qt-title">Πού είναι το δέμα μου;</p>
       <div class="row qt-grid">
-        <label for="q-r">Αριθμός απόδειξης</label><label for="q-n">Επώνυμο</label>
+        <label for="q-r">Αριθμός απόδειξης</label><label for="q-n">Επώνυμο (3 γράμματα)</label>
         <input id="q-r" name="r" class="mono" inputmode="numeric" placeholder="228-336-12345" required>
         <input id="q-n" name="n" maxlength="20" autocapitalize="characters" placeholder="ΠΑΠ" required>
         <button class="btn" type="submit">{{i:search}} Βρες το</button>
@@ -49,11 +49,11 @@
 
 <section class="section alt"><div class="wrap grid g2" style="gap:40px;align-items:start">
   <div>
-    <div class="section-head"><h2>Πού στέλνουμε</h2><p>Απευθείας δρομολόγια σε όλη την Ελλάδα, όλος ο νομός, και ακόμα περισσότερες πόλεις με ανταπόκριση.</p></div>
+    <div class="section-head"><h2>Πού στέλνουμε</h2><p>Απευθείας δρομολόγια σε πολλές πόλεις της Ελλάδας, όλος ο νομός, και ακόμα περισσότερες πόλεις με ανταπόκριση.</p></div>
     <ul class="routes">
-      <li><b>Αθήνα</b><span class="p">από 5 €</span><small>Καθημερινά, από νωρίς το πρωί</small></li>
-      <li><b>Πάτρα</b><span class="p">από 5 €</span><small>{{patraDaily}} λεωφορεία την ημέρα</small></li>
-      <li><b>Θεσσαλονίκη</b><span class="p">από 7 €</span><small>Καθημερινά 09:30</small></li>
+      <li><b>Αθήνα</b><span class="p">από {{eur:athina:fakelos}}</span><small>Καθημερινά, από νωρίς το πρωί</small></li>
+      <li><b>Πάτρα</b><span class="p">από {{eur:patra:fakelos}}</span><small>Έως {{patraDaily}} λεωφορεία την ημέρα</small></li>
+      <li><b>Θεσσαλονίκη</b><span class="p">από {{eur:thess:fakelos}}</span><small>Καθημερινά 09:30</small></li>
     </ul>
     <p style="margin-top:18px"><a class="btn btn-ghost" href="proorismoi.html">Όλοι οι προορισμοί και τιμές →</a></p>
   </div>
@@ -70,11 +70,11 @@
   </ol>
 </div></section>
 
-<section class="section"><div class="wrap" style="max-width:860px">
+<section class="section"><div class="wrap"><div style="max-width:828px">
   <div class="section-head"><h2>Συχνές ερωτήσεις</h2></div>
   {{faqTop}}
   <p style="margin-top:18px"><a href="syxnes-erotiseis.html">Όλες οι ερωτήσεις →</a></p>
-</div></section>
+</div></div></section>
 
 <section class="section heritage"><div class="wrap">
   <div class="section-head"><h2>Πάνω από 70 χρόνια δέματα με το ΚΤΕΛ</h2><p>Από τη σχάρα στην οροφή του λεωφορείου, στο SMS όταν φτάσει. <a href="istoria.html">Διαβάστε την ιστορία →</a></p></div>

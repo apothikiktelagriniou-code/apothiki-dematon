@@ -1,12 +1,12 @@
-<!--meta {"title":"Send parcels from Agrinio · KTEL Parcel Depot","description":"Send and collect parcels by KTEL bus from Agrinio to Athens, Patras, Thessaloniki and across Greece. Prices, departures and parcel tracking.","ld":"business"}-->
+<!--meta {"title":"Send parcels from Agrinio · KTEL Parcel Depot","description":"Send and collect parcels by KTEL bus from Agrinio to Athens, Patras, Thessaloniki and many more Greek towns. Prices, departures and parcel tracking.","ld":"business"}-->
 <section class="hero"><div class="wrap">
   <div>
     <h1>Send parcels by KTEL bus from Agrinio</h1>
-    <p class="lead">{{slogan}} Parcel depot inside the KTEL Agrinio bus station. Bring it {{cutoff}} minutes ahead and it leaves on the next scheduled bus, all over Greece.</p>
+    <p class="lead">{{slogan}} Parcel depot inside the KTEL Agrinio bus station. Bring it at least {{cutoff}} minutes ahead and it leaves on the next scheduled bus, to most towns in Greece.</p>
     <form class="quicktrack" action="track.html" method="get" autocomplete="off">
       <p class="qt-title">Where is my parcel?</p>
       <div class="row qt-grid">
-        <label for="q-r">Receipt number</label><label for="q-n">Surname</label>
+        <label for="q-r">Receipt number</label><label for="q-n">Surname (3 letters)</label>
         <input id="q-r" name="r" class="mono" inputmode="numeric" placeholder="228-336-12345" required>
         <input id="q-n" name="n" maxlength="20" autocapitalize="characters" placeholder="PAP" required>
         <button class="btn" type="submit">{{i:search}} Find it</button>
@@ -49,11 +49,11 @@
 
 <section class="section alt"><div class="wrap grid g2" style="gap:40px;align-items:start">
   <div>
-    <div class="section-head"><h2>Where we send</h2><p>Direct buses all over Greece, the whole prefecture, and many more cities with a connection.</p></div>
+    <div class="section-head"><h2>Where we send</h2><p>Direct buses to many towns in Greece, the whole prefecture, and many more cities with a connection.</p></div>
     <ul class="routes">
-      <li><b>Athens</b><span class="p">from €5</span><small>Daily, from early morning</small></li>
-      <li><b>Patras</b><span class="p">from €5</span><small>{{patraDaily}} buses a day</small></li>
-      <li><b>Thessaloniki</b><span class="p">from €7</span><small>Daily at 09:30</small></li>
+      <li><b>Athens</b><span class="p">from {{eur:athina:fakelos}}</span><small>Daily, from early morning</small></li>
+      <li><b>Patras</b><span class="p">from {{eur:patra:fakelos}}</span><small>Up to {{patraDaily}} buses a day</small></li>
+      <li><b>Thessaloniki</b><span class="p">from {{eur:thess:fakelos}}</span><small>Daily at 09:30</small></li>
     </ul>
     <p style="margin-top:18px"><a class="btn btn-ghost" href="destinations.html">All destinations and prices →</a></p>
   </div>
@@ -70,11 +70,11 @@
   </ol>
 </div></section>
 
-<section class="section"><div class="wrap" style="max-width:860px">
+<section class="section"><div class="wrap"><div style="max-width:828px">
   <div class="section-head"><h2>Frequently asked</h2></div>
   {{faqTop}}
   <p style="margin-top:18px"><a href="faq.html">All questions →</a></p>
-</div></section>
+</div></div></section>
 
 <section class="section heritage"><div class="wrap">
   <div class="section-head"><h2>Over 70 years of parcels by KTEL</h2><p>From the roof rack of the bus to an SMS when it arrives. <a href="history.html">Read the story →</a></p></div>

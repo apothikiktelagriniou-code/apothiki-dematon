@@ -1,4 +1,4 @@
-<!--meta {"title":"Παράδοση δεμάτων στο σπίτι στο Αγρίνιο","description":"Ετοιμάζουμε παράδοση δεμάτων στο σπίτι και παραλαβή από σπίτι ή κατάστημα μέσα στο Αγρίνιο, και παραλαβή κατ' οίκον στην Αθήνα με την ASAP Courier. Δηλώστε ενδιαφέρον και μπείτε στην κλήρωση."}-->
+<!--meta {"title":"Παράδοση δεμάτων στο σπίτι στο Αγρίνιο","description":"Σύντομα: δέματα στην πόρτα σας στο Αγρίνιο και κατ' οίκον στην Αθήνα με την ASAP Courier. Δηλώστε ενδιαφέρον και μπείτε στην κλήρωση."}-->
 <section class="page-head"><div class="wrap">
   <span class="crumbs"><a href="index.html">Αρχική</a> / Παράδοση στο σπίτι</span>
   <h1>Παράδοση στο σπίτι <span class="tag" style="font-size:13px">Σύντομα</span></h1>
@@ -32,16 +32,16 @@
         <div class="field"><label for="d-kind">Τι χρειάζεστε</label><select id="d-kind" data-label="Υπηρεσία"><option>Παράδοση δέματος στο σπίτι</option><option>Παραλαβή δέματος από σπίτι ή κατάστημα</option></select></div>
         <div class="grid g2">
           <div class="field"><label for="d-name">Ονοματεπώνυμο</label><input id="d-name" name="d-name" data-label="Όνομα" required autocomplete="name"></div>
-          <div class="field"><label for="d-phone">Κινητό</label><input id="d-phone" type="tel" data-label="Κινητό" required autocomplete="tel" placeholder="69XXXXXXXX"></div>
+          <div class="field"><label for="d-phone">Κινητό</label><input id="d-phone" type="tel" data-label="Κινητό" required autocomplete="tel" inputmode="tel" pattern="(\+30)?\s?69\d(\s?\d){7}" title="10 ψηφία, π.χ. 6912345678" placeholder="69XXXXXXXX"></div>
         </div>
         <div class="field"><label for="d-addr">Διεύθυνση στο Αγρίνιο</label><input id="d-addr" data-label="Διεύθυνση" required autocomplete="street-address"></div>
         <div class="field"><label for="d-rc">Αριθμός απόδειξης (αν υπάρχει)</label><input id="d-rc" class="mono" data-label="Απόδειξη" inputmode="numeric"></div>
-        <div class="field"><label for="d-note">Σχόλια</label><textarea id="d-note" data-label="Σχόλια" placeholder="π.χ. όροφος, κουδούνι, καλύτερη ώρα"></textarea></div>
+        <div class="field"><label for="d-note">Σχόλια (προαιρετικό)</label><textarea id="d-note" data-label="Σχόλια" placeholder="π.χ. όροφος, κουδούνι, καλύτερη ώρα"></textarea></div>
         <label class="check"><input type="checkbox" id="d-contest" data-label="Συμμετοχή στην κλήρωση (αποδέχεται τους όρους)"><span>Θέλω να συμμετέχω στην κλήρωση και αποδέχομαι τους <a href="klirosi.html">όρους</a>.</span></label>
         <button class="btn btn-primary" type="submit">Ετοιμάστε το μήνυμα</button>
         <p style="font-size:13px;color:var(--muted)">Το μήνυμα στέλνεται από εσάς με WhatsApp ή email. Η ιστοσελίδα δεν κρατά τα στοιχεία σας.</p>
       </form>
-      <div data-msg-out class="grid" style="gap:12px"></div>
+      <div data-msg-out class="grid" style="gap:12px" role="status"></div>
     </div>
   </div>
 </div></section>
@@ -50,7 +50,7 @@
   <div class="panel" style="max-width:820px">
     <h2 style="font-size:28px">Παραλαβή κατ' οίκον στην Αθήνα <span class="tag" style="font-size:13px">Σύντομα</span></h2>
     <p class="muted partner" style="margin-top:6px">Σε συνεργασία με την {{asapLogo}}</p>
-    <p style="margin-top:12px">Στέλνετε το δέμα από το Αγρίνιο όπως πάντα, και ο παραλήπτης στην Αθήνα το παραλαμβάνει στο σπίτι ή στο γραφείο του, χωρίς να πάει στον σταθμό ΚΤΕΛ Κηφισού. Ιδανικό για τενεκέδες λαδιού, βαριά δέματα και για όσους δεν μπορούν να βγουν από τη δουλειά.</p>
+    <p style="margin-top:12px">Στέλνετε το δέμα από το Αγρίνιο όπως πάντα, και ο παραλήπτης στην Αθήνα το παραλαμβάνει στο σπίτι ή στο γραφείο του, χωρίς να πάει στον σταθμό ΚΤΕΛ Κηφισού. Χρήσιμο για όσους δεν μπορούν να πάνε ως τον Κηφισό ή να βγουν από τη δουλειά.</p>
     <ul style="margin:12px 0 0;padding-left:20px;display:grid;gap:6px">
       <li><b>Πώς:</b> το δηλώνετε στο ταμείο όταν στέλνετε το δέμα, μαζί με τη διεύθυνση του παραλήπτη.</li>
       <li><b>Τιμή και περιοχές:</b> θα ανακοινωθούν εδώ μόλις ξεκινήσει η υπηρεσία.</li>

@@ -1,4 +1,4 @@
-<!--meta {"title":"Parcel home delivery in Agrinio","description":"Coming soon: parcel delivery to your door and pickup from homes or shops in Agrinio, and door delivery in Athens with ASAP Courier. Register your interest and enter the prize draw."}-->
+<!--meta {"title":"Parcel home delivery in Agrinio","description":"Coming soon: parcels to your door in Agrinio, and door delivery in Athens with ASAP Courier. Register your interest and enter the prize draw."}-->
 <section class="page-head"><div class="wrap">
   <span class="crumbs"><a href="index.html">Home</a> / Home delivery</span>
   <h1>Home delivery <span class="tag" style="font-size:13px">Soon</span></h1>
@@ -32,16 +32,16 @@
         <div class="field"><label for="d-kind">What you need</label><select id="d-kind" data-label="Service"><option>Delivery of a parcel to my home</option><option>Pickup of a parcel from my home or shop</option></select></div>
         <div class="grid g2">
           <div class="field"><label for="d-name">Full name</label><input id="d-name" name="d-name" data-label="Name" required autocomplete="name"></div>
-          <div class="field"><label for="d-phone">Mobile</label><input id="d-phone" type="tel" data-label="Mobile" required autocomplete="tel"></div>
+          <div class="field"><label for="d-phone">Mobile</label><input id="d-phone" type="tel" data-label="Mobile" required autocomplete="tel" inputmode="tel" pattern="(\+30)?\s?69\d(\s?\d){7}" title="10 digits, e.g. 6912345678" placeholder="69XXXXXXXX"></div>
         </div>
         <div class="field"><label for="d-addr">Address in Agrinio</label><input id="d-addr" data-label="Address" required autocomplete="street-address"></div>
         <div class="field"><label for="d-rc">Receipt number (if any)</label><input id="d-rc" class="mono" data-label="Receipt" inputmode="numeric"></div>
-        <div class="field"><label for="d-note">Notes</label><textarea id="d-note" data-label="Notes" placeholder="e.g. floor, doorbell, best time"></textarea></div>
+        <div class="field"><label for="d-note">Notes (optional)</label><textarea id="d-note" data-label="Notes" placeholder="e.g. floor, doorbell, best time"></textarea></div>
         <label class="check"><input type="checkbox" id="d-contest" data-label="Enters the prize draw (accepts terms)"><span>I want to enter the prize draw and accept the <a href="giveaway.html">terms</a>.</span></label>
         <button class="btn btn-primary" type="submit">Prepare the message</button>
         <p style="font-size:13px;color:var(--muted)">You send the message yourself by WhatsApp or email. This website keeps none of your data.</p>
       </form>
-      <div data-msg-out class="grid" style="gap:12px"></div>
+      <div data-msg-out class="grid" style="gap:12px" role="status"></div>
     </div>
   </div>
 </div></section>
@@ -50,7 +50,7 @@
   <div class="panel" style="max-width:820px">
     <h2 style="font-size:28px">Delivery to your door in Athens <span class="tag" style="font-size:13px">Soon</span></h2>
     <p class="muted partner" style="margin-top:6px">In partnership with {{asapLogo}}</p>
-    <p style="margin-top:12px">You send the parcel from Agrinio as usual, and the recipient in Athens gets it at home or at work, without going to the KTEL Kifisos bus station. Ideal for olive-oil tins, heavy parcels and anyone who can’t leave work.</p>
+    <p style="margin-top:12px">You send the parcel from Agrinio as usual, and the recipient in Athens gets it at home or at work, without going to the KTEL Kifisos bus station. Useful for anyone who can’t get to Kifisos or leave work.</p>
     <ul style="margin:12px 0 0;padding-left:20px;display:grid;gap:6px">
       <li><b>How:</b> ask for it at the counter when you send the parcel, with the recipient’s address.</li>
       <li><b>Price and areas:</b> will be announced here as soon as the service starts.</li>
