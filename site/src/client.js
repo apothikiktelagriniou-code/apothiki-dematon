@@ -23,6 +23,13 @@
   const telA = (n, txt) => h("a", { class: "num", href: "tel:+30" + String(n).replace(/\D/g, "") }, txt || n);
   const contactNodes = () => [T("Καλέστε μας στο ", "Call us on "), telA(B.phone, B.phoneDisplay), T(" ή γράψτε μας στο ", " or message us on "), h("a", { href: "https://wa.me/30" + B.mobile }, "WhatsApp"), "."];
 
+  // «larisa», «thessaloniki», «patra»: τα λατινικά γράμματα γίνονται ελληνικά πριν από τη σύγκριση.
+  const G2 = [["ef", "ευ"], ["ev", "ευ"], ["af", "αυ"], ["av", "αυ"], ["ng", "γγ"], ["th", "θ"], ["ch", "χ"], ["ps", "ψ"], ["ks", "ξ"], ["ou", "ου"], ["mp", "μπ"], ["nt", "ντ"], ["gk", "γκ"]];
+  const G1 = { a: "α", b: "β", v: "β", g: "γ", d: "δ", e: "ε", z: "ζ", h: "η", i: "ι", y: "υ", k: "κ", c: "κ", q: "κ", l: "λ", m: "μ", n: "ν", x: "ξ", o: "ο", p: "π", r: "ρ", s: "σ", t: "τ", u: "ου", f: "φ", w: "ω", j: "τζ" };
+  const toGreek = s => { s = s.toLowerCase(); for (const [a, b] of G2) s = s.split(a).join(b); return s.replace(/[a-z]/g, c => G1[c] || c); };
+  // απλοποίηση για σύγκριση: ι/η/υ/ει/οι → ι, ο/ω → ο, ε/αι → ε
+  const loose = s => norm(s).replace(/ει|οι|υι/g, "ι").replace(/[ηυ]/g, "ι").replace(/ω/g, "ο").replace(/αι/g, "ε").replace(/(.)\1/g, "$1");
+
   // Χάρτης διαδρομών: φωτίζει τη διαδρομή της πόλης που δείχνει/εστιάζει ο επισκέπτης
   for (const svg of document.querySelectorAll(".routes-svg")) {
     const on = r => { svg.classList.toggle("hl", r != null); const set = r ? r.split(" ") : []; svg.querySelectorAll(".rt").forEach(p => p.classList.toggle("on", set.includes(p.dataset.r))); };
@@ -42,7 +49,7 @@
   // Μέτρηση κλικ: μόνο «πόσα» ανά μέρα, σελίδα και σημείο. Χωρίς cookies, χωρίς IP, χωρίς στοιχεία επισκέπτη.
   const PAGE = (location.pathname.replace(/^\/+|\.html$/g, "") || "index").replace(/\/$/, "/index").toLowerCase();
   const TEST = /^(localhost|127\.|\[?::1)/.test(location.hostname) ? null : /^dokimi\./.test(location.hostname) ? "dokimi/" : "";
-  const SPOTS = [["[data-spot]", el => el.dataset.spot], [".quickbar", "quickbar"], [".price-board, .next-step, [data-calc]", "calc"], [".hero, .page-head, .oil-head", "hero"],
+  const SPOTS = [["[data-spot]", el => el.dataset.spot], [".quickbar", "quickbar"], [".ask-panel", "ask"], [".price-board, .next-step, [data-calc]", "calc"], [".hero, .page-head, .oil-head", "hero"],
     [".board", "board"], [".cta-band", "cta"], ["[data-track]", "track"], [".dest-hero, .dest-page", "dest"], ["footer", "footer"], ["main", "page"]];
   const spotOf = el => { for (const [sel, v] of SPOTS) { const c = el.closest(sel); if (c) return typeof v === "function" ? v(c) : v; } return ""; };
   const ping = (e, spot = "") => {
@@ -374,12 +381,6 @@
   if (dq) {
     const rows = $$(".dest-table tbody tr"), cnt = $("[data-dest-count]");
     dq.addEventListener("focus", () => { if (matchMedia("(max-width: 900px)").matches) setTimeout(() => dq.scrollIntoView({ behavior: SMOOTH, block: "start" }), 250); });
-    // «larisa», «thessaloniki», «patra»: τα λατινικά γράμματα γίνονται ελληνικά πριν από τη σύγκριση.
-    const G2 = [["ef", "ευ"], ["ev", "ευ"], ["af", "αυ"], ["av", "αυ"], ["ng", "γγ"], ["th", "θ"], ["ch", "χ"], ["ps", "ψ"], ["ks", "ξ"], ["ou", "ου"], ["mp", "μπ"], ["nt", "ντ"], ["gk", "γκ"]];
-    const G1 = { a: "α", b: "β", v: "β", g: "γ", d: "δ", e: "ε", z: "ζ", h: "η", i: "ι", y: "υ", k: "κ", c: "κ", q: "κ", l: "λ", m: "μ", n: "ν", x: "ξ", o: "ο", p: "π", r: "ρ", s: "σ", t: "τ", u: "ου", f: "φ", w: "ω", j: "τζ" };
-    const toGreek = s => { s = s.toLowerCase(); for (const [a, b] of G2) s = s.split(a).join(b); return s.replace(/[a-z]/g, c => G1[c] || c); };
-    // απλοποίηση για σύγκριση: ι/η/υ/ει/οι → ι, ο/ω → ο, ε/αι → ε
-    const loose = s => norm(s).replace(/ει|οι|υι/g, "ι").replace(/[ηυ]/g, "ι").replace(/ω/g, "ο").replace(/αι/g, "ε").replace(/(.)\1/g, "$1");
     const empty = h("div", { class: "notice info dest-empty", hidden: true }, h("b", {}, T("Δεν βρέθηκε", "Not found")), T("Δεν τη βρίσκουμε στη λίστα. Ρωτήστε μας: μπορεί να πηγαίνει με ανταπόκριση. ", "It is not on the list. Ask us: it may go with a connection. "), ...contactNodes());
     cnt.after(empty);
     const mobile = matchMedia("(max-width: 600px)").matches;
@@ -688,7 +689,7 @@
     // Μετρήσεις κλικ (0031): σύνολα ανά ενέργεια, σελίδα και σημείο. Φορτώνει μόνο όταν ανοίξει.
     let statDays = 30, statOpen = false;
     function statsBlock() {
-      const EV = { call: "Κλήσεις", whatsapp: "WhatsApp", viber: "Viber", directions: "Οδηγίες χάρτη", calc: "Υπολογισμοί τιμής", track: "Αναζητήσεις δέματος", email: "Email" };
+      const EV = { ask: "Ερωτήσεις «Ρώτα μας»", call: "Κλήσεις", whatsapp: "WhatsApp", viber: "Viber", directions: "Οδηγίες χάρτη", calc: "Υπολογισμοί τιμής", track: "Αναζητήσεις δέματος", email: "Email" };
       const body = h("div", {}, h("p", { class: "muted" }, "Φόρτωση…"));
       const det = h("details", { class: "adm-dest", style: "margin-top:24px" }, h("summary", {}, h("b", {}, "Μετρήσεις"), h("span", { class: "muted" }, " · κλικ σε κλήση, WhatsApp, Viber, οδηγίες, υπολογισμό")), body);
       det.open = statOpen;
@@ -855,4 +856,161 @@
       mo.observe(fig);
     }
   }
+
+  // ---------- 💬 «Ρώτα μας»: γρήγορες απαντήσεις από τα δεδομένα του σάιτ (χωρίς AI, χωρίς αποθήκευση ερωτήσεων) ----------
+  if (!/diaxeirisi|admin/.test(location.pathname)) (() => {
+    const DAYS = T(["Δευτέρα", "Τρίτη", "Τετάρτη", "Πέμπτη", "Παρασκευή", "Σάββατο", "Κυριακή"], ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]);
+    const TRACK = LANG === "en" ? "track" : "anazitisi", OIL = LANG === "en" ? "olive-oil" : "ladi";
+    const LUG = LANG === "en" ? "luggage-storage" : "fylaxi-aposkevon", HOMEP = LANG === "en" ? "home-delivery" : "spiti";
+    const lz = s => loose(/[a-z]/i.test(s) ? toGreek(s) : s);
+    // Λέξεις-κλειδιά προορισμών (ελληνικά + αγγλικά), χωρίς παρενθέσεις
+    const DIX = SITE.DESTINATIONS.filter(d => d.name !== "Αγρίνιο").map(d => {
+      const names = [d.name, SITE.EN[d.name]].filter(Boolean).flatMap(n => [n, n.replace(/\s*\(.*\)/, ""), (n.match(/\(([^)]+)\)/) || [])[1]]).filter(Boolean);
+      return { d, keys: [...new Set(names.map(lz).filter(k => k.length >= 3))] };
+    });
+    const findCity = txt => {
+      const t = lz(txt), words = t.split(/[^a-zα-ω0-9]+/).filter(w => w.length >= 4);
+      let best = null, bestLen = 0;
+      for (const x of DIX) for (const k of x.keys) {
+        const hit = t.includes(k) || words.some(w => k.startsWith(w) || (w.length >= 5 && w.startsWith(k.slice(0, Math.max(4, k.length - 2)))));
+        if (hit && k.length > bestLen) { best = x.d; bestLen = k.length; }
+      }
+      return best;
+    };
+    const has = (txt, list) => { const t = lz(txt); return list.some(w => t.includes(w)); };
+    // Λέξεις-κλειδιά σε φυσική γραφή· περνούν από την ίδια απλοποίηση με την ερώτηση (τόνοι, ι/η/υ, greeklish).
+    const KW = {
+      track: ["έφτασε", "ήρθε", "δέμα μου", "δέματός μου", "αναζήτηση", "βρίσκεται", "πού είναι το", "track", "arrived", "αριθμό απόδειξης"],
+      hours: ["ωράριο", "ανοιχτά", "ανοιχτοί", "κλειστά", "κλείνετε", "ανοίγετε", "κυριακή", "σάββατο", "αργία", "αργίες", "γιορτή", "hours", "opening", "closed"],
+      where: ["πού είστε", "διεύθυνση", "πώς θα έρθω", "πώς έρχομαι", "χάρτη", "πάρκινγκ", "parking", "where", "address", "οδηγίες"],
+      price: ["πόσο", "τιμή", "τιμές", "κοστίζει", "κόστος", "χρέωση", "price", "cost", "how much", "€", "ευρώ"],
+      oil: ["λάδι", "λαδιού", "τενεκέ", "τενεκές", "ελαιόλαδο", "olive"],
+      lug: ["αποσκευ", "βαλίτσα", "βαλίτσες", "luggage", "suitcase"],
+      pack: ["συσκευασία", "πακετάρ", "κούτα", "κούτες", "χαρτοκιβώτιο", "packing"],
+      home: ["σπίτι", "κατ' οίκον", "πόρτα μου", "delivery", "courier", "asap"],
+      store: ["φύλαξη", "πόσες μέρες", "πόσο καιρό", "κρατάτε", "storage"],
+      when: ["πότε", "ώρα", "ώρες", "φεύγει", "φεύγουν", "δρομολόγ", "λεωφορεί", "αναχώρ", "να στείλω", "στέλνω", "στείλω", "μπορώ", "πρέπει", "να το φέρω", "when", "departure", "next bus"],
+      tomorrow: ["αύριο", "tomorrow"],
+    };
+    const RX = Object.fromEntries(Object.entries(KW).map(([k, words]) => [k, words.map(w => lz(w)).filter(w => w.length >= 3)]));
+    const say = (...kids) => kids.flat().filter(Boolean);
+    const btn = (href, txt, cls = "btn btn-ghost") => h("a", { class: cls, href }, txt);
+    const waBtn = q => h("a", { class: "btn btn-wa", href: "https://wa.me/30" + B.mobile + (q ? "?text=" + encodeURIComponent(q) : ""), target: "_blank", rel: "noopener" }, "WhatsApp");
+    const callBtn = () => h("a", { class: "btn btn-ghost", href: "tel:+30" + B.phone }, T("Κλήση ", "Call ") + B.phoneDisplay);
+    const row = (...k) => h("div", { class: "ask-acts" }, ...k);
+
+    const deps = (d, tomorrow) => {
+      const keys = d.sched && d.sched.length ? d.sched : (d.type === "transfer" && SITE.HUBS[d.hub] ? SITE.HUBS[d.hub].sched : null);
+      if (!keys) return [];
+      const now = athensNow();
+      return nextDepartures(SITE.SCHEDULE, keys, now, 12, LANG).map(x => ({ ...x, drop: dropOff(B, x.dow, x.time) }))
+        .filter(x => x.rel * 1440 + x.drop.min > now.minutes && !x.drop.early && (!tomorrow || x.rel >= 1)).slice(0, 3);
+    };
+    const dropTxt = x => {
+      if (x.drop.same) return T(`φέρτε το έως ${x.drop.by}`, `bring it by ${x.drop.by}`);
+      const r = x.rel + x.drop.dayOffset;
+      const when = r === 0 ? T("απόψε", "tonight") : r === 1 ? T("αύριο το βράδυ", "tomorrow evening") : T(`${DAYS[(x.dow + 6) % 7]} βράδυ`, `${DAYS[(x.dow + 6) % 7]} evening`);
+      return T(`φέρτε το ${when} έως ${x.drop.by}`, `bring it ${when} by ${x.drop.by}`);
+    };
+    const priceLine = d => {
+      const tf = SITE.TARIFFS[tariffKey(SITE, d)]; if (!tf) return null;
+      const p = tf.p, bits = [p.fakelos != null && T(`φάκελος ${eur(p.fakelos)}`, `envelope ${eur(p.fakelos)}`), p.mikro != null && T(`μικρό κουτί ${eur(p.mikro)}`, `small box ${eur(p.mikro)}`)].filter(Boolean);
+      return bits.length ? T("Τιμή: ", "Price: ") + bits.join(" · ") + (d.type === "transfer" ? T(" + χρέωση ανταπόκρισης", " + connection fee") : "") + "." : null;
+    };
+    const calcBtn = d => btn(`${CALC}.html?to=${encodeURIComponent(d.name)}#ypologismos`, T("Ακριβής τιμή", "Exact price"), "btn btn-primary");
+
+    const ansCity = (d, txt) => {
+      const nm = L(d.name);
+      if (d.type === "none") return say(h("p", {}, T(`${nm}: δυστυχώς δεν εξυπηρετείται. Ρωτήστε μας αν υπάρχει άλλος τρόπος.`, `${nm}: sorry, not served. Ask us if there's another way.`)), row(waBtn(T(`Γεια σας, θέλω να στείλω δέμα για ${nm}.`, `Hello, I'd like to send a parcel to ${nm}.`)), callBtn()));
+      if (d.type === "ask") return say(h("p", {}, T(`${nm}: ρωτήστε μας πρώτα, να σας πούμε πώς και πότε.`, `${nm}: ask us first and we'll tell you how and when.`)), row(callBtn(), waBtn(T(`Γεια σας, στέλνετε δέμα για ${nm};`, `Hello, do you send parcels to ${nm}?`))));
+      if (has(txt, RX.price) && !has(txt, RX.when)) return ansPrice(d);
+      const tom = has(txt, RX.tomorrow), list = deps(d, tom), hub = d.type === "transfer" ? SITE.HUBS[d.hub] : null;
+      const out = [];
+      if (hub) out.push(h("p", {}, T(`${nm}: πάει με ανταπόκριση · ${L(hub.label)}. `, `${nm}: goes with a connection · ${L(hub.label)}. `), L(hub.eta) || ""));
+      if (list.length) {
+        out.push(h("p", {}, hub ? T(`Επόμενα λεωφορεία · ${L(hub.label)}:`, `Next buses · ${L(hub.label)}:`) : T(`${nm} · επόμενα λεωφορεία:`, `${nm} · next buses:`)));
+        out.push(h("ul", { class: "ask-deps" }, list.map(x => h("li", {}, h("b", {}, `${x.day} ${x.time}`), x.express ? h("small", {}, " Express") : null, h("span", {}, " · " + dropTxt(x))))));
+      } else out.push(h("p", {}, T(`${nm}: ρωτήστε μας για την επόμενη αναχώρηση.`, `${nm}: ask us about the next departure.`)));
+      if (!hub && d.eta) out.push(h("p", { class: "muted" }, L(d.eta).replace(/\.*$/, ".")));
+      const pl = priceLine(d); if (pl) out.push(h("p", {}, pl));
+      out.push(row(calcBtn(d), waBtn(T(`Γεια σας, θέλω να στείλω δέμα για ${nm}.`, `Hello, I'd like to send a parcel to ${nm}.`))));
+      return out;
+    };
+    const ansPrice = d => {
+      const tf = SITE.TARIFFS[tariffKey(SITE, d)]; if (!tf) return ansCity(d, "ποτε");
+      const rows = SITE.CATEGORIES.filter(c => tf.p[c.id] != null).map(c => h("li", {}, h("span", {}, L(c.name)), h("b", {}, eur(tf.p[c.id]))));
+      return say(h("p", {}, T(`${L(d.name)} · ενδεικτικές τιμές ανά τεμάχιο, με ΦΠΑ:`, `${L(d.name)} · indicative prices per item, VAT included:`)),
+        h("ul", { class: "ask-prices" }, rows), d.type === "transfer" ? h("p", { class: "muted" }, T("Συν τη χρέωση της ανταπόκρισης.", "Plus the connection fee.")) : null,
+        h("p", { class: "muted" }, T("Η τελική τιμή βγαίνει στο ταμείο, μετά από ζύγισμα.", "The final price is set at the counter after weighing.")), row(calcBtn(d)));
+    };
+    const ansOil = d => {
+      const pk = (SITE.PACKING.items || []).find(i => i.id === "tenekes");
+      const tf = d && SITE.TARIFFS[tariffKey(SITE, d)];
+      const ath = SITE.TARIFFS[tariffKey(SITE, findDest(SITE.DESTINATIONS, "Αθήνα") || {})];
+      return say(h("p", {}, d && tf && tf.p.tenekes != null ? T(`Τενεκές λαδιού · ${L(d.name)}: ${eur(tf.p.tenekes)}.`, `Olive oil tin · ${L(d.name)}: ${eur(tf.p.tenekes)}.`)
+          : ath && ath.p.tenekes != null ? T(`Ναι! Ο τενεκές για Αθήνα κοστίζει ${eur(ath.p.tenekes)}. Γράψτε μου την πόλη για άλλη τιμή.`, `Yes! A tin to Athens costs ${eur(ath.p.tenekes)}. Tell me the town for another price.`) : T("Ναι, στέλνουμε τενεκέδες λαδιού.", "Yes, we send olive oil tins.")),
+        h("p", {}, T("Ταξιδεύει όρθιος, μέσα σε χαρτοκιβώτιο.", "It travels upright, inside a cardboard box."), pk && pk.service ? T(` Αν δεν έχετε κούτα, το συσκευάζουμε εμείς με ${eur(pk.service)}.`, ` No box? We pack it for ${eur(pk.service)}.`) : ""),
+        row(btn(`${OIL}.html#syskevasia`, T("Πώς τον συσκευάζω", "How to pack it")), d ? calcBtn(d) : null));
+    };
+    const ansHours = () => say(h("p", {}, T("Είμαστε ανοιχτά:", "We are open:")), h("ul", { class: "ask-prices" }, B.hours.map(x => h("li", {}, h("span", {}, L(x.days)), h("b", {}, x.time)))),
+      B.holidaysNote ? h("p", { class: "muted" }, L(B.holidaysNote)) : null);
+    const ansWhere = () => say(h("p", {}, T(`Μέσα στον υπεραστικό σταθμό ΚΤΕΛ Αγρινίου (${B.address.street}), δεξιά από την είσοδο του σταθμού.`, `Inside the KTEL intercity bus station in Agrinio (${L(B.address.street)}), to the right of the station entrance.`)),
+      row(btn(B.mapsUrl, T("Οδηγίες στον χάρτη", "Directions in maps"), "btn btn-primary")));
+    const ansTrack = () => say(h("p", {}, T("Βάλτε τον αριθμό απόδειξης και τα 3 πρώτα γράμματα του επωνύμου του παραλήπτη, και θα δείτε αν έφτασε. Θα πάρετε και SMS όταν φτάσει.", "Enter the receipt number and the first 3 letters of the recipient's surname to see if it has arrived. You also get an SMS when it does.")),
+      row(btn(`${TRACK}.html`, T("Αναζήτηση δέματος", "Track a parcel"), "btn btn-primary")));
+    const ansLug = () => say(h("p", {}, T(`Φυλάμε αποσκευές με ${eur(SITE.LUGGAGE.perPiecePerDay)} ανά κομμάτι την ημέρα, στις ώρες λειτουργίας.`, `We store luggage for ${eur(SITE.LUGGAGE.perPiecePerDay)} per piece per day, during opening hours.`)), row(btn(`${LUG}.html`, T("Περισσότερα", "More"))));
+    const ansStore = () => say(h("p", {}, T(`Το δέμα σας περιμένει δωρεάν ${SITE.STORAGE.freeDays} μέρες. Μετά ${eur(SITE.STORAGE.perDay)} την ημέρα, έως ${eur(SITE.STORAGE.cap)} συνολικά.`, `Your parcel waits free for ${SITE.STORAGE.freeDays} days. After that ${eur(SITE.STORAGE.perDay)} a day, up to ${eur(SITE.STORAGE.cap)} in total.`)));
+    const ansPack = () => say(h("p", {}, T("Ναι: το συσκευάζουμε εμείς, ή αγοράζετε μόνο την κούτα και το πακετάρετε στον πάγκο.", "Yes: we pack it for you, or buy just the box and pack it at the counter.")), row(btn(`${CALC}.html#syskevasia`, T("Τιμές συσκευασίας", "Packing prices"))));
+    const ansHome = () => say(h("p", {}, T("Η παράδοση στο σπίτι ξεκινά σύντομα στο Αγρίνιο, και στην Αθήνα με την ASAP Courier. Μέχρι τότε, το δέμα παραλαμβάνεται από τον σταθμό.", "Home delivery starts soon in Agrinio, and in Athens with ASAP Courier. Until then, parcels are collected at the station.")), row(btn(`${HOMEP}.html`, T("Δηλώστε ενδιαφέρον", "Register interest"))));
+    const ansUnknown = q => say(h("p", {}, T("Δεν είμαι σίγουρος ότι κατάλαβα. Γράψτε μου μια πόλη (π.χ. «Αθήνα») ή ρωτήστε μας απευθείας:", "I'm not sure I understood. Type a town (e.g. \"Athens\") or ask us directly:")), row(waBtn(q), callBtn()));
+
+    let lastCity = null, want = null;
+    const answer = q => {
+      const d = findCity(q) || null;
+      if (/\d{8,}/.test(q.replace(/\D/g, "")) || has(q, RX.track)) return ansTrack();
+      if (has(q, RX.oil)) { if (d) lastCity = d; return ansOil(d); }
+      if (d) { lastCity = d; const w = want; want = null; return w === "price" ? ansPrice(d) : ansCity(d, q); }
+      if (has(q, RX.hours)) return ansHours();
+      if (has(q, RX.where)) return ansWhere();
+      if (has(q, RX.store)) return ansStore();
+      if (has(q, RX.lug)) return ansLug();
+      if (has(q, RX.pack)) return ansPack();
+      if (has(q, RX.home)) return ansHome();
+      const short = lz(q).split(/\s+/).filter(Boolean).length <= 3;
+      if (has(q, RX.price)) { if (lastCity && short) return ansPrice(lastCity); want = "price"; return say(h("p", {}, T("Για ποια πόλη; Γράψτε μου τον προορισμό.", "To which town? Type the destination."))); }
+      if (has(q, RX.when) && (short || !lastCity)) { if (lastCity) return ansCity(lastCity, q); want = "when"; return say(h("p", {}, T("Για ποια πόλη; Γράψτε μου τον προορισμό.", "To which town? Type the destination."))); }
+      return ansUnknown(q);
+    };
+
+    // Διεπαφή
+    const fab = h("button", { type: "button", class: "ask-fab", "aria-expanded": "false", "aria-controls": "ask-panel" }, h("span", { class: "ask-ico", "aria-hidden": "true" }, "?"), h("span", {}, T("Ρώτα μας", "Ask us")));
+    const log = h("div", { class: "ask-log", "aria-live": "polite" });
+    const inp = h("input", { type: "text", id: "ask-q", autocomplete: "off", enterkeyhint: "send", maxlength: "120", placeholder: T("π.χ. Πότε φεύγει για Αθήνα;", "e.g. When is the next bus to Athens?") });
+    const form = h("form", { class: "ask-form" }, h("label", { for: "ask-q", class: "sr-only" }, T("Η ερώτησή σας", "Your question")), inp, h("button", { type: "submit", class: "btn btn-primary" }, T("Ρώτα", "Ask")));
+    const CHIPS = [[T("Πότε φεύγει για Αθήνα;", "Next bus to Athens?")], [T("Πόσο κοστίζει;", "How much is it?")], [T("Έφτασε το δέμα μου;", "Has my parcel arrived?")], [T("Ωράριο", "Opening hours")], [T("Πού είστε;", "Where are you?")], [T("Στέλνετε λάδι;", "Do you send olive oil?")]];
+    const chips = h("div", { class: "ask-chips" }, CHIPS.map(([c]) => h("button", { type: "button", class: "ask-chip", onclick: () => ask(c) }, c)));
+    const close = h("button", { type: "button", class: "ask-close", "aria-label": T("Κλείσιμο", "Close") }, "×");
+    const panel = h("div", { class: "ask-panel", id: "ask-panel", role: "dialog", "aria-modal": "false", "aria-labelledby": "ask-h", hidden: true },
+      h("div", { class: "ask-head" }, h("b", { id: "ask-h" }, T("Ρώτα μας", "Ask us")), h("small", {}, T("Άμεσες απαντήσεις από τα δρομολόγια και τις τιμές μας", "Instant answers from our schedules and prices")), close),
+      log, chips, form, h("p", { class: "ask-foot" }, T("Αυτόματες απαντήσεις, όχι άνθρωπος. Δεν κρατάμε τις ερωτήσεις.", "Automatic answers, not a person. We don't keep your questions.")));
+    const bubble = (who, kids) => { const b = h("div", { class: "ask-msg " + who }, kids); log.append(b); log.scrollTop = log.scrollHeight; return b; };
+    const ask = q => {
+      q = String(q || "").trim().slice(0, 120); if (!q) return;
+      bubble("me", [h("p", {}, q)]);
+      bubble("bot", answer(q));
+      ping("ask", "ask");
+      inp.value = "";
+    };
+    let greeted = false;
+    const open = on => {
+      panel.hidden = !on; fab.setAttribute("aria-expanded", on ? "true" : "false"); document.body.classList.toggle("ask-open", on);
+      if (on) { if (!greeted) { greeted = true; bubble("bot", [h("p", {}, T("Γεια σας! Γράψτε μου πού στέλνετε ή τι θέλετε να μάθετε.", "Hello! Tell me where you're sending to, or what you'd like to know."))]); } setTimeout(() => inp.focus({ preventScroll: true }), 50); }
+      else fab.focus({ preventScroll: true });
+    };
+    fab.addEventListener("click", () => open(panel.hidden));
+    close.addEventListener("click", () => open(false));
+    panel.addEventListener("keydown", e => { if (e.key === "Escape") open(false); });
+    form.addEventListener("submit", e => { e.preventDefault(); ask(inp.value); });
+    document.body.append(fab, panel);
+  })();
 })();

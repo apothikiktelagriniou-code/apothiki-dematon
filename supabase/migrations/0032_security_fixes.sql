@@ -4,7 +4,7 @@
 --     και ο μετρητής λαθών κρατάει τα 10 τελευταία ψηφία (δεν παρακάμπτεται με ψηφία μπροστά).
 --  2. IPv6: μία σύνδεση μετράει ως μία (/64), όχι ως χιλιάδες διευθύνσεις.
 --  3. Τα συνολικά όρια δεν κλειδώνουν εύκολα την υπηρεσία για όλους (μεγαλύτερα, το βάρος στα όρια ανά IP).
---  4. Μέτρηση κλικ: μόνο γνωστές σελίδες/σημεία, όριο ανά σύνδεση (χωρίς να αποθηκεύεται IP — μόνο
+--  4. Μέτρηση κλικ (και ερωτήσεις στο «Ρώτα μας», μόνο το πλήθος): μόνο γνωστές σελίδες/σημεία, όριο ανά σύνδεση (χωρίς να αποθηκεύεται IP — μόνο
 --     ένα «αποτύπωμα» που αλλάζει κάθε μέρα και σβήνεται), ατομικός μετρητής ημέρας.
 --  5. Σύνολα μετρήσεων για τη διαχείριση από τη βάση (όχι κόψιμο στις 1.000 γραμμές).
 --  6. Ημερολόγιο ενεργειών: κάθε εγγραφή με τον χρήστη που τη γράφει.
@@ -136,7 +136,7 @@ declare
   v_k text := md5(public.client_ip() || current_date::text);   -- αλλάζει κάθε μέρα· η IP δεν αποθηκεύεται
   v_ok int;
 begin
-  if v_e not in ('call', 'whatsapp', 'viber', 'directions', 'calc', 'track', 'email') then return; end if;
+  if v_e not in ('call', 'whatsapp', 'viber', 'directions', 'calc', 'track', 'email', 'ask') then return; end if;
   v_base := regexp_replace(v_p, '^(dokimi/)?(en/)?', '');
   if not (v_p ~ '^(dokimi/)?(en/)?[a-z0-9-]{1,40}$'
           and (v_base = any (array['index','anazitisi','aporrito','apostoli','epikoinonia','epixeiriseis','foitites','fylaxi-aposkevon',
@@ -146,7 +146,7 @@ begin
                or v_base ~ '^(dema|parcel)-agrinio-[a-z]{2,20}$')) then
     v_p := 'other';
   end if;
-  if v_s not in ('', 'quickbar', 'calc', 'hero', 'board', 'cta', 'track', 'dest', 'footer', 'page') then v_s := 'other'; end if;
+  if v_s not in ('', 'quickbar', 'calc', 'hero', 'board', 'cta', 'track', 'dest', 'footer', 'page', 'ask') then v_s := 'other'; end if;
   -- έως 60 κλικ την ώρα ανά σύνδεση
   if (select count(*) from public.click_hits where k = v_k and at > now() - interval '1 hour') >= 60 then return; end if;
   insert into public.click_hits (k) values (v_k);
