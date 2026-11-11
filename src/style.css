@@ -563,3 +563,10 @@ label.camshot.disabled{opacity:.5;pointer-events:none}
 .grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
 @media (max-width:520px){.grid2{grid-template-columns:minmax(0,1fr)}}
 #dlgBody textarea,#dlgBody .grid2 input,#dlgBody .grid2 select{font:inherit;padding:10px;border-radius:10px;border:1px solid rgba(127,127,127,.35);background:var(--surface);color:inherit;min-height:44px;width:100%}
+
+/* ✓/✗ πλαίσιο γύρω από όλη την οθόνη για «📷 Φωτογραφίες δεμάτων» (η 📸 Κάμερα έχει ήδη πράσινη/κόκκινη οθόνη + ήχο) */
+.edgeflash{position:fixed;inset:0;z-index:70;pointer-events:none;border:12px solid transparent;border-radius:0;transition:opacity .35s}
+.edgeflash.ok{border-color:#16a34a;box-shadow:inset 0 0 40px rgba(22,163,74,.6)}.edgeflash.bad{border-color:#dc2626;box-shadow:inset 0 0 40px rgba(220,38,38,.6);animation:edgebad .5s 3}
+.edgeflash[hidden]{display:none}
+@keyframes edgebad{50%{border-color:rgba(220,38,38,.35)}}
+@media (prefers-reduced-motion:reduce){.edgeflash.bad{animation:none}}

@@ -1,5 +1,6 @@
 // Φωτογραφίες → ανάγνωση με AI → αυτόματη καταχώρηση ή λίστα ελέγχου.
 // Οι φωτογραφίες περιμένουν σε IndexedDB αν δεν υπάρχει σύνδεση, και στέλνονται μόλις επανέλθει.
+import { sound } from "./scan.js";
 import { isGreeklishName, greekName, unsureNote, surnameFirst, norm, cleanPhone, fmtGr, parseGrDate, autoSaveDecision, extractedToParcel, problemText, shelfFor, HOME, fmtPhone, safeAutoPhone } from "./lib.js";
 
 let D; // εξαρτήσεις από main.js
@@ -127,10 +128,16 @@ export async function pump() {
 // ---------- αποτέλεσμα ανά φωτογραφία: πράσινο (πέρασε) / κόκκινο (δεν πέρασε) ----------
 const waiters = new Map();
 function report(id, r) { const w = waiters.get(id); if (w) { waiters.delete(id); w(r); } else pageFlash(r); }
-let pfT = null;
+let pfT = null, efT = null;
+export function edgeFlash(ok) {
+  const e = $("edgeFlash"); if (!e) return; clearTimeout(efT);
+  e.className = "edgeflash " + (ok ? "ok" : "bad"); e.hidden = false;
+  efT = setTimeout(() => { e.hidden = true; }, ok ? 1300 : 3000);
+}
 function pageFlash(r) {
   const f = $("capFlash"); if (!f) return; clearTimeout(pfT);
   f.className = "scanflash capflash " + (r.ok ? "ok" : "bad"); f.hidden = false;
+  edgeFlash(r.ok); r.ok ? sound.ok() : sound.bad(); // πράσινο/κόκκινο πλαίσιο σε όλη την οθόνη + ήχος
   $("capBig").textContent = r.ok ? "✓ ΠΕΡΑΣΕ" : "✗ ΔΕΝ ΠΕΡΑΣΕ"; $("capName").textContent = r.name || ""; $("capSub").textContent = r.sub || "";
   pfT = setTimeout(() => { f.hidden = true; }, r.ok ? 1300 : 3500);
 }
@@ -325,6 +332,7 @@ function reviewCard(q, idx) {
 // ---------- εκκίνηση ----------
 export function initCapture(deps) {
   D = deps;
+  document.querySelector('label[for="photos"]')?.addEventListener("click", () => sound.unlock()); // ο ήχος θέλει ένα πάτημα πρώτα (iPhone)
   $("photos").onchange = e => { addFiles(e.target.files); e.target.value = ""; };
   $("sendBtn").onclick = send;
   // ο διακόπτης «Παλιό απόθεμα» κρατά μόνο για σήμερα (για να μη μείνει ξεχασμένος ανοιχτός)
