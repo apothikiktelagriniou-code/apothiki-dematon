@@ -800,6 +800,7 @@ function card(p) {
   if (p.status === "done") {
     row.append(el("div", "meta note", ["Παρέλαβε: " + (!p.picked_by_name ? "—" : norm(p.picked_by_name) === norm(p.recipient_name || "") ? "ο ίδιος" : p.picked_by_name), p.id_doc_number ? (p.id_doc_type || "Έγγραφο") + " " + p.id_doc_number : p.id_doc_last4 ? (p.id_doc_type || "Έγγραφο") + " ••••" + p.id_doc_last4 : "", p.picked_by_phone ? fmtPhone(p.picked_by_phone) : "", fmtGr(p.picked_up_at), p.home_delivery ? "🏠 Delivery" : "", p.cod_collected ? "💶 Εισπράχθηκε " + money(p.cod_amount_eur) : ""].filter(Boolean).join(" · ")));
     if (p.signature_path) { const holder = el("div", "note"); const b = mk("Υπογραφή", () => showSignature(p, holder, b)); row.append(holder); }
+    mk2("↶", "Αναίρεση παράδοσης", toggle("undo"));
     if (p.home_delivery) { const u = el("button", "btn small", "✗ Δεν ήταν delivery"); u.type = "button"; u.onclick = async () => { const { data, error } = await sb.from("parcels").update({ home_delivery: false }).eq("id", p.id).select().single(); if (error) show($("netMsg"), "Δεν άλλαξε: " + error.message, "bad"); else { rows.set(p.id, data); render(); } }; row.append(u); }
   }
   if (fwdPending(p)) { const m = minsTo(p);
@@ -815,7 +816,7 @@ function card(p) {
   if (openBox.id === p.id) {
     // το ανοιχτό κουτί (παράδοση, προώθηση κ.λπ.) δεν ξαναφτιάχνεται σε κάθε ανανέωση — αλλιώς χάνονται όσα γράφεις
     const key = p.id + "|" + openBox.kind;
-    if (boxCache.key !== key) boxCache = { key, el: openBox.kind === "notify" ? notifyBox(p) : openBox.kind === "pickup" ? pickupBox(p) : openBox.kind === "tags" ? tagsBox(p) : openBox.kind === "ret" ? retBox(p) : fwdBox(p) };
+    if (boxCache.key !== key) boxCache = { key, el: openBox.kind === "notify" ? notifyBox(p) : openBox.kind === "pickup" ? pickupBox(p) : openBox.kind === "tags" ? tagsBox(p) : openBox.kind === "ret" ? retBox(p) : openBox.kind === "undo" ? undoBox(p) : fwdBox(p) };
     row.append(boxCache.el);
   } else if (boxCache.key && boxCache.key.startsWith(p.id + "|") && openBox.id !== p.id) boxCache = { key: "", el: null };
   return row;
@@ -1124,6 +1125,34 @@ async function showSignature(p, holder, btn) {
 }
 
 // ---------------------------------------------------------------- προώθηση μεταφόρτωσης
+// ↶ λάθος παράδοση (πατήθηκε σε λάθος δέμα / δεν το πήρε τελικά): το δέμα γυρνά στην αποθήκη.
+//    Σβήνονται έγγραφο και υπογραφή· μένει γραμμή στις Παρατηρήσεις + στο σημείωμα βάρδιας (φαίνεται σε όλους).
+function undoBox(p) {
+  const box = el("form", "box"); box.autocomplete = "off";
+  const back = p.notified_at ? "notified" : "arrived";
+  box.append(el("div", "msg warn wide", "Το δέμα θα γυρίσει στα «" + STATUS[back] + "», σαν να μην παραδόθηκε. Θα σβηστούν ο αριθμός εγγράφου και η υπογραφή αυτής της παράδοσης." + (p.cod_collected ? " ⚠ Είχε σημειωθεί είσπραξη " + money(p.cod_amount_eur) + " — δες τι γίνεται με τα χρήματα." : "")));
+  const why = field(box, "Γιατί αναιρείται; *", inp("", { placeholder: "π.χ. πατήθηκε σε λάθος δέμα / δεν το πήρε τελικά", maxLength: 200 }), true);
+  const msg = el("div", "msg warn wide"); msg.hidden = true; box.append(msg);
+  const acts = el("div", "formactions"); const ok = el("button", "btn primary", "↶ Αναίρεση παράδοσης"); ok.type = "submit";
+  const cancel = el("button", "btn", "Άκυρο"); cancel.type = "button"; cancel.onclick = () => { boxCache.key = "", openBox = { id: null }; render(); };
+  acts.append(ok, cancel); box.append(acts);
+  box.onsubmit = async e => { e.preventDefault(); if (needOperator()) return;
+    const w = why.value.trim(); if (w.length < 3) { msg.textContent = "Γράψε τον λόγο με λίγες λέξεις."; msg.hidden = false; why.focus(); return; }
+    ok.disabled = true;
+    const had = [p.picked_by_name, p.picked_by_phone ? fmtPhone(p.picked_by_phone) : ""].filter(Boolean).join(" ");
+    const line = "↶ Αναίρεση παράδοσης " + fmtGr(new Date().toISOString()) + " (" + (operator() || "—") + "): " + w + (had ? " · είχε γραφτεί ότι το πήρε: " + had : "") + (p.cod_collected ? " · είχε σημειωθεί είσπραξη " + money(p.cod_amount_eur) : "");
+    try {
+      if (p.signature_path) await sb.storage.from("signatures").remove([p.signature_path]).catch(() => {});
+      await updateParcel(p.id, { status: back, status_at: new Date().toISOString(), picked_up_at: null, picked_by_name: null, picked_by_phone: null,
+        id_doc_type: null, id_doc_number: null, id_doc_last4: null, signature_path: null, home_delivery: false, cod_collected: false,
+        notes: [p.notes, line].filter(Boolean).join(" · ").slice(-2000) });
+      sb.from("shift_notes").insert({ text: "↶ Αναιρέθηκε παράδοση: " + (p.recipient_name || "—") + (p.receipt_no ? " (απόδ. " + p.receipt_no + ")" : "") + " — " + w + " · " + (operator() || ""), operator: operator() || null }).then(() => loadNotes());
+      boxCache.key = "", openBox = { id: null }; show($("formMsg"), "Η παράδοση αναιρέθηκε — το δέμα είναι ξανά στα «" + STATUS[back] + "».", "ok"); render();
+    } catch (err) { console.error(err); ok.disabled = false; msg.textContent = "Δεν αναιρέθηκε. Δοκίμασε ξανά."; msg.hidden = false; }
+  };
+  setTimeout(() => why.focus(), 50);
+  return box;
+}
 function retBox(p) {
   const box = el("form", "box"); box.autocomplete = "off";
   const from = field(box, "Επιστροφή στο σταθμό", inp(p.origin_city || "", { placeholder: "π.χ. ΠΑΤΡΑ" })); from.setAttribute("list", "cities");
@@ -1196,7 +1225,7 @@ function tagsBox(p) {
     } catch (err) { console.error(err); phMsg.textContent = "Δεν ανέβηκε η φωτογραφία. Δοκίμασε ξανά."; }
   };
   const notes = el("textarea", "wide"); notes.value = p.notes || ""; notes.placeholder = "Άλλη παρατήρηση (ελεύθερο κείμενο)"; notes.style.minHeight = "70px";
-  const w = el("div", "f wide"); w.append(el("label", null, "Σημειώσεις"), notes); box.append(w);
+  const w = el("div", "f wide"); w.append(el("label", null, "Παρατηρήσεις (ελεύθερο κείμενο)"), notes); box.append(w);
   const acts = el("div", "formactions"); const ok = el("button", "btn primary", "Αποθήκευση"); ok.type = "submit";
   const cancel = el("button", "btn", "Κλείσιμο"); cancel.type = "button"; cancel.onclick = () => { boxCache.key = "", openBox = { id: null }; render(); };
   acts.append(ok, cancel); box.append(acts);
@@ -1214,7 +1243,7 @@ async function showHistory(p) {
   const body = $("dlgBody"); body.textContent = ""; body.append(el("h2", null, "Ιστορικό · " + (p.recipient_name || p.receipt_no)));
   const { data } = await sb.from("activity_log").select("*").eq("parcel_id", p.id).order("at");
   const l = el("div", "hist");
-  (data || []).forEach(a => l.append(el("div", null, fmtGr(a.at) + " · " + (a.operator || "—") + " · " + (ACT[a.action] || a.action) + (a.details && a.details.channel && a.action === "status:notified" ? " (" + a.details.channel + ")" : ""))));
+  (data || []).forEach(a => l.append(el("div", null, fmtGr(a.at) + " · " + (a.operator || "—") + " · " + (a.details && a.details.from === "done" && a.action !== "status:done" ? "↶ Αναίρεση παράδοσης → " + (STATUS[a.action.slice(7)] || "") : ACT[a.action] || a.action) + (a.details && a.details.channel && a.action === "status:notified" ? " (" + a.details.channel + ")" : ""))));
   if (!l.childNodes.length) l.append(el("div", null, "Δεν υπάρχει ιστορικό."));
   body.append(l); $("dlg").showModal();
 }
