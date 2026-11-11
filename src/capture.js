@@ -146,16 +146,22 @@ export async function enqueueShot(file) {
 }
 async function processOne(it) {
   const pkgIdx = typeof it.pkgIdx === "number" ? it.pkgIdx : -1;
-  const { data, error } = await D.sb.functions.invoke("extract-receipt", { body: { images: it.imgs.map(d => ({ data: d, media_type: "image/jpeg" })), package_index: pkgIdx } });
+  // αν το AI την είχε ήδη διαβάσει (αλλά έπεσε το internet πριν αποθηκευτεί), δεν ξαναπληρώνουμε ανάγνωση
+  let data = it.extracted ? { data: JSON.parse(JSON.stringify(it.extracted)) } : null, error = null;
+  if (!data) ({ data, error } = await D.sb.functions.invoke("extract-receipt", { body: { images: it.imgs.map(d => ({ data: d, media_type: "image/jpeg" })), package_index: pkgIdx } }));
   if (error) {
     const st = error.context && error.context.status;
     if (!st || error.name === "FunctionsFetchError" || error.name === "FunctionsRelayError") return "offline"; // ξαναδοκιμή αργότερα
     if (st === 401) { show($("capMsg"), "Η σύνδεση έληξε. Αποσυνδέσου και ξαναμπές — οι φωτογραφίες περιμένουν.", "bad"); return "offline"; }
     let body = {}; try { body = await error.context.json(); } catch {}
     if (body.error === "missing_key") { show($("capMsg"), "Λείπει το κλειδί Anthropic στο Supabase (Edge Functions → Secrets → ANTHROPIC_API_KEY).", "bad"); return "offline"; }
-    await toQueue(it, { notes: "Σφάλμα ανάγνωσης: " + (body.detail || body.error || ("HTTP " + st)) }, ["ai_unavailable"]); stats.review++; await obDel(it.id);
+    try { await toQueue(it, { notes: "Σφάλμα ανάγνωσης: " + (body.detail || body.error || ("HTTP " + st)) }, ["ai_unavailable"]); } catch { return "offline"; }
+    stats.review++; await obDel(it.id);
     report(it.id, { ok: false, name: "Δεν διαβάστηκε", sub: "Πήγε στο «Για έλεγχο» — ξαναφωτογράφισε πιο καθαρά" }); return "review";
   }
+  const raw = JSON.parse(JSON.stringify(data.data));
+  // «Για έλεγχο» που δεν πέρασε (π.χ. έπεσε το internet): η φωτογραφία μένει στη συσκευή με ό,τι διάβασε το AI και ξαναδοκιμάζεται
+  const review = async (dd, pr) => { try { await toQueue(it, dd, pr); return true; } catch { await obPut({ ...it, extracted: raw }).catch(() => {}); return false; } };
   const d = data.data; if (it.old) d.old_stock = true;
   // κατάσταση που ανέβηκε πριν: τσεκάρισμα + συμπλήρωση ό,τι δεν διαβάστηκε καλά
   const h = D.expectHelp && D.expectHelp(d);
@@ -187,7 +193,7 @@ async function processOne(it) {
   if (d.pair_mismatch) { dec.auto = false; dec.problems = [...dec.problems, "pair_mismatch"]; }
   if (dec.auto) {
     const p = extractedToParcel(d);
-    if (!ph && custs.length === 1 && safeAutoPhone(custs[0], d.recipient)) { p.recipient_phone = custs[0].phones[0]; p.phone_source = "customer_db"; p.phone_confirmed = true; }
+    if (!ph && custs.length === 1 && safeAutoPhone(custs[0], d.recipient)) { p.recipient_phone = safeAutoPhone(custs[0], d.recipient); p.phone_source = "customer_db"; p.phone_confirmed = true; }
     if (ph && d.phone_is_handwritten && custs.some(c => c.phones.includes(ph))) p.phone_confirmed = true;
     if (!ph && !p.recipient_phone && custs.length) p.notes = [p.notes, "Στο αρχείο υπάρχει «" + d.recipient + "» αλλά δεν είναι σίγουρο ποιος — διάλεξε τηλέφωνο."].filter(Boolean).join(" · ");
     const un = unsureNote(dec.flags); if (un) p.notes = [un, p.notes].filter(Boolean).join(" · ");
@@ -198,9 +204,9 @@ async function processOne(it) {
     p.customer_id = await D.linkCustomer(p.recipient_name, p.recipient_phone);
     const ins = await D.saveParcel(p);
     if (ins.error && ins.error.code === "23505" && (Number(d.pieces) || 1) > 1 && await addPiece()) return "ok";
-    if (ins.error) { const pr = [ins.error.code === "23505" ? "duplicate" : "ai_unavailable"]; await toQueue(it, d, pr); stats.review++; report(it.id, { ok: false, name: d.recipient || d.receipt_no || "", sub: pr.map(problemText).join(" · ") + " → «Για έλεγχο»" }); }
+    if (ins.error) { const pr = [ins.error.code === "23505" ? "duplicate" : "ai_unavailable"]; if (!await review(d, pr)) return "offline"; stats.review++; report(it.id, { ok: false, name: d.recipient || d.receipt_no || "", sub: pr.map(problemText).join(" · ") + " → «Για έλεγχο»" }); }
     else { D.onSaved(ins.data); if (it.pkg) await D.attachPackage(ins.data.id, it.pkg, d.package_desc); stats.auto++; report(it.id, { ok: true, name: ins.data.recipient_name || "", sub: subOk(ins.data) }); }
-  } else { await toQueue(it, d, dec.problems); stats.review++; report(it.id, { ok: false, name: d.recipient || d.receipt_no || "", sub: dec.problems.map(problemText).join(" · ") + " → «Για έλεγχο»" }); }
+  } else { if (!await review(d, dec.problems)) return "offline"; stats.review++; report(it.id, { ok: false, name: d.recipient || d.receipt_no || "", sub: dec.problems.map(problemText).join(" · ") + " → «Για έλεγχο»" }); }
   await obDel(it.id);
   return "ok";
 }
@@ -213,7 +219,8 @@ function applyOld(p, d) {
   p.tags = [...new Set([...(p.tags || []), OLD_TAG])];
 }
 async function toQueue(it, d, problems) {
-  await D.sb.from("extraction_queue").insert({ batch_id: null, extracted: d, problems, thumbnail: it.thumb, package_thumb: it.pkg || null });
+  const { error } = await D.sb.from("extraction_queue").insert({ batch_id: null, extracted: d, problems, thumbnail: it.thumb, package_thumb: it.pkg || null });
+  if (error) throw error; // ΔΕΝ σβήνουμε τη φωτογραφία αν δεν μπήκε στο «Για έλεγχο»
   loadQueue();
 }
 
@@ -298,7 +305,7 @@ function reviewCard(q, idx) {
     const p = extractedToParcel(ed);
     if (p.phone_source === "handwritten") p.phone_confirmed = true; // το είδε άνθρωπος στον έλεγχο
     if (chosen && cleanPhone(v.phone) === chosen.phones[0]) { p.phone_source = "customer_db"; p.phone_confirmed = true; }
-    if (!p.recipient_phone && p.recipient_name) { const cs = (await D.findCustomers(p.recipient_name)).filter(c => (c.phones || []).length); if (cs.length === 1 && safeAutoPhone(cs[0], p.recipient_name)) { p.recipient_phone = cs[0].phones[0]; p.phone_source = "customer_db"; p.phone_confirmed = true; } }
+    if (!p.recipient_phone && p.recipient_name) { const cs = (await D.findCustomers(p.recipient_name)).filter(c => (c.phones || []).length); if (cs.length === 1 && safeAutoPhone(cs[0], p.recipient_name)) { p.recipient_phone = safeAutoPhone(cs[0], p.recipient_name); p.phone_source = "customer_db"; p.phone_confirmed = true; } }
     if (ed._mnote) p.notes = [ed._mnote, p.notes].filter(Boolean).join(" · ");
     applyOld(p, ed); p.source = "photo_reviewed"; p.operator = D.operator(); p.extraction_confidence = { ...(p.extraction_confidence || {}), biz: !!ed.recipient_is_business };
     p.customer_id = chosen && !chosen._multi && cleanPhone(v.phone) === chosen.phones[0] ? chosen.id : await D.linkCustomer(p.recipient_name, p.recipient_phone);

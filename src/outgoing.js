@@ -431,16 +431,18 @@ async function saveQueued(r, patch) {
   try { return await save(r.id, patch); }
   catch (e) {
     if (!netErr(e)) throw e;
-    const q = qGet().filter(x => x.id !== r.id); q.push({ id: r.id, patch: { ...(q.find(x => x.id === r.id)?.patch || {}), ...patch } }); qSet(q);
+    const all = qGet(), prev = all.find(x => x.id === r.id); const q = all.filter(x => x.id !== r.id); q.push({ id: r.id, patch: { ...(prev?.patch || {}), ...patch } }); qSet(q);
     const local = { ...r, ...patch }; rows.set(r.id, local); queueBadge(); return local;
   }
 }
 let flushing = false;
 async function flushQueue() {
   const q = qGet(); if (!q.length || flushing || !navigator.onLine) { queueBadge(); return; } flushing = true;
-  const left = [];
-  for (const x of q) { try { await save(x.id, x.patch); } catch (e) { if (netErr(e)) left.push(x); } }
-  qSet(left); flushing = false; queueBadge(); if (q.length !== left.length) render();
+  const sent = [];
+  for (const x of q) { try { await save(x.id, x.patch); sent.push(x); } catch (e) { if (!netErr(e)) sent.push(x); } }
+  // ξαναδιαβάζουμε την ουρά: ό,τι σκαναρίστηκε ΕΝΩ στέλναμε μένει (πριν σβηνόταν)
+  const key = x => x.id + "|" + JSON.stringify(x.patch), gone = new Set(sent.map(key));
+  qSet(qGet().filter(x => !gone.has(key(x)))); flushing = false; queueBadge(); if (sent.length) render();
 }
 function queueBadge() {
   const n = qGet().length, m = $("outMsg"); if (!m) return;
