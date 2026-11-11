@@ -477,3 +477,18 @@ test("looksLikePayLink", () => {
   assert.ok(looksLikePayLink("https://pay.viva.com/abc"));
   assert.ok(!looksLikePayLink("http://evil.example/viva.com"));
 });
+
+import { safeAutoPhone, phoneFits, mixedCustomer } from "../src/lib.js";
+test("αρχείο πελατών: αυτόματο κινητό μόνο όταν είναι σίγουρο", () => {
+  const one = { phones: ["6971111111"] }, star = { phones: ["6971111111"], starred: true }, two = { phones: ["6972222222", "6971111111"], starred: true };
+  assert.equal(safeAutoPhone(one, "ΣΑΚΚΟΣ"), "");                 // μόνο επώνυμο, όχι ⭐ → ρωτάμε
+  assert.equal(safeAutoPhone(one, "ΣΑΚΚΟΣ ΓΙΩΡΓΟΣ"), "6971111111"); // ονοματεπώνυμο, ένα κινητό → ok
+  assert.equal(safeAutoPhone(star, "ΣΑΚΚΟΣ"), "6971111111");       // ⭐ τακτικός → ok
+  assert.equal(safeAutoPhone(two, "ΣΑΚΚΟΣ ΓΙΩΡΓΟΣ"), "");          // πολλά κινητά → ποτέ αυτόματα
+  assert.equal(phoneFits(one, "6979999999", "ΣΑΚΚΟΣ"), false);       // άλλο κινητό = άλλος άνθρωπος
+  assert.equal(phoneFits(one, "6971111111", "ΣΑΚΚΟΣ"), true);
+  assert.equal(phoneFits({ phones: [] }, "6979999999", "ΣΑΚΚΟΣ"), true);
+  assert.equal(phoneFits(one, "", "ΣΑΚΚΟΣ"), false);
+  assert.equal(mixedCustomer(two), true); assert.equal(mixedCustomer(one), false);
+  assert.equal(mixedCustomer({ phones: ["6971111111", "2641022222"] }), false);
+});
