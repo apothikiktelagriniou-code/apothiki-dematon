@@ -97,7 +97,7 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
   .nav a[aria-current="page"] { color: var(--teal-light); border-bottom-color: rgba(255,255,255,.1); }
   .nav .call { margin: 12px 0 0; text-align: center; padding: 14px; }
 }
-@media (max-width: 380px) { .brand .chip { display: none; } }
+@media (max-width: 340px) { .brand .chip { display: none; } }
 
 /* Buttons */
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 52px; padding: 0 22px; border-radius: var(--r); font: 600 17px/1.1 var(--f-body); text-decoration: none; border: 2px solid transparent; cursor: pointer; transition: transform 120ms var(--ease-out), background-color .15s ease, filter .15s ease; text-align: center; }
@@ -117,7 +117,7 @@ button.btn[disabled] { opacity: .6; cursor: default; }
 .hero .wrap { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr); gap: 48px; align-items: start; padding-block: 44px 56px; }
 .hero h1 { color: var(--on-band); }
 .hero h1 em { font-style: normal; color: var(--teal-light); }
-.hero .lead { font-size: 19px; color: var(--on-band-muted); max-width: 38ch; margin-top: 16px; }
+.hero .lead { font-size: 19px; color: var(--on-band-muted); max-width: 46ch; margin-top: 16px; }
 .hero .ctas { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 24px; }
 .hero .facts { display: flex; flex-wrap: wrap; gap: 6px 22px; margin-top: 22px; font-size: 14px; color: var(--on-band-muted); }
 .hero .facts b { color: var(--on-band); font-weight: 600; }
@@ -197,7 +197,7 @@ button.btn[disabled] { opacity: .6; cursor: default; }
 .routes li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 16px; padding: 14px 0; border-bottom: 1px solid var(--line); align-items: baseline; }
 .routes li:first-child { border-top: 2px solid var(--rule); }
 .routes b { font: 700 24px/1.1 var(--f-display); }
-.routes .p { font: 600 17px var(--f-mono); white-space: nowrap; }
+.routes .p { font: 600 17px var(--f-body); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .routes small { grid-column: 1 / -1; color: var(--muted); font-size: 15px; }
 
 .service { display: flex; flex-direction: column; gap: 10px; text-decoration: none; color: inherit; }
@@ -309,7 +309,8 @@ details.q .a { padding: 0 2px 18px; color: var(--ink); max-width: 68ch; }
 .contact-list { display: grid; gap: 14px; }
 .contact-list .row { display: flex; gap: 12px; align-items: flex-start; }
 .contact-list .row b { display: block; font-size: 14px; color: var(--muted); font-weight: 600; }
-.contact-list .row .v { font: 700 22px var(--f-display); color: var(--heading); }
+.contact-list .row .v { font: 700 22px var(--f-display); color: var(--heading); overflow-wrap: anywhere; }
+.contact-list .row > div { min-width: 0; }
 .hours { width: 100%; border-collapse: collapse; }
 .hours td { padding: 10px 0; border-bottom: 1px solid var(--line); }
 .hours td:last-child { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
@@ -330,7 +331,7 @@ details.q .a { padding: 0 2px 18px; color: var(--ink); max-width: 68ch; }
 /* Footer */
 .site-foot { background: var(--band); color: var(--on-band-muted); font-size: 15px; border-top: 4px solid #017F98; }
 .site-foot .wrap { display: grid; grid-template-columns: minmax(0, 1.4fr) repeat(3, minmax(0, 1fr)); gap: 28px; padding-block: 40px 24px; }
-.site-foot h3 { color: var(--on-band); font-size: 17px; margin-bottom: 10px; }
+.site-foot h3, .site-foot .foot-h { color: var(--on-band); font-size: 17px; margin-bottom: 10px; }
 .site-foot a { color: var(--on-band-muted); text-decoration: none; }
 .site-foot a:hover { color: #fff; text-decoration: underline; }
 .site-foot ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
@@ -351,7 +352,7 @@ details.q .a { padding: 0 2px 18px; color: var(--ink); max-width: 68ch; }
 
 .proto { background: var(--board); color: var(--on-band-muted); font-size: 13px; text-align: center; padding: 6px 16px; }
 
-@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } * { transition: none !important; } }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } *, ::before, ::after { transition-property: opacity, color, background-color, border-color !important; transition-duration: 150ms !important; transition-delay: 0s !important; } }
 
 /* Αλλαγή γλώσσας */
 .site-head .nav { order: 1; }
@@ -395,7 +396,7 @@ form[data-poll] { display: grid; gap: 24px; }
   .menu-btn .mb-txt { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .menu-btn .mb-ico { display: block; }
 }
-@media (max-width: 360px) { .brand small { display: none; } }
+@media (max-width: 340px) { .brand small { display: none; } }
 
 /* Χρονολόγιο (ιστορία δεμάτων ΚΤΕΛ) */
 .timeline { list-style: none; margin: 0; padding: 0; border-top: 2px solid var(--rule); }
@@ -423,8 +424,8 @@ form[data-poll] { display: grid; gap: 24px; }
 /* Ιστορική αναδρομή (κείμενο) */
 .history { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 40px; border-top: 2px solid var(--rule); }
 .era { padding: 18px 0; border-bottom: 1px solid var(--line); }
-.era h3 { font: 700 21px/1.25 var(--f-display); color: var(--heading); }
-.era h3 span { display: block; font: 600 15px/1.3 var(--f-mono); color: var(--teal); margin-bottom: 4px; }
+.era h3, .era h2.h3 { font: 700 21px/1.25 var(--f-display); color: var(--heading); }
+.era h3 span, .era h2.h3 span { display: block; font: 600 15px/1.3 var(--f-mono); color: var(--teal); margin-bottom: 4px; }
 .era p { margin-top: 8px; color: var(--ink); max-width: 62ch; }
 .era.now h3 span { color: var(--heading); }
 @media (max-width: 760px) { .history { grid-template-columns: minmax(0, 1fr); } }
@@ -454,7 +455,7 @@ table.season td.deps-cell { text-align: left; white-space: normal; min-width: 7.
 .hero .season-link { color: var(--teal-light); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
 @media (max-width: 600px) { table.season th, table.season td { padding: 10px 8px; font-size: 14px; } table.season td.deps-cell { font-size: 13px; } }
 table.season .m-deps { display: none; }
-@media (max-width: 600px) { table.season .deps-col, table.season td.deps-cell { display: none; } table.season .m-deps { display: block; font-weight: 400; font-size: 12px; color: var(--muted); white-space: normal; } table.season th[scope=row] { white-space: normal; } }
+@media (max-width: 600px) { table.season .deps-col, table.season td.deps-cell { display: none; } table.season .m-deps { display: block; font-weight: 400; font-size: 14px; color: var(--muted); white-space: normal; } table.season th[scope=row] { white-space: normal; } }
 .head-photo .photo img { aspect-ratio: auto; width: auto; max-width: 100%; max-height: 72vh; border-top: 0; }
 @media (min-width: 900px) {
   .page-head .wrap:has(.head-photo .photo) { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: repeat(4, auto) 1fr; column-gap: 40px; align-content: start; }
@@ -529,9 +530,9 @@ input[type=text], input[type=search], input[type=tel], input[type=email], input[
 .quicktrack .qt-labels { display: grid; grid-template-columns: minmax(0, 1fr) 104px auto; gap: 8px; font-size: 14px; line-height: 1.25; color: #56677A; margin-bottom: 4px; }
 .head-ctas { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; align-items: flex-start; }
 .lang-switch { min-height: 44px; min-width: 44px; display: inline-flex; align-items: center; justify-content: center; }
-.site-foot ul a, .site-foot .legal a, .crumbs a, .season-link, .contact-list .row a:not(.btn) { display: inline-block; padding-block: 10px; }
+.hero .facts a, .site-foot ul a, .site-foot .legal a, .crumbs a, .season-link, .contact-list .row a:not(.btn) { display: inline-block; padding-block: 10px; }
 @media (max-width: 760px) { .gallery { scroll-padding-inline: 16px; } }
-.map-fig figcaption { color: #56677A; } .map-fig figcaption a { color: #016F86; }
+.map-fig figcaption { color: #4A5A6B; } .map-fig figcaption a { color: #015F73; } .map-fig :focus-visible { outline-color: #0C3456; }
 [data-calc] { min-height: 1100px; } @media (min-width: 901px) { [data-calc] { min-height: 760px; } }
 @media (max-width: 900px) {
   .dest-table thead { display: none; }
@@ -573,8 +574,10 @@ input[type=text], input[type=search], input[type=tel], input[type=email], input[
 .routes-svg .ct circle { fill: var(--m-dot); stroke: var(--m-route); stroke-width: 3; }
 .routes-svg .ct text { font-size: 21px; font-weight: 700; fill: var(--m-label); stroke: var(--m-halo); stroke-width: 5px; paint-order: stroke; }
 .routes-svg .rt.via { stroke-width: 1.8; opacity: .75; stroke-dasharray: 6 6; stroke-dashoffset: 0; }
-.routes-map.armed .rt.via { opacity: 0; stroke-dashoffset: 0; }
-.routes-map.armed.in .rt.via { animation: none; opacity: .75; transition: opacity 500ms var(--ease-out); transition-delay: calc(var(--i) * 40ms + 300ms); }
+.routes-map.armed:not(.in) .rt.via { opacity: 0; }
+.routes-map.armed .rt.via { stroke-dashoffset: 0; }
+.routes-map.armed.in .rt.via { animation: via-in 500ms var(--ease-out) backwards; animation-delay: calc(var(--i) * 25ms + 300ms); }
+@keyframes via-in { from { opacity: 0; } }
 .routes-svg .ct.via circle { stroke-width: 2.2; }
 .routes-svg .ct.via text { font-size: 16px; font-weight: 600; stroke-width: 4px; }
 .routes-svg .legend text { font-size: 18px; font-weight: 600; fill: var(--m-label); }
@@ -585,22 +588,19 @@ input[type=text], input[type=search], input[type=tel], input[type=email], input[
 .routes-svg .hub circle { fill: var(--m-hub); stroke: var(--m-halo); stroke-width: 3; }
 .routes-svg .hub .pulse { fill: none; stroke: var(--m-hub); stroke-width: 3; opacity: 0; transform-box: fill-box; transform-origin: center; }
 .routes-svg .hub text { font-size: 28px; font-weight: 800; fill: var(--m-label); stroke: var(--m-halo); stroke-width: 6px; paint-order: stroke; }
-.routes-map .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; border-top: 1px solid var(--line); padding: 12px 6px 14px; }
-.routes-map .stats span { display: flex; flex-direction: column; font-size: 14px; color: var(--muted); line-height: 1.25; }
-.routes-map .stats b { font: 700 30px/1.05 var(--f-display); color: var(--heading); font-variant-numeric: tabular-nums; }
 
 /* Πριν μπει στην οθόνη (μόνο με JavaScript): κρυμμένες διαδρομές και πόλεις */
 .routes-map.armed .rt { stroke-dashoffset: 1; }
 .routes-map.armed .ct { opacity: 0; transform: scale(.6); transform-box: fill-box; transform-origin: center; }
-.routes-map.armed.in .rt { animation: draw 900ms var(--ease-in-out) forwards; animation-delay: calc(var(--i) * 40ms); }
-.routes-map.armed.in .ct { opacity: 1; transform: none; transition: opacity 300ms var(--ease-out), transform 300ms var(--ease-out); transition-delay: calc(var(--i) * 40ms + 650ms); }
-.routes-map.in .hub .pulse { animation: pulse 1600ms var(--ease-out) 3; }
+.routes-map.armed.in .rt { animation: draw 900ms var(--ease-in-out) forwards; animation-delay: calc(var(--i) * 25ms); }
+.routes-map.armed.in .ct { opacity: 1; transform: none; transition: opacity 300ms var(--ease-out), transform 300ms var(--ease-out); transition-delay: calc(var(--i) * 25ms + 500ms); }
+.routes-map.in .hub .pulse { animation: pulse 1400ms var(--ease-out) 1; }
 @keyframes draw { to { stroke-dashoffset: 0; } }
 @keyframes pulse { from { opacity: .6; transform: scale(1); } to { opacity: 0; transform: scale(3); } }
 
 @media (prefers-reduced-motion: reduce) {
   .rv { opacity: 0; transform: none; }
-  .rv.in { opacity: 1; transition: opacity 300ms ease; }
+  .rv.in { opacity: 1; }
   .board tr.flip td { animation: none; }
   .routes-map.armed .rt { stroke-dashoffset: 0; }
   .routes-map.armed .ct { transform: none; }
@@ -611,7 +611,7 @@ input[type=text], input[type=search], input[type=tel], input[type=email], input[
 /* «Το ταξίδι του δέματος» */
 .journey { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 18px 16px; }
 .j-pick { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 18px; font-weight: 600; color: var(--heading); }
-.j-pick select { min-height: 44px; font-size: 17px; padding: 8px 12px; border: 1px solid #8A9BAD; border-radius: 10px; background: var(--surface); color: var(--ink); min-width: 220px; }
+.j-pick select { min-height: 44px; font-size: 17px; padding: 8px 12px; border: 1px solid #8A9BAD; border-radius: var(--r); background: var(--surface); color: var(--ink); min-width: 220px; }
 .j-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 18px; position: relative; }
 .j-steps::before { content: ""; position: absolute; left: 21px; top: 22px; bottom: 22px; border-left: 2px dashed var(--line); }
 .j-steps > li { display: grid; grid-template-columns: 44px 1fr; gap: 14px; position: relative; align-content: start; }
@@ -663,7 +663,7 @@ table.data.two th:first-child, table.data.two td:first-child { white-space: norm
 .price-board .price .per { color: var(--board-dim); }
 .price-board .deadline { margin: 10px 0 0; font: 700 18px/1.3 var(--f-body); color: #fff; }
 .price-board .deadline small { display: block; font-weight: 400; font-size: 14px; color: var(--board-dim); margin-top: 2px; }
-.result .next-step { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 16px; }
+.result .next-step { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; margin-top: 16px; }
 .result .next-step .btn { justify-content: center; }
 .result .next-step .btn-ghost { grid-column: 1 / -1; }
 [data-calc] { min-height: 640px; }
@@ -685,7 +685,7 @@ table.data.two th:first-child, table.data.two td:first-child { white-space: norm
 [data-track-out] .notice { animation: jfade 200ms var(--ease-out) both; }
 /* Υπολογιστής: η τιμή «αναπηδά» ελαφρά όταν αλλάζει */
 .price .big.bump { animation: pricein 160ms var(--ease-out); }
-@keyframes pricein { from { opacity: .4; transform: translateY(3px); } }
+@keyframes pricein { from { opacity: .7; transform: translateY(2px); } }
 /* Μενού κινητού: ανοίγει απαλά */
 @media (max-width: 1180px) { .nav.open { animation: menuin 160ms var(--ease-out); } }
 @keyframes menuin { from { opacity: 0; transform: translateY(-6px); } }
@@ -742,7 +742,7 @@ details.q[open]::details-content { block-size: auto; }
 /* Κάρτα στην αρχική */
 .oil-band { background: var(--olive-soft); border-block: 1px solid var(--olive-line); }
 .oil-band .wrap { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 32px; align-items: center; padding-block: 32px; }
-.oil-kicker { display: inline-block; font: 700 14px/1 var(--f-body); letter-spacing: .06em; text-transform: uppercase; color: var(--olive); background: rgb(110 138 44 / .14); border-radius: 999px; padding: 7px 12px; }
+.oil-kicker { display: inline-block; font: 700 14px/1 var(--f-body); letter-spacing: .06em; text-transform: uppercase; color: var(--olive); background: rgb(110 138 44 / .14); border-radius: var(--r); padding: 7px 12px; }
 .oil-band h2 { margin: 12px 0 6px; color: var(--olive-ink); font: 800 clamp(26px, 3.4vw, 36px)/1.1 var(--f-display); }
 .oil-band p { margin: 0; max-width: 60ch; color: var(--ink); }
 .oil-prices { list-style: none; display: flex; flex-wrap: wrap; gap: 10px 28px; margin: 16px 0 0; padding: 0; }
@@ -843,25 +843,43 @@ table.data.times tr > th:last-child, table.data.times tr > td:last-child { text-
 .signs .si { display: inline-flex; width: 26px; height: 26px; margin-right: 12px; vertical-align: -3px; color: var(--teal); font-style: normal; }
 .signs .si svg { width: 100%; height: 100%; transform-origin: 50% 60%; }
 @media (prefers-reduced-motion: no-preference) {
-  .signs a:is(:hover, :focus-visible, :active)[data-a="lift"] .si svg { animation: si-lift 520ms var(--ease-out); }
-  .signs a:is(:hover, :focus-visible, :active)[data-a="drop"] .si svg { animation: si-drop 520ms var(--ease-out); }
-  .signs a:is(:hover, :focus-visible, :active)[data-a="pop"] .si svg { animation: si-pop 420ms var(--ease-out); }
-  .signs a:is(:hover, :focus-visible, :active)[data-a="drive"] .si svg { animation: si-drive 620ms var(--ease-in-out); }
-  .signs a:is(:hover, :focus-visible, :active)[data-a="swing"] .si svg { animation: si-swing 620ms var(--ease-out); transform-origin: 50% 10%; }
+  @media (hover: hover) and (pointer: fine) {
+    .signs a:hover[data-a="lift"] .si svg { animation: si-lift 400ms var(--ease-out); }
+    .signs a:hover[data-a="drop"] .si svg { animation: si-drop 400ms var(--ease-out); }
+    .signs a:hover[data-a="pop"] .si svg { animation: si-pop 360ms var(--ease-out); }
+    .signs a:hover[data-a="drive"] .si svg { animation: si-drive 450ms var(--ease-in-out); }
+    .signs a:hover[data-a="swing"] .si svg { animation: si-swing 450ms var(--ease-out); transform-origin: 50% 10%; }
+  }
+  .signs a:focus-visible[data-a] .si svg { animation: si-pop 360ms var(--ease-out); }
   @keyframes si-lift { 0% { transform: none; } 40% { transform: translateY(-5px) rotate(-6deg); } 100% { transform: none; } }
-  @keyframes si-drop { 0% { transform: translateY(-6px); opacity: .4; } 60% { transform: translateY(1px); opacity: 1; } 100% { transform: none; } }
+  @keyframes si-drop { 0% { transform: none; } 35% { transform: translateY(-5px); opacity: .5; } 70% { transform: translateY(1px); opacity: 1; } 100% { transform: none; } }
   @keyframes si-pop { 0% { transform: scale(1); } 45% { transform: scale(1.18); } 100% { transform: scale(1); } }
   @keyframes si-drive { 0% { transform: none; } 45% { transform: translateX(5px); } 60% { transform: translateX(4px) translateY(-1px); } 100% { transform: none; } }
   @keyframes si-swing { 0% { transform: rotate(0); } 30% { transform: rotate(12deg); } 60% { transform: rotate(-8deg); } 100% { transform: rotate(0); } }
 
-  /* Πολύ ήπιο parallax στη φωτογραφία της εισόδου: κινείται μόνο το κάδρο της εικόνας (object-position), όχι η σελίδα */
-  @supports (animation-timeline: view()) {
-    .hero-photo-wrap .photo img { animation: hp-par linear both; animation-timeline: view(); animation-range: cover; }
-    @keyframes hp-par { from { object-position: 50% 25%; } to { object-position: 50% 60%; } }
-  }
 
   /* Κουμπί αντιγραφής: μικρή επιβεβαίωση */
   .btn.done { animation: btn-done 360ms var(--ease-out); }
   @keyframes btn-done { 0% { transform: scale(.96); } 60% { transform: scale(1.03); } 100% { transform: none; } }
 }
 .btn.done::before { content: "✓"; font-weight: 800; color: var(--teal); }
+
+/* 11/11 β' γύρος: εστίαση στη φόρμα αναζήτησης, κουμπιά συνομιλίας στο σκούρο επάνω μέρος, χάρτης, φωτογραφία εισόδου */
+.quicktrack :focus-visible { outline-color: #0C3456; }
+.hero .btn-wa, .hero .btn-vb, .page-head .btn-wa, .page-head .btn-vb { background: transparent; border-color: rgb(255 255 255 / .55); }
+@media (hover: hover) { .hero .btn-wa:hover, .hero .btn-vb:hover, .page-head .btn-wa:hover, .page-head .btn-vb:hover { background: rgb(255 255 255 / .08); } }
+img[src*="eisodos"] { aspect-ratio: 16 / 10 !important; object-fit: cover; object-position: 50% 12%; width: 100% !important; height: auto; }
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) .routes-svg .rt.via { opacity: 1; } }
+:root[data-theme="light"] .routes-svg .rt.via { opacity: 1; }
+.map-list { margin: 0; padding: 4px 8px 12px; }
+.map-list summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; font-weight: 600; color: var(--teal); }
+.map-list ul { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px 6px; }
+.map-list a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 10px; border: 1px solid var(--line); border-radius: var(--r); text-decoration: none; color: inherit; }
+.map-list a small { color: var(--muted); margin-left: 6px; }
+.skip-map { position: absolute; left: -9999px; }
+.skip-map:focus { position: static; display: inline-block; margin: 6px 8px; padding: 8px 12px; background: var(--sign); color: #1B2B3A; border-radius: var(--r); }
+@media (max-width: 520px) { .j-ctas > .btn, .j-ctas .chat-btns { flex: 1 1 100%; } .j-ctas .chat-btns .btn { flex: 1 1 0; } }
+h2.h3 { font-size: 20px; font-weight: 700; }
+.quicktrack .row.qt-grid { grid-template-columns: minmax(0, 1fr) 138px auto; }
+@media (max-width: 520px) { .quicktrack .row.qt-grid { grid-template-columns: minmax(0, 1fr) 128px; } }
+.quicktrack .qt-grid label { white-space: nowrap; }

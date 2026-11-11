@@ -13,14 +13,14 @@
       <div class="row"><span class="ico">{{i:phone}}</span><div><b>Κινητό, WhatsApp και Viber</b><span class="v">{{mobile}}</span><div style="margin-top:8px">{{chatButtons}}</div></div></div>
       <div class="row"><span class="ico">{{i:mail}}</span><div><b>Email</b><span class="v" style="font-size:17px">{{email}}</span></div></div>
       <div class="row"><span class="ico">{{i:pin}}</span><div><b>Διεύθυνση</b><span class="v" style="font-size:17px">{{address}}</span><span class="muted" style="display:block;font-size:14px">Αποθήκη δεμάτων, μέσα στον σταθμό</span>
-        <div style="margin-top:6px"><a href="{{maps}}" target="_blank" rel="noopener">Άνοιγμα στον χάρτη</a></div></div></div>
+        <div style="margin-top:10px"><a class="btn btn-ghost" href="{{maps}}" target="_blank" rel="noopener">{{i:pin}} Οδηγίες στον χάρτη</a></div></div></div>
       <div class="row"><span class="ico">{{i:home}}</span><div><b>Πώς θα έρθετε</b>{{access}}</div></div>
     </div>
-    <div class="panel"><h3>Ωράριο</h3><div style="margin-top:10px">{{hours}}</div></div>
+    <div class="panel"><h2 class="h3">Ωράριο</h2><div style="margin-top:10px">{{hours}}</div></div>
   </div>
   <div class="grid" style="gap:14px">
     <form class="form panel" data-msgform="Μήνυμα από την ιστοσελίδα" novalidate>
-      <h3>Στείλτε μας μήνυμα</h3>
+      <h2 class="h3">Στείλτε μας μήνυμα</h2>
       <div class="field"><label for="m-name">Όνομα</label><input id="m-name" name="m-name" data-label="Όνομα" required autocomplete="name"></div>
       <div class="field"><label for="m-phone">Τηλέφωνο</label><input id="m-phone" type="tel" data-label="Τηλέφωνο" required autocomplete="tel"></div>
       <div class="field"><label for="m-topic">Θέμα</label><select id="m-topic" data-label="Θέμα"><option>Αποστολή δέματος</option><option>Παραλαβή δέματος</option><option>Φύλαξη αποσκευών</option><option>Επιχείρηση</option><option>Άλλο</option></select></div>

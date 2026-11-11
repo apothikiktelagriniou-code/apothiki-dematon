@@ -13,14 +13,14 @@
       <div class="row"><span class="ico">{{i:phone}}</span><div><b>Mobile, WhatsApp and Viber</b><span class="v">{{mobile}}</span><div style="margin-top:8px">{{chatButtons}}</div></div></div>
       <div class="row"><span class="ico">{{i:mail}}</span><div><b>Email</b><span class="v" style="font-size:17px">{{email}}</span></div></div>
       <div class="row"><span class="ico">{{i:pin}}</span><div><b>Address</b><span class="v" style="font-size:17px">{{address}}</span><span class="muted" style="display:block;font-size:14px">Parcel depot, inside the station</span>
-        <div style="margin-top:6px"><a href="{{maps}}" target="_blank" rel="noopener">Open in maps</a></div></div></div>
+        <div style="margin-top:10px"><a class="btn btn-ghost" href="{{maps}}" target="_blank" rel="noopener">{{i:pin}} Directions in maps</a></div></div></div>
       <div class="row"><span class="ico">{{i:home}}</span><div><b>Getting here</b>{{access}}</div></div>
     </div>
-    <div class="panel"><h3>Opening hours</h3><div style="margin-top:10px">{{hours}}</div></div>
+    <div class="panel"><h2 class="h3">Opening hours</h2><div style="margin-top:10px">{{hours}}</div></div>
   </div>
   <div class="grid" style="gap:14px">
     <form class="form panel" data-msgform="Message from the website" novalidate>
-      <h3>Send us a message</h3>
+      <h2 class="h3">Send us a message</h2>
       <div class="field"><label for="m-name">Name</label><input id="m-name" name="m-name" data-label="Name" required autocomplete="name"></div>
       <div class="field"><label for="m-phone">Phone</label><input id="m-phone" type="tel" data-label="Phone" required autocomplete="tel"></div>
       <div class="field"><label for="m-topic">Topic</label><select id="m-topic" data-label="Topic"><option>Sending a parcel</option><option>Collecting a parcel</option><option>Luggage storage</option><option>Business</option><option>Other</option></select></div>

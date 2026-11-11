@@ -16,7 +16,7 @@
   };
   const eur = n => { const v = Number.isInteger(n) ? String(n) : (LANG === "en" ? n.toFixed(2) : n.toFixed(2).replace(".", ",")); return LANG === "en" ? "€" + v : v + " €"; };
   const B = SITE.BUSINESS;
-  const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const mqRM = matchMedia("(prefers-reduced-motion: reduce)"); let REDUCED = mqRM.matches; try { mqRM.addEventListener("change", e => { REDUCED = e.matches; }); } catch {}
   const LOCALE = T("el-GR", "en-GB");
   const SMOOTH = REDUCED ? "auto" : "smooth";
   const CALC = LANG === "en" ? "send" : "apostoli";
@@ -31,6 +31,13 @@
       a.addEventListener("focus", () => on(a.dataset.r)); a.addEventListener("blur", () => on(null));
     });
   }
+
+  // Εναλλαγή γλώσσας: κρατά τον προορισμό του υπολογιστή και το σημείο της σελίδας
+  const ls = $(".lang-switch");
+  if (ls) ls.addEventListener("click", () => { try { const u = new URL(ls.href, location.href), d = $("#c-dest");
+    if (d && d.value) u.searchParams.set("to", d.value); else if (location.search && !/[?&](r|n)=/.test(location.search)) u.search = location.search;
+    const sec = [...document.querySelectorAll("main section[id], main [id].section, main h2[id]")].find(el => el.getBoundingClientRect().bottom > 80);
+    u.hash = location.hash || (sec ? "#" + sec.id : ""); ls.href = u.href; } catch {} });
 
   // Μέτρηση κλικ: μόνο «πόσα» ανά μέρα, σελίδα και σημείο. Χωρίς cookies, χωρίς IP, χωρίς στοιχεία επισκέπτη.
   const PAGE = (location.pathname.replace(/^\/+|\.html$/g, "") || "index").replace(/\/$/, "/index").toLowerCase();
@@ -115,6 +122,10 @@
       // Συγκρίνουμε ανά προορισμό: «γυρίζει» μόνο η γραμμή που άλλαξε (όχι όλες, όταν έρθουν τα ζωντανά δεδομένα).
       const prev = new Map([...tb.rows].map(tr => [tr.dataset.k, tr.textContent]));
       const quiet = boardDrawn && performance.now() - boardAt < 1500;
+      const clock = () => { $("time", board).textContent = new Intl.DateTimeFormat(LOCALE, { timeZone: "Europe/Athens", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date()); };
+      const sig = rows.slice(0, 7).map(r => r.k + r.time + r.rel).join("|");
+      if (boardDrawn && sig === tb.dataset.sig) return clock();   // τίποτα δεν άλλαξε: μόνο η ώρα (κρατά εστίαση/hover)
+      tb.dataset.sig = sig;
       tb.textContent = ""; let fi = 0;
       const digit = (c, i) => String(Math.floor(Math.random() * (i === 0 ? 2 : i === 1 ? 10 : i === 3 ? 6 : 10)));
       rows.slice(0, 7).forEach(r => {
@@ -242,7 +253,7 @@
         h("dt", {}, T("Κατηγορία", "Category")), h("dd", {}, L(cat.name), byKg),
         h("dt", {}, T("Προορισμός", "Destination")), h("dd", {}, L(q.dest.name)),
         q.extra ? [h("dt", {}, T("Επιβάρυνση βάρους", "Weight surcharge")), h("dd", {}, T(`+${eur(q.extra)} ανά τεμάχιο (βασική ${eur(q.base)}, ${String(q.rate.toFixed(2)).replace(".", ",")} €/kg πάνω από ${OW.fromKg} kg)`, `+${eur(q.extra)} per item (base ${eur(q.base)}, €${q.rate.toFixed(2)}/kg over ${OW.fromKg} kg)`))] : null,
-        q.hub ? [h("dt", {}, T("Μέσω", "Via")), h("dd", {}, L(q.hub.label))] : null,
+        q.hub ? [h("dt", {}, T("Ανταπόκριση", "Via")), h("dd", {}, L(q.hub.label))] : null,
         q.eta ? [h("dt", {}, T("Παράδοση", "Delivery")), h("dd", {}, L(q.eta))] : null,
         // 🚏 Πού το παραλαμβάνει ο παραλήπτης, με τηλέφωνα που καλούνται με ένα πάτημα
         q.dest.terminal ? [h("dt", {}, T("Παραλαβή στον προορισμό", "Collection at destination")), h("dd", {}, [q.dest.terminal, q.dest.terminalAddr].filter(Boolean).join(", "),
@@ -299,7 +310,13 @@
     // Στο κινητό, μόλις διαλέξει προορισμό ή είδος, δείχνουμε την τιμή (αλλιώς μένει κάτω από την κάτω μπάρα).
     let calcPinged = false; const calcPing = () => { if (!calcPinged) { calcPinged = true; ping("calc", "calc"); } };
     form.addEventListener("input", calcPing); form.addEventListener("change", calcPing);
-    form.addEventListener("change", e => { if (e.target.tagName === "SELECT" && matchMedia("(max-width: 900px)").matches) { const p = $(".price-board", out) || out; p.scrollIntoView({ behavior: SMOOTH, block: "start" }); } });
+    // Μετά από αλλαγή προορισμού/είδους/μεγέθους: αν η τιμή δεν φαίνεται, φέρνουμε την τιμή στην οθόνη
+    form.addEventListener("change", e => {
+      if (!(e.target.tagName === "SELECT" || e.target.name === "kind" || NUMS.has(e.target.id))) return;
+      if (!$("#c-dest").value) return;
+      requestAnimationFrame(() => { const p = $(".price-board", out); if (!p) return; const r = p.getBoundingClientRect(); const bar = matchMedia("(max-width: 900px)").matches ? 76 : 0;
+        if (r.top < 70 || r.bottom > innerHeight - bar) p.scrollIntoView({ behavior: SMOOTH, block: "center" }); });
+    });
     form.addEventListener("submit", e => e.preventDefault());
     const pre = new URLSearchParams(location.search).get("to");
     if (pre && findDest(SITE.DESTINATIONS, pre)) sel.value = findDest(SITE.DESTINATIONS, pre).name;
@@ -356,6 +373,7 @@
   const dq = $("[data-dest-filter]");
   if (dq) {
     const rows = $$(".dest-table tbody tr"), cnt = $("[data-dest-count]");
+    dq.addEventListener("focus", () => { if (matchMedia("(max-width: 900px)").matches) setTimeout(() => dq.scrollIntoView({ behavior: SMOOTH, block: "start" }), 250); });
     // «larisa», «thessaloniki», «patra»: τα λατινικά γράμματα γίνονται ελληνικά πριν από τη σύγκριση.
     const G2 = [["ef", "ευ"], ["ev", "ευ"], ["af", "αυ"], ["av", "αυ"], ["ng", "γγ"], ["th", "θ"], ["ch", "χ"], ["ps", "ψ"], ["ks", "ξ"], ["ou", "ου"], ["mp", "μπ"], ["nt", "ντ"], ["gk", "γκ"]];
     const G1 = { a: "α", b: "β", v: "β", g: "γ", d: "δ", e: "ε", z: "ζ", h: "η", i: "ι", y: "υ", k: "κ", c: "κ", q: "κ", l: "λ", m: "μ", n: "ν", x: "ξ", o: "ο", p: "π", r: "ρ", s: "σ", t: "τ", u: "ου", f: "φ", w: "ω", j: "τζ" };
@@ -830,13 +848,10 @@
         for (const el of left) if (el.getBoundingClientRect().top < innerHeight) { el.classList.add("in"); io.unobserve(el); } }); };
       addEventListener("scroll", onScroll, { passive: true });
     }
-    const count = el => { const n = Number(el.dataset.count); if (REDUCED || !n) return; const t0 = performance.now() + 300, dur = 1100;
-      const step = now => { const p = Math.min(Math.max((now - t0) / dur, 0), 1); el.textContent = Math.round(n * (1 - Math.pow(1 - p, 3))); if (p < 1) requestAnimationFrame(step); };
-      el.textContent = "0"; requestAnimationFrame(step); };
     for (const fig of $$("[data-routes]")) {
-      if (fig.getBoundingClientRect().top < innerHeight * 0.8) { fig.classList.add("in"); continue; }
+      if (REDUCED || fig.getBoundingClientRect().top < innerHeight * 0.8) { fig.classList.add("in"); continue; }
       fig.classList.add("armed");
-      const mo = new IntersectionObserver(es => { if (es.some(e => e.isIntersecting)) { fig.classList.add("in"); $$("[data-count]", fig).forEach(count); mo.disconnect(); } }, { threshold: 0.35 });
+      const mo = new IntersectionObserver(es => { if (es.some(e => e.isIntersecting)) { fig.classList.add("in"); mo.disconnect(); } }, { threshold: 0.35 });
       mo.observe(fig);
     }
   }
