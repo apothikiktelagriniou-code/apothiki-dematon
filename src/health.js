@@ -5,7 +5,6 @@
 import { SUPABASE_URL, SUPABASE_KEY } from "./config.js";
 import { outboxInfo } from "./capture.js";
 import { outQueueInfo } from "./outgoing.js";
-import { lastBackup } from "./backup.js";
 
 const $ = id => document.getElementById(id);
 const el = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
@@ -108,7 +107,7 @@ function banner() {
 export async function openHealth() {
   const body = $("dlgBody"); body.textContent = "";
   body.append(el("h2", null, "🩺 Κατάσταση συστήματος"), el("div", "hint", "Έλεγχος…")); $("dlg").showModal();
-  await Promise.all([checkFns(), heartbeat().then(loadDevices), smsWatch(true), lastBackup(D.sb).then(b => { state.backup = b; }).catch(() => {})]);
+  await Promise.all([checkFns(), heartbeat().then(loadDevices), smsWatch(true)]);
   body.textContent = ""; body.append(el("h2", null, "🩺 Κατάσταση συστήματος"));
   const sec = (t, ok) => { const h = el("h3", "hsec " + (ok ? "ok" : "bad"), (ok ? "✓ " : "⚠ ") + t); body.append(h); };
   // Edge Functions
@@ -143,9 +142,9 @@ export async function openHealth() {
   s.failed.slice(0, 20).forEach(p => body.append(el("div", "hrow bad", "✗ " + (p.recipient_name || "—") + " · " + (p.recipient_phone || "") + " · " + (p.sms_state === "Error" ? "δεν στάλθηκε" : "δεν παραδόθηκε"))));
   if (s.lastError) body.append(el("div", "hint", "Τελευταίο σφάλμα αποστολής: " + s.lastError));
   // Αντίγραφο
-  const bk = state.backup, bOk = bk && bk.name && bk.name.slice(0, 10) >= new Date(Date.now() - 36 * 3600e3).toISOString().slice(0, 10);
-  sec("Αντίγραφο ασφαλείας", !!bOk);
-  body.append(el("div", "hrow " + (bOk ? "ok" : "bad"), bk ? "Τελευταίο: " + bk.name + (bk.size ? " · " + Math.round(bk.size / 1024) + " KB" : "") : "Δεν βρέθηκε αντίγραφο"));
+  sec("Αντίγραφο ασφαλείας", true);
+  body.append(el("div", "hrow ok", "Αυτόματο κάθε μέρα από το Supabase Pro (κρατιούνται 7 μέρες) — Supabase → Database → Backups."));
+  body.append(el("div", "hint", "Για δικό σου αντίγραφο (USB / Google Drive): Μενού → «⬇ Λήψη αντιγράφου», π.χ. μία φορά την εβδομάδα."));
   body.append(el("div", "hint", "Έλεγχος: " + (state.at ? state.at.toLocaleTimeString("el-GR") : "—") + " · αυτή η συσκευή: " + KIND + " " + DEV_ID));
 }
 export function initHealth(deps) {

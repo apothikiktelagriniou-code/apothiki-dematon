@@ -8,7 +8,7 @@ import { sound } from "./scan.js";
 import { initCapture, pendingReviewCount, toJpegB64, loadQueue } from "./capture.js";
 import { openManifest } from "./manifest.js";
 import { initOutgoing, showOutgoing, reloadOutgoing } from "./outgoing.js";
-import { autoBackup, downloadBackup, lastBackup } from "./backup.js";
+import { downloadBackup } from "./backup.js";
 import { initHealth, openHealth, smsSendFailed, SMS_FAIL_TAG } from "./health.js";
 import { initContest, openContest } from "./contest.js";
 import { initPayments, openPayments } from "./payments.js";
@@ -129,7 +129,7 @@ async function loadParcels(full) {
   if (error) { show($("netMsg"), "Δεν φορτώθηκαν τα δέματα. Έλεγξε τη σύνδεση και ανανέωσε τη σελίδα.", "bad"); return; }
   rows = new Map(data.map(p => [p.id, p])); parcelMark = maxStamp(data, null); parcelFullAt = Date.now();
   render(); purgeAllClosed(); cleanStaleNotes(); fixKindOnce(); greeklishFixOnce(); gemiStats();
-  if (matchMedia("(pointer:fine)").matches) setTimeout(() => autoBackup(sb).then(r => { if (r && r.error) console.warn("backup:", r.error); }).catch(e => console.warn("backup:", e)), 20000); // ημερήσιο αντίγραφο retentionSweep();
+  // Αντίγραφα: το Supabase Pro κρατά ημερήσιο αντίγραφο (7 μέρες). Η συσκευή ΔΕΝ κατεβάζει πια όλη τη βάση. Με το χέρι: Μενού → «⬇ Λήψη αντιγράφου».
 }
 // GDPR: αριθμός εγγράφου και υπογραφή παραλαβής κρατιούνται 12 μήνες από την παράδοση, μετά σβήνονται (μία φορά τη μέρα)
 const RETAIN_DAYS = 365;
@@ -1764,7 +1764,6 @@ $("backupBtn").onclick = async () => {
   try {
     show(m, "Φτιάχνω αντίγραφο…", "info");
     const r = await downloadBackup(sb, (t, n) => show(m, "Φτιάχνω αντίγραφο… " + t + " " + n, "info"));
-    const last = await lastBackup(sb).catch(() => null);
     show(m, "✓ Κατέβηκε αντίγραφο με " + r.total.toLocaleString("el-GR") + " εγγραφές. Φύλαξέ το σε USB ή Google Drive." + (last ? " Τελευταίο αυτόματο: " + last.name.slice(0, 10) + "." : ""), "ok");
   } catch (e) { show(m, "Το αντίγραφο απέτυχε: " + (e.message || e), "bad"); }
   finally { b.disabled = false; }
