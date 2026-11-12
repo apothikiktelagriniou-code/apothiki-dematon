@@ -136,7 +136,7 @@ Deno.serve(async req => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   const url = new URL(req.url);
   const key = Deno.env.get("ANTHROPIC_API_KEY");
-  if (url.searchParams.get("health") === "1") return json({ ok: true, hasKey: !!key, model: MODEL, version: "2026-11-11-fast" });
+  if (url.searchParams.get("health") === "1") return json({ ok: true, hasKey: !!key, model: MODEL, version: "2026-11-12-quota" });
   // μόνο συνδεδεμένοι χρήστες της εφαρμογής
   const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY") ?? req.headers.get("apikey") ?? "", {
     global: { headers: { Authorization: req.headers.get("Authorization") ?? "" } },
@@ -166,6 +166,8 @@ Deno.serve(async req => {
   }
 
   if (!key) return json({ error: "missing_key" }, 500);
+  // ημερήσιο όριο AI (0034): 600 ανά χρήστη / 1500 όλοι μαζί — αν δεν έχει τρέξει το 0034, δεν μπλοκάρει
+  { const { data: okq, error: qe } = await sb.rpc("fn_quota", { p_kind: "ai" }); if (!qe && okq === false) return json({ error: "quota", detail: "Ξεπεράστηκε το ημερήσιο όριο αναγνώσεων AI" }, 429); }
 
   let body: { mode?: string; images?: { data: string; media_type?: string }[] };
   try { body = await req.json(); } catch { return json({ error: "bad_request" }, 400); }

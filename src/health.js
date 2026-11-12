@@ -37,19 +37,22 @@ async function loadDevices() {
 const staleDevices = () => (state.devices || []).filter(d => (d.pending_in || d.pending_out) && Date.now() - new Date(d.last_seen).getTime() > 10 * 60000);
 
 // ---------------------------------------------------------------- 2) SMS
-let smsBusy = false;
-async function smsWatch() {
-  if (!D || !D.loggedIn() || smsBusy || !navigator.onLine) return; smsBusy = true;
+let smsBusy = false; const smsChecked = new Map(); // πότε ελέγξαμε ΕΜΕΙΣ κάθε SMS (στη συσκευή — όχι εγγραφή στη βάση)
+async function smsWatch(manual) {
+  if (!D || !D.loggedIn() || smsBusy || !navigator.onLine) return;
+  if (manual !== true && document.hidden) return; // στο παρασκήνιο δεν ελέγχει (μπαταρία/δεδομένα)
+  smsBusy = true;
   try {
     const since = Date.now() - 48 * 3600e3;
     const listOf = () => D.rows().filter(p => p.notify_channel === "sms" && p.notified_at && new Date(p.notified_at).getTime() > since);
     const openOf = l => l.filter(p => p.sms_message_id && !FINAL.includes(p.sms_state || ""));
-    const open = openOf(listOf()).sort((a, b) => new Date(a.sms_state_at || 0) - new Date(b.sms_state_at || 0)); // πρώτα όσα δεν ελέγχθηκαν ποτέ / πιο παλιά
+    const seen = p => smsChecked.get(p.id) || new Date(p.sms_state_at || 0).getTime();
+    const open = openOf(listOf()).sort((a, b) => seen(a) - seen(b)); // πρώτα όσα δεν ελέγχθηκαν ποτέ / πιο παλιά
     for (const p of open.slice(0, 15)) {
       const { data, error } = await D.sb.functions.invoke("send-sms", { body: { status: p.sms_message_id } });
       if (error) { let b = {}; try { b = await error.context.json(); } catch { /* */ } if (b.error === "invalid_phone" || b.error === "bad_text") { state.sms.unsupported = true; break; } continue; }
-      const st = data && data.state; if (!st) continue;
-      if (st === p.sms_state) { D.updateParcel(p.id, { sms_state_at: new Date().toISOString() }).catch(() => {}); continue; } // ελέγχθηκε → πάει στο τέλος της σειράς
+      smsChecked.set(p.id, Date.now());
+      const st = data && data.state; if (!st || st === p.sms_state) continue; // ίδια κατάσταση → καμία εγγραφή
       const patch = { sms_state: st, sms_state_at: new Date().toISOString() };
       if (st === "Failed") Object.assign(patch, { status: p.status === "notified" ? "arrived" : p.status, tags: [...new Set([...(p.tags || []), SMS_FAIL_TAG])] });
       try { await D.updateParcel(p.id, patch); } catch { /* χωρίς 0021: η στήλη δεν υπάρχει */ state.devErr = state.devErr || "Τρέξε το 0021_health.sql στο Supabase."; break; }
@@ -105,7 +108,7 @@ function banner() {
 export async function openHealth() {
   const body = $("dlgBody"); body.textContent = "";
   body.append(el("h2", null, "🩺 Κατάσταση συστήματος"), el("div", "hint", "Έλεγχος…")); $("dlg").showModal();
-  await Promise.all([checkFns(), heartbeat().then(loadDevices), smsWatch(), lastBackup(D.sb).then(b => { state.backup = b; }).catch(() => {})]);
+  await Promise.all([checkFns(), heartbeat().then(loadDevices), smsWatch(true), lastBackup(D.sb).then(b => { state.backup = b; }).catch(() => {})]);
   body.textContent = ""; body.append(el("h2", null, "🩺 Κατάσταση συστήματος"));
   const sec = (t, ok) => { const h = el("h3", "hsec " + (ok ? "ok" : "bad"), (ok ? "✓ " : "⚠ ") + t); body.append(h); };
   // Edge Functions
@@ -128,7 +131,7 @@ export async function openHealth() {
   if (s.unsupported) body.append(el("div", "hrow warn", "Η παρακολούθηση παράδοσης θέλει τη νέα έκδοση του send-sms — ξανανέβασέ το στο Supabase."));
   // «κλείσ' το»: σημειώνει το SMS ως τακτοποιημένο ώστε να μη χτυπά άλλο (το δέμα μένει όπως είναι)
   const dismiss = async (list, b) => { b.disabled = true; for (const p of list) { try { await D.updateParcel(p.id, { sms_state: "Dismissed", sms_state_at: new Date().toISOString() }); } catch { /* */ } }
-    await smsWatch(); openHealth(); };
+    await smsWatch(true); openHealth(); };
   const who = p => (p.recipient_name || "—") + " · " + (p.recipient_phone || "") + (p.receipt_no ? " · απόδ. " + p.receipt_no : "") + " · " + new Date(p.notified_at).toLocaleString("el-GR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
   if (s.stuck) {
     body.append(el("div", "hrow bad", s.stuck + " SMS δεν έφυγαν από το κινητό SMS μετά από 30′. Έλεγξε ότι το κινητό είναι ανοιχτό, με μπαταρία, σήμα και ανοιχτή την εφαρμογή SMS Gateway — μόλις συνδεθεί, φεύγουν μόνα τους."));

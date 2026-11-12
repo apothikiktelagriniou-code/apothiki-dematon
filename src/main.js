@@ -113,15 +113,23 @@ async function loadSettings() {
 }
 
 // ---------------------------------------------------------------- δεδομένα
-async function loadParcels() {
+// ΛΙΓΟΤΕΡΑ ΔΕΔΟΜΕΝΑ: πλήρης φόρτωση στην αρχή και ανά 30′· ενδιάμεσα μόνο ό,τι άλλαξε (updated_at, ώρα του server)
+let parcelMark = null, parcelFullAt = 0;
+const maxStamp = (list, prev) => list.reduce((m, r) => (r.updated_at && (!m || r.updated_at > m) ? r.updated_at : m), prev);
+const back = (iso, ms) => new Date(new Date(iso).getTime() - ms).toISOString(); // επικάλυψη για αλλαγές «στο ίδιο δευτερόλεπτο»
+async function loadParcels(full) {
+  if (!full && parcelMark && Date.now() - parcelFullAt < 30 * 60000) {
+    const { data, error } = await fetchAll(() => sb.from("parcels").select("*").gt("updated_at", back(parcelMark, 120000)).order("updated_at").order("id"));
+    if (!error && data) { data.forEach(p => rows.set(p.id, p)); parcelMark = maxStamp(data, parcelMark); if (data.length) scheduleRender(); return; }
+  }
   const since = new Date(Date.now() - 45 * 864e5).toISOString();
   const { data, error } = await fetchAll(() => sb.from("parcels").select("*")
     .or(`status.in.(arrived,notified,transit),created_at.gte.${since}`)
     .order("created_at", { ascending: false }).order("id"));
   if (error) { show($("netMsg"), "Δεν φορτώθηκαν τα δέματα. Έλεγξε τη σύνδεση και ανανέωσε τη σελίδα.", "bad"); return; }
-  rows = new Map(data.map(p => [p.id, p]));
+  rows = new Map(data.map(p => [p.id, p])); parcelMark = maxStamp(data, null); parcelFullAt = Date.now();
   render(); purgeAllClosed(); cleanStaleNotes(); fixKindOnce(); greeklishFixOnce(); gemiStats();
-  setTimeout(() => autoBackup(sb).then(r => { if (r && r.error) console.warn("backup:", r.error); }).catch(e => console.warn("backup:", e)), 20000); // ημερήσιο αντίγραφο retentionSweep();
+  if (matchMedia("(pointer:fine)").matches) setTimeout(() => autoBackup(sb).then(r => { if (r && r.error) console.warn("backup:", r.error); }).catch(e => console.warn("backup:", e)), 20000); // ημερήσιο αντίγραφο retentionSweep();
 }
 // GDPR: αριθμός εγγράφου και υπογραφή παραλαβής κρατιούνται 12 μήνες από την παράδοση, μετά σβήνονται (μία φορά τη μέρα)
 const RETAIN_DAYS = 365;
@@ -251,7 +259,11 @@ async function saveParcel(o) {
 }
 async function updateParcel(id, patch) {
   const { data, error } = await sb.from("parcels").update({ ...patch, operator: operator() }).eq("id", id).select().single();
-  if (error) throw error;
+  if (error) {
+    if (/stale_status/.test((error.hint || "") + (error.message || ""))) { // άλλη συσκευή το είχε ήδη παραδώσει (0033)
+      toast("⚠ Το δέμα έχει ήδη παραδοθεί από άλλη συσκευή — η λίστα ανανεώνεται.", "bad"); loadParcels(); }
+    throw error;
+  }
   rows.set(id, data); scheduleRender(); purgePackage(data); return data; // μαζικές ενέργειες: ένα σχέδιο αντί για δεκάδες
 }
 
@@ -883,7 +895,11 @@ $("q").addEventListener("input", () => { clearTimeout(qT); const q = $("q").valu
       `picked_by_name.ilike.%${s}%`, `sender_name.ilike.%${s}%`, `fwd_bus.ilike.%${s}%`, `package_desc.ilike.%${raw}%`, `pickup_code.eq.${raw}`];
     if (/[A-Z]{3}/.test(s) && !/\d/.test(s)) or.push(`recipient_name.ilike.%${greeklishToGreek(s)}%`);
     const qd = raw.replace(/\D/g, ""); if (qd.length >= 4 && qd.length === raw.replace(/[\s\-./]/g, "").length) or.push(`recipient_phone.ilike.%${qd}%`, `picked_by_phone.ilike.%${qd}%`, `receipt_no.ilike.%${qd.slice(-5)}%`); // ψηφία με κενά/χωρίς παύλες
-    let { data, error } = await sb.from("parcels").select("*").or(or.join(",")).order("created_at", { ascending: false }).limit(100);
+    // γρήγορη αναζήτηση με ευρετήριο (0033)· αν δεν υπάρχει ακόμα, η παλιά
+    let data = null, error = null;
+    { const r = await sb.rpc("search_parcels", { q: raw }); data = r.data; error = r.error;
+      if (!error && qd.length >= 4 && qd !== raw) { const r2 = await sb.rpc("search_parcels", { q: qd.slice(-5) }); /* οι αποδείξεις έχουν παύλες: ψάχνουμε τα 5 τελευταία, η λίστα φιλτράρει ακριβώς */ if (!r2.error) data = [...(data || []), ...(r2.data || [])]; } }
+    if (error) ({ data, error } = await sb.from("parcels").select("*").or(or.join(",")).order("created_at", { ascending: false }).limit(100));
     if (error) ({ data } = await sb.from("parcels").select("*").or(or.filter(x => !x.startsWith("package_desc")).join(",")).order("created_at", { ascending: false }).limit(100));
     if (data && data.length) { data.forEach(p => rows.set(p.id, p)); render(); } }, 400); });
 
@@ -972,7 +988,7 @@ async function setChannel(p, ch) {
 }
 async function sendSms(p, text) {
   const { data, error } = await sb.functions.invoke("send-sms", { body: { phone: p.recipient_phone, text } });
-  if (error) { let b = {}; try { b = await error.context.json(); } catch {} const why = b.error === "missing_credentials" ? "δεν έχουν μπει τα στοιχεία του κινητού στο Supabase" : (b.detail || b.error || "σφάλμα δικτύου"); if (b.error === "sms_failed") smsSendFailed(p, why); return { ok: false, error: why }; }
+  if (error) { let b = {}; try { b = await error.context.json(); } catch {} const why = b.error === "quota" ? "ξεπεράστηκε το ημερήσιο όριο SMS (ασφάλεια) — συνέχισε με WhatsApp/Viber ή αύριο" : b.error === "missing_credentials" ? "δεν έχουν μπει τα στοιχεία του κινητού στο Supabase" : (b.detail || b.error || "σφάλμα δικτύου"); if (b.error === "sms_failed") smsSendFailed(p, why); return { ok: false, error: why }; }
   if (data && data.id) updateParcel(p.id, { sms_message_id: data.id, sms_state: null, sms_state_at: null }).catch(() => {}); // νέο SMS = νέα παρακολούθηση
   return { ok: true };
 }
@@ -1534,11 +1550,16 @@ $("notifBtn").onclick = async () => {
 
 // ---------------------------------------------------------------- πελάτες: μνήμη, καρτέλα, προτάσεις τηλεφώνου
 let custCache = [], custT = null;
-async function loadCustomers() {
-  let { data, error } = await fetchAll(() => sb.from("customers").select("id,full_name,name_key,surname_key,phones,parcels_count,last_parcel_at,is_business,aliases,starred,email,area,notes").order("id"), 50000);
+let custMark = null, custFullAt = 0;
+async function loadCustomers(full) {
+  if (!full && custMark && custCache.length && Date.now() - custFullAt < 60 * 60000) { // ενδιάμεσα: μόνο όσοι άλλαξαν
+    const { data, error } = await fetchAll(() => sb.from("customers").select("id,full_name,name_key,surname_key,phones,parcels_count,last_parcel_at,is_business,aliases,starred,email,area,notes,updated_at").gt("updated_at", back(custMark, 120000)).order("updated_at").order("id"));
+    if (!error && data) { if (data.length) { const m = new Map(custCache.map(c => [c.id, c])); data.forEach(c => m.set(c.id, c)); custCache = [...m.values()]; scheduleRender(); } custMark = maxStamp(data, custMark); return; }
+  }
+  let { data, error } = await fetchAll(() => sb.from("customers").select("id,full_name,name_key,surname_key,phones,parcels_count,last_parcel_at,is_business,aliases,starred,email,area,notes,updated_at").order("id"), 50000);
   if (error) ({ data, error } = await fetchAll(() => sb.from("customers").select("id,full_name,name_key,surname_key,phones,parcels_count,last_parcel_at,is_business,aliases").order("id"), 50000));
   if (error) ({ data } = await fetchAll(() => sb.from("customers").select("id,full_name,name_key,surname_key,phones,parcels_count,last_parcel_at,is_business").order("id"), 50000));
-  if (data) { custCache = data; scheduleRender(); }
+  if (data) { custCache = data; custMark = maxStamp(data, null); custFullAt = Date.now(); scheduleRender(); }
 }
 // ---------- λεξικό ονομάτων από ΔΙΚΑ μας δεδομένα (πελάτες + δέματα) + συχνά ελληνικά ονόματα/επώνυμα
 let lexCache = null, lexKey = "", sugCache = new Map();

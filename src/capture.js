@@ -17,8 +17,11 @@ const obDel = id => ob("readwrite", s => s.delete(id));
 
 // ---------- εικόνες ----------
 function loadImg(file) { return new Promise((res, rej) => { const u = URL.createObjectURL(file); const i = new Image(); i.onload = () => { URL.revokeObjectURL(u); res(i); }; i.onerror = rej; i.src = u; }); }
+const decoded = new WeakMap(); // η ίδια φωτογραφία αποκωδικοποιείται ΜΙΑ φορά (πριν: 3 φορές σε πλήρη ανάλυση)
 export async function toJpegB64(file, max, q) {
-  const img = await loadImg(file); const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+  let pr = file && typeof file === "object" ? decoded.get(file) : null;
+  if (!pr) { pr = loadImg(file); if (file && typeof file === "object") { decoded.set(file, pr); setTimeout(() => decoded.delete(file), 15000); } }
+  const img = await pr; const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
   const c = document.createElement("canvas"); c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
   c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
   return c.toDataURL("image/jpeg", q).split(",")[1];
@@ -185,7 +188,9 @@ async function processOne(it) {
   const ph = cleanPhone(d.phone);
   // ίδιος αριθμός απόδειξης = επόμενο τεμάχιο της ίδιας αποστολής
   const addPiece = async () => {
-    const { data: rows } = await D.sb.rpc("add_piece", { p_receipt: d.receipt_no, p_total: Number(d.pieces) || 1 });
+    // p_event = η φωτογραφία: αν ξανασταλεί (κακό σήμα), το τεμάχιο ΔΕΝ μετριέται δεύτερη φορά (0033)
+    let { data: rows, error: e1 } = await D.sb.rpc("add_piece", { p_receipt: d.receipt_no, p_total: Number(d.pieces) || 1, p_event: it.id });
+    if (e1 && /PGRST202|function/i.test((e1.code || "") + (e1.message || ""))) ({ data: rows } = await D.sb.rpc("add_piece", { p_receipt: d.receipt_no, p_total: Number(d.pieces) || 1 })); // χωρίς 0033
     if (rows && rows.length) { D.onSaved(rows[0]); if (it.pkg && !rows[0].package_photo_path) await D.attachPackage(rows[0].id, it.pkg, d.package_desc); stats.auto++; stats.pieces = (stats.pieces || 0) + 1; await obDel(it.id);
       report(it.id, { ok: true, name: rows[0].recipient_name || "", sub: "Τεμάχιο " + (rows[0].pieces_in || "?") + "/" + (rows[0].pieces_total || "?") + (subOk(rows[0]) ? " · " + subOk(rows[0]) : "") }); return true; }
     return false;
