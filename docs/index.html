@@ -11,7 +11,7 @@
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" href="./icon-192.png">
 <link rel="apple-touch-icon" href="./icon-192.png">
-  <script type="module" crossorigin src="./assets/index-DCUcLcf3.js"></script>
+  <script type="module" crossorigin src="./assets/index-rIzIj9k1.js"></script>
   <link rel="stylesheet" crossorigin href="./assets/index-DNcWLAe7.css">
 </head>
 <body>
@@ -253,6 +253,16 @@
     <form id="scanManual" class="toolbar"><input id="scanNum" inputmode="numeric" autocomplete="off" placeholder="ή γράψε αριθμό / 6 τελευταία ψηφία" aria-label="Αριθμός απόδειξης"><button class="btn small" type="submit">OK</button><button class="btn small primary" type="button" id="scanAdd" title="Δέμα εκτός κατάστασης: φωτογράφισε την απόδειξη μέσα στο πλαίσιο">＋ Εκτός κατάστασης</button></form>
     <div id="scanLog" class="scanlog"></div>
   </dialog>
+  <dialog id="invScanDlg" class="scanner" aria-labelledby="invScanTitle">
+    <div class="scanhead"><h2 id="invScanTitle">📦 Απογραφή · σάρωση</h2><button class="btn" type="button" id="invScanClose">Τέλος → τι λείπει</button></div>
+    <div class="scanview"><video id="invVideo" playsinline muted></video><div class="scanframe" aria-hidden="true"></div>
+      <div id="invFlash" class="scanflash" hidden role="alert"><div id="invFlashBig" class="sf-big"></div><div id="invFlashName" class="sf-name"></div><div id="invFlashSub" class="sf-sub"></div></div>
+      <button class="btn small torch" type="button" id="invTorch" hidden aria-label="Φακός">🔦</button></div>
+    <div id="invScanStatus" class="msg info" role="status" aria-live="polite"></div>
+    <div id="invScanCount" class="scancount"></div>
+    <form id="invScanManual" class="toolbar"><input id="invScanNum" inputmode="numeric" autocomplete="off" placeholder="δυσανάγνωστο; γράψε τα 5–6 τελευταία ψηφία" aria-label="Αριθμός απόδειξης"><button class="btn" type="submit">✓</button></form>
+    <div id="invScanLog" class="scanlog"></div>
+  </dialog>
   <dialog id="camDlg" class="scanner" aria-labelledby="camTitle">
     <div class="scanhead"><h2 id="camTitle">📸 Ετικέτες</h2><button class="btn" type="button" id="camClose">Τέλος</button></div>
     <div class="quick camopts"><button class="btn small" type="button" id="camFast">⚡ Συνεχόμενη</button><button class="btn small" type="button" id="camLive" hidden>🎥 Ζωντανή</button></div>
@@ -314,6 +324,8 @@
   <dialog id="invDlg" class="sheet" aria-labelledby="invTitle">
     <div class="sheet-head"><h2 id="invTitle">📦 Απογραφή αποθήκης</h2><button class="btn small" type="button" id="invClose" aria-label="Κλείσιμο">✕</button></div>
     <div class="msg info" id="invProg" role="status"></div>
+    <button class="btn primary big" type="button" id="invScanBtn">📷 Σάρωση με κάμερα — δέμα-δέμα, συνεχόμενα</button>
+    <div id="invExtra"></div>
     <input id="invQ" type="search" class="search" placeholder="Βρες γρήγορα: επώνυμο ή αριθμός απόδειξης" aria-label="Αναζήτηση στην απογραφή">
     <div class="chips" role="group" aria-label="Προβολή απογραφής">
       <button class="chip" type="button" data-iv="todo" aria-pressed="true">Δεν βρέθηκαν ακόμα</button>
