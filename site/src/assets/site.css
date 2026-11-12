@@ -317,6 +317,7 @@ details.q .a { padding: 0 2px 18px; color: var(--ink); max-width: 68ch; }
 
 /* Φωτογραφίες (μπαίνουν μόνο αν υπάρχει το αρχείο) */
 .photo { margin: 0; }
+.photo picture { display: block; }
 .photo img { display: block; width: 100%; aspect-ratio: 3 / 2; object-fit: cover; border-radius: var(--r); }
 .photo figcaption { font-size: 14px; color: var(--muted); margin-top: 6px; }
 

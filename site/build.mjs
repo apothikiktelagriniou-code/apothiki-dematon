@@ -89,15 +89,33 @@ for (const f of readdirSync(join(ROOT, "src/assets"))) {
 const PHOTO_DIR = join(ROOT, "src/assets/photos");
 const calcSrc = readFileSync(join(ROOT, "src/calc.mjs"), "utf8").replace(/^export /gm, "");
 const site = { ...DATA, EN, SCHEDULE: SCHED.map(({ dest, time, days, express, conn, notes }) => ({ dest, time, days, express, conn, notes })), SUPABASE: { url: SUPABASE_URL, key: SUPABASE_KEY } };
-const APP_JS = `// Παράγεται από site/build.mjs — μην το αλλάζετε με το χέρι.\n"use strict";\nconst SITE = ${JSON.stringify(site)};\n${calcSrc}\n${readFileSync(join(ROOT, "src/client.js"), "utf8")}`;
+const CLIENT = readFileSync(join(ROOT, "src/client.js"), "utf8");
+const jsOf = src => `// Παράγεται από site/build.mjs — μην το αλλάζετε με το χέρι.\n"use strict";\nconst SITE = ${JSON.stringify(site)};\n${calcSrc}\n${src}`;
+// Οι δημόσιες σελίδες δεν κατεβάζουν τον κώδικα της διαχείρισης (~29 KB): κόβεται ανάμεσα στα // @admin-start και // @admin-end.
+const PUBLIC_CLIENT = CLIENT.replace(/^[ \t]*\/\/ @admin-start[\s\S]*?\/\/ @admin-end[^\n]*\n/m, "");
+if (PUBLIC_CLIENT === CLIENT) console.warn("⚠ Δεν βρέθηκαν τα // @admin-start / @admin-end στο client.js: το app.js περιέχει και τη διαχείριση.");
+const APP_JS = jsOf(PUBLIC_CLIENT), ADMIN_JS = jsOf(CLIENT);
 writeFileSync(join(OUT, "assets/app.js"), APP_JS);
+writeFileSync(join(OUT, "assets/app-admin.js"), ADMIN_JS);
 // Γραμματοσειρές από το δικό μας σάιτ: μπαίνουν στην αρχή του site.css (ένα αρχείο, κανένα αίτημα σε τρίτους).
-const SITE_CSS = readFileSync(join(ROOT, "src/assets/fonts.css"), "utf8") + "\n" + readFileSync(join(ROOT, "src/assets/site.css"), "utf8");
+// Συμπίεση χωρίς εξαρτήσεις: φεύγουν σχόλια και κενά (τα σχόλια μένουν στο src/assets/site.css).
+const minCss = s => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\s+/g, " ").replace(/\s*([{};,])\s*/g, "$1").replace(/;}/g, "}").trim() + "\n";
+const SITE_CSS = minCss(readFileSync(join(ROOT, "src/assets/fonts.css"), "utf8") + "\n" + readFileSync(join(ROOT, "src/assets/site.css"), "utf8"));
 writeFileSync(join(OUT, "assets/site.css"), SITE_CSS);
 rmSync(join(OUT, "assets/fonts.css"), { force: true });
+// Ο χάρτης της βιτρίνας (προορισμοί): απλοποιημένο περίγραμμα ξηράς (~127 KB → ~40 KB), ίδια εμφάνιση στο μέγεθος που δείχνεται.
+{ const raw = readFileSync(join(ROOT, "src/assets/map.svg"), "utf8");
+  const rdp = (pts, eps) => { if (pts.length < 3) return pts; const [a, b] = [pts[0], pts[pts.length - 1]]; let dm = 0, idx = 0;
+    const dx = b[0] - a[0], dy = b[1] - a[1], len = Math.hypot(dx, dy) || 1;
+    for (let i = 1; i < pts.length - 1; i++) { const d = Math.abs(dy * pts[i][0] - dx * pts[i][1] + b[0] * a[1] - b[1] * a[0]) / len; if (d > dm) { dm = d; idx = i; } }
+    return dm > eps ? [...rdp(pts.slice(0, idx + 1), eps).slice(0, -1), ...rdp(pts.slice(idx), eps)] : [a, b]; };
+  const r1 = n => String(Math.round(n * 10) / 10);
+  const small = raw.replace(/ d="([^"]{400,})"/g, (m, d) => ` d="${d.split(/(?=M)/).map(r => [...r.matchAll(/(-?[\d.]+),(-?[\d.]+)/g)].map(x => [+x[1], +x[2]]))
+    .map(r => rdp(r, 0.35)).filter(r => r.length > 2).map(r => "M" + r.map(([x, y]) => r1(x) + "," + r1(y)).join("L") + "Z").join("")}"`);
+  writeFileSync(join(OUT, "assets/map.svg"), small); }
 // Έκδοση αρχείων (?v=…): αλλάζει μόνο όταν αλλάζει το περιεχόμενο, άρα ο browser μπορεί να τα κρατά για καιρό.
 const ver = s => createHash("sha256").update(s).digest("hex").slice(0, 10);
-const V_CSS = ver(SITE_CSS), V_JS = ver(APP_JS);
+const V_CSS = ver(SITE_CSS), V_JS = ver(APP_JS), V_ADMIN = ver(ADMIN_JS);
 
 // ---------- εικονίδια (SVG, inline) ----------
 const I = {
@@ -227,7 +245,8 @@ function makeLang(lang) {
   const money = n => (Number.isInteger(n) ? (lang === "en" ? `€${n}` : `${n} €`) : money2(n)).replace(" €", "\u00a0€");
   const ow = DATA.OVERWEIGHT;
   const pre0 = lang === "en" ? "../" : "";
-  const brandImg = (n, alt, hgt) => { const f = brandFile(n); return f ? `<img class="brand-logo" src="${pre0}assets/brands/${f}" alt="${esc(alt)}" height="${hgt}" style="height:${hgt}px;width:auto">` : ""; };
+  const brandImg = (n, alt, hgt) => { const f = brandFile(n); if (!f) return ""; const sz = imgSize(join(ROOT, "src/assets/brands", f));
+    return `<img class="brand-logo" src="${pre0}assets/brands/${f}" alt="${esc(alt)}"${sz ? ` width="${Math.round(sz.w * hgt / sz.h)}"` : ""} height="${hgt}" style="height:${hgt}px;width:auto" decoding="async">`; };
   const chatButtons = () => `<span class="chat-btns"><a class="btn btn-wa" href="${WA_URL}">${brandImg("whatsapp", "", 22) || I.chat}WhatsApp</a>${B.viber ? `<a class="btn btn-vb" href="${VB_URL}">${brandImg("viber", "", 22) || I.chat}Viber</a>` : ""}</span>`;
 
   const tariffTable = () => {
@@ -381,8 +400,14 @@ function makeLang(lang) {
     const eager = name.startsWith("!"); if (eager) name = name.slice(1);
     const f = ["jpg", "jpeg", "webp", "png"].map(x => name + "." + x).find(x => existsSync(join(PHOTO_DIR, x)));
     if (!f) return "";
-    const cap = t(capEl, capEn || capEl), sz = imgSize(join(PHOTO_DIR, f));
-    return `<figure class="photo"><img src="${lang === "en" ? "../" : ""}assets/photos/${f}" alt=""${sz ? ` width="${sz.w}" height="${sz.h}"` : ""} ${eager ? 'fetchpriority="high"' : 'loading="lazy"'}><figcaption>${esc(cap)}</figcaption></figure>`;
+    const cap = t(capEl, capEn || capEl), sz = imgSize(join(PHOTO_DIR, f)), dir = `${lang === "en" ? "../" : ""}assets/photos/`;
+    const img = `<img src="${dir}${f}" alt=""${sz ? ` width="${sz.w}" height="${sz.h}"` : ""} ${eager ? 'fetchpriority="high"' : 'loading="lazy"'} decoding="async">`;
+    // Μικρότερα αντίγραφα AVIF/WebP (φτιάχνονται μία φορά με: node site/tools/optimize-images.mjs). Αν λείπουν, μένει μόνο το jpg.
+    const W = [480, 800, 1200].filter(w => sz && w < sz.w).concat(sz ? [sz.w] : []);
+    const srcset = ext => W.filter(w => existsSync(join(PHOTO_DIR, `${name}-${w}.${ext}`))).map(w => `${dir}${name}-${w}.${ext} ${w}w`).join(", ");
+    const sizes = "(max-width: 760px) calc(100vw - 32px), 600px";
+    const sources = ["avif", "webp"].map(ext => { const s = srcset(ext); return s ? `<source type="image/${ext}" srcset="${s}" sizes="${sizes}">` : ""; }).join("");
+    return `<figure class="photo">${sources ? `<picture>${sources}${img}</picture>` : img}<figcaption>${esc(cap)}</figcaption></figure>`;
   };
   // {{seasonTable:κατηγορία,κατηγορία|Πόλη,Πόλη}}: τιμές από τον τιμοκατάλογο + ημέρες/πλήθος αναχωρήσεων, για σελίδες εποχής.
   const SHORT = { tenekes: ["Τενεκές", "Tin"], tenekes_syn: ["Ταξιδεύετε μαζί", "You travel too"], mikro: ["Μικρή", "Small"], mesaio: ["Μεσαία", "Medium"], megalo: ["Μεγάλη", "Large"] };
@@ -453,8 +478,8 @@ ${meta.noindex ? '<meta name="robots" content="noindex">\n' : `<link rel="canoni
 <meta property="og:url" content="${url}"><meta property="og:image" content="${B.domain}/assets/og.jpg"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:locale:alternate" content="${t("en_GB", "el_GR")}">
 <meta name="theme-color" content="#0C3456" media="(prefers-color-scheme: light)"><meta name="theme-color" content="#0A2236" media="(prefers-color-scheme: dark)">
 <link rel="icon" href="${pre}assets/icon-192.png"><link rel="apple-touch-icon" href="${pre}assets/icon-192.png">
-<link rel="preload" href="${pre}assets/fonts/fira-sans-condensed-greek-700-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="preload" href="${pre}assets/fonts/fira-sans-greek-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="${pre}assets/fonts/fira-sans-condensed-800.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="${pre}assets/fonts/fira-sans-400.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="${pre}assets/site.css?v=${V_CSS}">
 ${ld.map(x => `<script type="application/ld+json">${JSON.stringify(x)}</script>`).join("\n")}
 <!-- Στατιστικά χωρίς cookies (Cloudflare Web Analytics): μπαίνει εδώ μετά τη δημοσίευση. -->`;
@@ -482,7 +507,7 @@ ${body}
   <a href="${link("anazitisi")}"${gr === "anazitisi" ? ' aria-current="page"' : ""}>${I.search}<span>${t("Το δέμα μου", "My parcel")}</span></a>
   <a href="${link("apostoli")}#ypologismos"${gr === "apostoli" ? ' aria-current="page"' : ""}>${I.send}<span>${t("Τιμή", "Price")}</span></a>
 </nav>
-<script src="${pre}assets/app.js?v=${V_JS}"></script>`;
+${/^diaxeirisi/.test(gr) ? `<script src="${pre}assets/app-admin.js?v=${V_ADMIN}"></script>` : `<script src="${pre}assets/app.js?v=${V_JS}"></script>`}`;
     if (ARTIFACT && lang === "el" && gr === "index") return `${headInner}\n${content}\n`;
     return `<!doctype html>\n<html lang="${lang}">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">\n${headInner}\n</head>\n<body>\n${content}\n</body>\n</html>\n`;
   }
@@ -603,8 +628,27 @@ if (!ARTIFACT) writeFileSync(join(OUT, "_headers"), `/*
   Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()
   Strict-Transport-Security: max-age=31536000
   Content-Security-Policy: default-src 'self'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' ${SUPABASE_URL} https://api.cloudflare.com https://cloudflareinsights.com; frame-ancestors 'self'; base-uri 'self'; form-action 'self'; object-src 'none'
-/assets/*
+# Εικόνες χωρίς έκδοση στο όνομα: μία εβδομάδα (αν αλλάξει μια φωτογραφία, φαίνεται το αργότερο σε 7 μέρες).
+/assets/*.png
   Cache-Control: public, max-age=604800, stale-while-revalidate=86400
+/assets/*.jpg
+  Cache-Control: public, max-age=604800, stale-while-revalidate=86400
+/assets/*.svg
+  Cache-Control: public, max-age=604800, stale-while-revalidate=86400
+/assets/*.avif
+  Cache-Control: public, max-age=604800, stale-while-revalidate=86400
+/assets/*.webp
+  Cache-Control: public, max-age=604800, stale-while-revalidate=86400
+# CSS/JS: πάντα με ?v=<hash> στις σελίδες, άρα κάθε αλλαγή = νέα διεύθυνση → μπορούν να μένουν έναν χρόνο.
+/assets/site.css
+  Cache-Control: public, max-age=31536000, immutable
+/assets/app.js
+  Cache-Control: public, max-age=31536000, immutable
+/assets/app-admin.js
+  Cache-Control: public, max-age=31536000, immutable
+# Γραμματοσειρές: κρατιούνται έναν χρόνο — αν αλλάξει ένα αρχείο, αλλάζει και το όνομά του.
+/assets/fonts/*
+  Cache-Control: public, max-age=31536000, immutable
 /diaxeirisi*
   X-Robots-Tag: noindex, nofollow
   Cache-Control: no-store

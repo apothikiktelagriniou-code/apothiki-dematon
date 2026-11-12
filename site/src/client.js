@@ -103,7 +103,9 @@
   // Η λίστα ορίζεται στη σελίδα διαχείρισης (site_schedule)· αν δεν απαντήσει, μένει η λίστα της ιστοσελίδας.
   const live = new Set();
   const onSchedule = fn => { live.add(fn); };
-  (async () => {
+  // Μόνο όπου τα δρομολόγια φαίνονται αμέσως (πίνακας, «ταξίδι», υπολογιστής, μετρητές)· αλλού, όταν ανοίξει το «Ρώτα μας».
+  let liveAsked = false;
+  const loadLive = () => { if (liveAsked) return; liveAsked = true; (async () => {
     try {
       const ctl = new AbortController(); setTimeout(() => ctl.abort(), 6000);
       const r = await fetch(SITE.SUPABASE.url + "/rest/v1/rpc/site_departures", { method: "POST", headers: { apikey: SITE.SUPABASE.key, "content-type": "application/json" }, body: "{}", signal: ctl.signal });
@@ -115,7 +117,8 @@
       for (const el of $$("[data-daily]")) el.textContent = Math.max(...[0, 1, 2, 3, 4, 5, 6].map(i => SITE.SCHEDULE.filter(x => x.dest === el.dataset.daily && x.days[i] === "1").length));
       for (const fn of live) fn();
     } catch {}
-  })();
+  })(); };
+  if ($("[data-board], [data-journey], [data-calc], [data-daily], [data-admin]")) loadLive();
 
   // ---------- Πίνακας αναχωρήσεων (αρχική) ----------
   const board = $("[data-board]");
@@ -482,6 +485,7 @@
   }
 
   // ---------- 🗓 Διαχείριση δρομολογίων (μόνο με σύνδεση· λογαριασμός της εφαρμογής) ----------
+  // @admin-start — το build.mjs αφαιρεί αυτό το κομμάτι από το app.js των δημόσιων σελίδων (μπαίνει μόνο στο app-admin.js).
   const adm = $("[data-admin]");
   if (adm) {
     const U = SITE.SUPABASE.url, K = SITE.SUPABASE.key, TK = "adm-session";
@@ -787,6 +791,7 @@
     }
     sess ? load() : loginView();
   }
+  // @admin-end
 
 
   // ---------- «Το ταξίδι του δέματος» (αρχική) ----------
@@ -822,7 +827,8 @@
     // Το δέμα «ταξιδεύει» από βήμα σε βήμα (κίνηση μόνο με transform· χωρίς κίνηση αν ο χρήστης το έχει ζητήσει).
     let timers = [], at = 0;
     // Ο κόμβος «ανάβει» όταν φτάσει το δέμα (transitionend), όχι όταν ξεκινά.
-    const place = i => { const n = $(".j-node", steps[i]), box = parcel.offsetParent.getBoundingClientRect(), r = n.getBoundingClientRect();
+    const place = i => { if (!parcel.offsetParent) return;   // κρυμμένο (λιγότερη κίνηση / εκτύπωση): τίποτα να μετακινηθεί
+      const n = $(".j-node", steps[i]), box = parcel.offsetParent.getBoundingClientRect(), r = n.getBoundingClientRect();
       parcel.style.transform = `translate(${r.left - box.left + r.width / 2 - parcel.offsetWidth / 2}px, ${r.top - box.top + r.height / 2 - parcel.offsetHeight / 2}px)`; at = i;
       if (i === 0) steps.forEach((li, j) => li.classList.toggle("on", j === 0)); };
     parcel.addEventListener("transitionend", e => { if (e.propertyName === "transform") steps.forEach((li, j) => li.classList.toggle("on", j <= at)); });
@@ -845,7 +851,10 @@
     const sel = ".section > .wrap > *:not(.signs):not(.routes-map), .section .signs > li, .cta-band .wrap > *";
     const io = new IntersectionObserver(es => { for (const e of es) if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); } }, { threshold: 0.12, rootMargin: "0px 0px -40px 0px" });
     // Με «λιγότερη κίνηση» δεν κρύβουμε τίποτα: το περιεχόμενο είναι απλώς εκεί.
-    if (!REDUCED) {
+    // Μετά την πρώτη ζωγραφική (rAF → setTimeout): οι θέσεις διαβάζονται από έτοιμη διάταξη, όχι με αναγκαστικό υπολογισμό μέσα στο script.
+    // Κρύβονται μόνο όσα είναι κάτω από την οθόνη, άρα ο επισκέπτης δεν βλέπει διαφορά.
+    const afterPaint = fn => requestAnimationFrame(() => setTimeout(fn, 0));
+    if (!REDUCED) afterPaint(() => {
       // Πρώτα διαβάζουμε όλες τις θέσεις, μετά γράφουμε (χωρίς επαναλαμβανόμενους υπολογισμούς διάταξης).
       const els = $$(sel).filter(el => !el.closest(".hero")), tops = els.map(el => el.getBoundingClientRect().top);
       els.forEach((el, i) => { if (tops[i] < innerHeight) return;
@@ -856,17 +865,19 @@
         const left = $$(".rv:not(.in)"); if (!left.length) return removeEventListener("scroll", onScroll);
         for (const el of left) if (el.getBoundingClientRect().top < innerHeight) { el.classList.add("in"); io.unobserve(el); } }); };
       addEventListener("scroll", onScroll, { passive: true });
-    }
-    for (const fig of $$("[data-routes]")) {
+    });
+    afterPaint(() => { for (const fig of $$("[data-routes]")) {
       if (REDUCED || fig.getBoundingClientRect().top < innerHeight * 0.8) { fig.classList.add("in"); continue; }
       fig.classList.add("armed");
       const mo = new IntersectionObserver(es => { if (es.some(e => e.isIntersecting)) { fig.classList.add("in"); mo.disconnect(); } }, { threshold: 0.35 });
       mo.observe(fig);
-    }
+    } });
   }
 
   // ---------- 💬 «Ρώτα μας»: γρήγορες απαντήσεις από τα δεδομένα του σάιτ (χωρίς AI, χωρίς αποθήκευση ερωτήσεων) ----------
-  if (!/diaxeirisi|admin/.test(location.pathname)) (() => {
+  // Χτίζεται όταν ο browser ησυχάσει (όχι μέσα στο πρώτο φόρτωμα): το κουμπί είναι fixed, άρα δεν μετακινεί τη σελίδα.
+  const idle = fn => ("requestIdleCallback" in window ? requestIdleCallback(fn, { timeout: 2500 }) : setTimeout(fn, 300));
+  if (!/diaxeirisi|admin/.test(location.pathname)) idle(() => {
     const DAYS = T(["Δευτέρα", "Τρίτη", "Τετάρτη", "Πέμπτη", "Παρασκευή", "Σάββατο", "Κυριακή"], ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]);
     const TRACK = LANG === "en" ? "track" : "anazitisi", OIL = LANG === "en" ? "olive-oil" : "ladi";
     const LUG = LANG === "en" ? "luggage-storage" : "fylaxi-aposkevon", HOMEP = LANG === "en" ? "home-delivery" : "spiti";
@@ -1019,7 +1030,7 @@
     let greeted = false;
     const open = on => {
       panel.hidden = !on; fab.setAttribute("aria-expanded", on ? "true" : "false"); document.body.classList.toggle("ask-open", on);
-      if (on) { if (!greeted) { greeted = true; bubble("bot", [h("p", {}, T("Γεια σας! Γράψτε μου πού στέλνετε ή τι θέλετε να μάθετε.", "Hello! Tell me where you're sending to, or what you'd like to know."))]); } setTimeout(() => inp.focus({ preventScroll: true }), 50); }
+      if (on) { loadLive(); if (!greeted) { greeted = true; bubble("bot", [h("p", {}, T("Γεια σας! Γράψτε μου πού στέλνετε ή τι θέλετε να μάθετε.", "Hello! Tell me where you're sending to, or what you'd like to know."))]); } setTimeout(() => inp.focus({ preventScroll: true }), 50); }
       else fab.focus({ preventScroll: true });
     };
     fab.addEventListener("click", () => open(panel.hidden));
@@ -1027,5 +1038,5 @@
     panel.addEventListener("keydown", e => { if (e.key === "Escape") open(false); });
     form.addEventListener("submit", e => { e.preventDefault(); ask(inp.value); });
     document.body.append(fab, panel);
-  })();
+  });
 })();
