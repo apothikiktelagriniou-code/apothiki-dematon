@@ -4,7 +4,7 @@ import {
   HOME, norm, shelfFor, cleanPhone, fmtPhone, parseGrDate, fmtGr, toLocalInput, money, hoursSince, daysSince,
   tripsOf, tripLabel, sortTrips, isClosed, isTransit, parseLabel, fillTemplate, toCSV, cleanIdDoc, sameReceipt, likelySameParcel, sameNameTrip, smsFor, soundKey, safeAutoPhone, phoneFits, mixedCustomer, fetchAll, nameLexicon, nameSuggestion, greeklishToGreek, greekName, isGreeklishName, surnameFirst, expectHelp, expectProgress } from "./lib.js";
 import { initCamera } from "./camera.js";
-import { sound } from "./scan.js";
+import { sound, getWorker, getWorkers, find228, grabBand } from "./scan.js";
 import { initCapture, pendingReviewCount, toJpegB64, loadQueue } from "./capture.js";
 import { openManifest } from "./manifest.js";
 import { initOutgoing, showOutgoing, reloadOutgoing } from "./outgoing.js";
@@ -1405,6 +1405,9 @@ function invRender() {
       r.append(c, t); list.append(r);
     });
   if (!list.childNodes.length) list.append(el("div", "empty", invView === "todo" ? "Βρέθηκαν όλα ✓" : "Τίποτα εδώ."));
+  const xb = $("invExtra"); xb.textContent = ""; const xs = Object.entries(invExtras());
+  if (xs.length) { xb.append(el("div", "msg warn", "⚠ Βρέθηκαν στα ράφια αλλά ΔΕΝ είναι «στην αποθήκη» (" + xs.length + "): " + xs.map(([n, x]) => (x.name ? x.name + " " : "") + n + " — " + x.why).join(" · ")));
+    const r = el("button", "btn small", "Καθάρισε αυτή τη λίστα"); r.type = "button"; r.onclick = () => { store.set(invXKey(), "{}"); invRender(); }; xb.append(r); }
   [...found].forEach(id => { if (!ids.has(id)) found.delete(id); });
 }
 function openInventory() {
@@ -1421,12 +1424,101 @@ $("invCsv").onclick = () => {
   const csv = toCSV(invItems(), [["f", "Βρέθηκε", p => found.has(p.id) ? "ΝΑΙ" : "ΟΧΙ"], ["shelf", "Ράφι"], ["recipient_name", "Παραλήπτης"], ["receipt_no", "Απόδειξη"], ["origin_city", "Από"], ["destination_city", "Προορισμός"], ["recipient_phone", "Τηλέφωνο"], ["d", "Μέρες", p => daysSince(p.created_at)], ["package_desc", "Συσκευασία"]]);
   const a = el("a"); a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" })); a.download = "apografi-" + dayKey(new Date()) + ".csv"; a.click();
 };
+// ---------- 📷 απογραφή με κάμερα: διαβάζει τον αριθμό απόδειξης ΜΕΣΑ στο κινητό (χωρίς AI, χωρίς ίντερνετ, χωρίς φωτογραφίες)
+const invXKey = () => "invx:" + dayKey(new Date()); // αριθμοί που βρέθηκαν στα ράφια αλλά ΔΕΝ είναι «στην αποθήκη»
+const invExtras = () => { try { return JSON.parse(store.get(invXKey()) || "{}"); } catch { return {}; } };
+const digitsOf = x => String(x || "").replace(/\D/g, "");
+function invMatch(n) { // ίδιος αριθμός (ή ίδια 8+ τελευταία ψηφία)
+  const d = digitsOf(n); if (d.length < 8) return null;
+  const same = p => { const r = digitsOf(p.receipt_no); return r && (r === d || (r.length >= 8 && (r.endsWith(d) || d.endsWith(r)))); };
+  const open = invItems().find(same); if (open) return { p: open, open: true };
+  const any = [...rows.values()].find(same); return any ? { p: any, open: false } : { p: null, open: false };
+}
+let inv = null;
+function invFlash(kind, big, name, sub) {
+  const f = $("invFlash"); clearTimeout(inv && inv.ft); f.className = "scanflash " + kind; f.hidden = false;
+  $("invFlashBig").textContent = big; $("invFlashName").textContent = name || ""; $("invFlashSub").textContent = sub || "";
+  if (inv) inv.ft = setTimeout(() => { f.hidden = true; }, kind === "ok" ? 900 : kind === "dup" ? 700 : 2200);
+}
+function invCounter() {
+  const items = invItems(), found = invFound(), nf = items.filter(p => found.has(p.id)).length, x = Object.keys(invExtras()).length;
+  const b = $("invScanCount"); b.textContent = "";
+  b.append(el("b", "scantot" + (nf === items.length ? " done" : ""), "Βρέθηκαν " + nf + " / " + items.length + (items.length - nf ? " · μένουν " + (items.length - nf) : " · ✓ ΟΛΑ")));
+  if (x) b.append(el("span", "scanchip", "⚠ " + x + " εκτός λίστας"));
+}
+function invLog(t, c) { const li = el("div", "scanline " + c, new Date().toTimeString().slice(0, 8) + " · " + t); $("invScanLog").prepend(li); while ($("invScanLog").childNodes.length > 40) $("invScanLog").lastChild.remove(); }
+async function invOnNumber(n, conf = 0, manual = false) {
+  if (!inv) return; const now = Date.now();
+  const last = inv.seen.get(n); if (last && now - last < 4000) return;
+  const h = (inv.hits.get(n) || 0) + 1; inv.hits.set(n, h); setTimeout(() => inv && inv.hits.delete(n), 2500);
+  const m = invMatch(n);
+  if (!manual) { if (m && m.p && m.open && h < (conf >= 80 ? 1 : 2)) return; if ((!m || !m.p || !m.open) && h < 3) return; } // άγνωστος αριθμός: 3 ίδια καρέ (όχι ψεύτικα «ευρήματα»)
+  inv.seen.set(n, now); inv.hits.delete(n);
+  const s = invFound();
+  if (m && m.p && m.open) {
+    const p = m.p, sub = (isTransit(p) ? "⇄ μεταφόρτωση → " + (p.destination_city || "") : "Ράφι " + (p.shelf || "—")) + (p.pieces_total > 1 ? " · " + p.pieces_total + " τεμ." : "");
+    if (s.has(p.id)) { invFlash("dup", "✓ ΗΔΗ", p.recipient_name || n, sub); sound.dup(); return; }
+    s.add(p.id); invSave(s); invFlash("ok", "✓", p.recipient_name || n, sub); sound.ok(); invLog("✓ " + (p.recipient_name || "—") + " · " + (p.receipt_no || n) + " · " + sub, "ok");
+  } else {
+    const x = invExtras(); if (x[n]) { invFlash("dup", "ΗΔΗ ΣΗΜΕΙΩΜΕΝΟ", n, "εκτός λίστας"); sound.dup(); return; }
+    if (m && !m.p && navigator.onLine) { // παλιότερο δέμα που δεν είναι φορτωμένο στη συσκευή; ρωτάμε τη βάση
+      try { const d = digitsOf(n), { data } = await sb.rpc("search_parcels", { q: d.slice(-5) }); const hit = (data || []).find(p => digitsOf(p.receipt_no) === d); if (hit) m.p = hit; } catch { /* */ } }
+    const why = m && m.p ? (m.p.status === "done" ? "σημειωμένο ΠΑΡΑΔΟΜΕΝΟ" + (m.p.picked_up_at ? " " + fmtGr(m.p.picked_up_at, false) : "") : STATUS[m.p.status] || m.p.status) : "δεν είναι καταχωρημένο";
+    x[n] = { at: now, why, name: m && m.p ? m.p.recipient_name || "" : "", id: m && m.p ? m.p.id : null }; store.set(invXKey(), JSON.stringify(x));
+    invFlash("warn", "⚠ ΕΚΤΟΣ ΛΙΣΤΑΣ", (m && m.p && m.p.recipient_name) || n, why); sound.bad(); invLog("⚠ " + n + ((m && m.p && m.p.recipient_name) ? " · " + m.p.recipient_name : "") + " · " + why, "bad");
+  }
+  invCounter();
+}
+const invCanv = [];
+async function invLoop(w, i) {
+  if (!inv) return; const me = inv;
+  try { const c = grabBand($("invVideo"), invCanv[i] || (invCanv[i] = document.createElement("canvas")));
+    if (c) { const { data } = await w.recognize(c); if (inv === me) for (const n of find228(data.text)) await invOnNumber(n, data.confidence); } } catch { /* επόμενο καρέ */ }
+  if (inv === me) me.timer = setTimeout(() => invLoop(w, i), 15);
+}
+async function openInvScan() {
+  if (needOperator()) return; sound.unlock();
+  $("invScanLog").textContent = ""; $("invFlash").hidden = true; $("invScanDlg").showModal(); invCounter();
+  const st = (t, c) => { const n = $("invScanStatus"); n.textContent = t; n.className = "msg " + c; };
+  inv = { stream: null, timer: null, hits: new Map(), seen: new Map(), ft: null };
+  st("Ανοίγω την κάμερα…", "info");
+  try {
+    inv.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false });
+    const v = $("invVideo"); v.srcObject = inv.stream; await v.play();
+    const tr = inv.stream.getVideoTracks()[0], caps = tr.getCapabilities ? tr.getCapabilities() : {};
+    try { if ((caps.focusMode || []).includes("continuous")) await tr.applyConstraints({ advanced: [{ focusMode: "continuous" }] }); } catch { /* */ }
+    const tb = $("invTorch"); tb.hidden = !caps.torch; let on = false;
+    tb.onclick = async () => { on = !on; try { await tr.applyConstraints({ advanced: [{ torch: on }] }); tb.classList.toggle("primary", on); } catch { /* */ } };
+  } catch (e) { st("Δεν άνοιξε η κάμερα: " + (e.name === "NotAllowedError" ? "δώσε άδεια κάμερας στον browser." : e.message) + " — μπορείς να γράφεις τα ψηφία από κάτω.", "bad"); return; }
+  st("Φορτώνω την ανάγνωση… (την πρώτη φορά ~3 MB)", "info");
+  try { await getWorker(); } catch (e) { st("Η ανάγνωση δεν φόρτωσε: " + e.message + " — γράψε τα ψηφία από κάτω.", "bad"); return; }
+  st("Βάλε τον αριθμό απόδειξης της ετικέτας μέσα στο πράσινο πλαίσιο. Μπιπ = βρέθηκε → επόμενο.", "info");
+  const pool = await getWorkers().catch(() => []); if (!inv) return;
+  pool.forEach((w, i) => setTimeout(() => invLoop(w, i), i * 150));
+}
+function closeInvScan() {
+  if (inv) { clearTimeout(inv.timer); clearTimeout(inv.ft); if (inv.stream) inv.stream.getTracks().forEach(t => t.stop()); }
+  $("invVideo").srcObject = null; inv = null; if ($("invScanDlg").open) $("invScanDlg").close();
+  // ΤΕΛΟΣ → η απογραφή ανοίγει στα «Δεν βρέθηκαν ακόμα» (+ τα «εκτός λίστας» από πάνω)
+  invView = "todo"; document.querySelectorAll("[data-iv]").forEach(x => x.setAttribute("aria-pressed", String(x.dataset.iv === "todo")));
+  invRender(); if (!$("invDlg").open) $("invDlg").showModal();
+}
+$("invScanBtn").onclick = openInvScan;
+$("invScanClose").onclick = closeInvScan;
+$("invScanDlg").addEventListener("cancel", e => { e.preventDefault(); closeInvScan(); });
+$("invFlash").onclick = () => { $("invFlash").hidden = true; };
+$("invScanManual").onsubmit = async e => { e.preventDefault(); const v = $("invScanNum").value.trim(); $("invScanNum").value = "";
+  const d = digitsOf(v); if (d.length < 5) return;
+  const c = invItems().filter(p => digitsOf(p.receipt_no).endsWith(d));
+  if (c.length === 1) { inv && inv.seen.delete(c[0].receipt_no); await invOnNumber(c[0].receipt_no, 99, true); }
+  else { const n = $("invScanStatus"); n.textContent = c.length ? "Ταιριάζουν " + c.length + " δέματα — γράψε περισσότερα ψηφία." : "Κανένα δέμα της αποθήκης δεν τελειώνει σε " + d + "."; n.className = "msg warn"; } };
 $("invDone").onclick = async () => {
   const items = invItems(), found = invFound(); const miss = items.filter(p => !found.has(p.id));
   const d = new Date(); const txt = "📦 Απογραφή " + p2_(d.getDate()) + "/" + p2_(d.getMonth() + 1) + " (" + (operator() || "—") + "): " + items.length + " στην αποθήκη, βρέθηκαν " + (items.length - miss.length) +
     (miss.length ? ". ΔΕΝ ΒΡΕΘΗΚΑΝ " + miss.length + ": " + miss.slice(0, 25).map(p => (p.recipient_name || "—") + " (" + (p.receipt_no || "χωρίς απόδ.") + (p.shelf ? ", ράφι " + p.shelf : "") + ")").join(", ") + (miss.length > 25 ? " κ.ά." : "") : ". Όλα εντάξει ✓");
+  const xs = Object.entries(invExtras()); const txtX = xs.length ? " · ΕΚΤΟΣ ΛΙΣΤΑΣ " + xs.length + ": " + xs.slice(0, 15).map(([n, x]) => (x.name ? x.name + " " : "") + n + " (" + x.why + ")").join(", ") : "";
   $("invDone").disabled = true;
-  try { await sb.from("shift_notes").insert({ text: txt, operator: operator() || null }); store.set("invDoneDay", dayKey(d)); loadNotes(); $("invDlg").close(); show($("formMsg"), "Η απογραφή καταγράφηκε στο σημείωμα βάρδιας.", "ok"); render(); }
+  try { await sb.from("shift_notes").insert({ text: txt + txtX, operator: operator() || null }); store.set("invDoneDay", dayKey(d)); loadNotes(); $("invDlg").close(); show($("formMsg"), "Η απογραφή καταγράφηκε στο σημείωμα βάρδιας.", "ok"); render(); }
   catch { show($("invProg"), "Δεν αποθηκεύτηκε. Δοκίμασε ξανά.", "bad"); }
   finally { $("invDone").disabled = false; }
 };
