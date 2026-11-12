@@ -304,7 +304,9 @@ function reviewCard(q, idx) {
     const src = prev && prev.origin_city && prev.departure ? { o: prev.origin_city, dep: prev.departure } : lt ? { o: lt.origin_city, dep: fmtGr(lt.departure_at) } : null;
     if (src) { inputs.origin_city.value = src.o; inputs.departure.value = src.dep; inputs.origin_city.classList.remove("bad"); inputs.departure.classList.remove("bad"); } };
   const skip = el("button", "btn small", "Απόρριψη"); skip.type = "button";
-  skip.onclick = async () => { await D.sb.from("extraction_queue").update({ status: "discarded", thumbnail: null, package_thumb: null }).eq("id", q.id); loadQueue(); };
+  skip.onclick = async () => {
+    if (!skip.dataset.sure) { skip.dataset.sure = "1"; skip.textContent = "Σίγουρα; Πάτα ξανά"; setTimeout(() => { delete skip.dataset.sure; skip.textContent = "Απόρριψη"; }, 5000); return; } // 2 πατήματα: η φωτογραφία σβήνεται οριστικά
+    await D.sb.from("extraction_queue").update({ status: "discarded", thumbnail: null, package_thumb: null }).eq("id", q.id); loadQueue(); };
   bar.append(save, same, skip); right.append(bar);
   card.append(left, right);
   card.onsubmit = async e => {
@@ -332,7 +334,7 @@ function reviewCard(q, idx) {
     queue = queue.filter(x => x.id !== q.id); renderQueue();
     const next = $("reviewList").querySelector("input.bad, input"); next && next.focus();
   };
-  card.addEventListener("keydown", e => { if (e.key === "Escape") skip.click(); });
+  card.addEventListener("keydown", e => { if (e.key !== "Escape" || e.target.matches("input,select,textarea")) return; skip.click(); }); // Esc μέσα σε πεδίο = κλείσιμο λίστας, ΟΧΙ απόρριψη
   return card;
 }
 

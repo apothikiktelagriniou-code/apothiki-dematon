@@ -525,3 +525,8 @@ test("λεξικό ονομάτων: «Μήπως εννοείς…;»", () => {
   assert.equal(s("ΤΣΙΡΩΝΗΣ ΓΙΩΡΓΟΣ"), null);                          // ήδη σωστό
   assert.equal(s("ΜΠΑΚΑΣ"), null);
 });
+
+test("CSV: τύποι Excel εξουδετερώνονται", () => {
+  const s = toCSV([{ a: "=HYPERLINK(\"x\")", b: "-5", c: "@SUM(A1)" }], [["a", "Α"], ["b", "Β"], ["c", "Γ"]]);
+  assert.ok(s.includes("'=HYPERLINK")); assert.ok(s.includes(";-5;")); assert.ok(s.includes("'@SUM"));
+});

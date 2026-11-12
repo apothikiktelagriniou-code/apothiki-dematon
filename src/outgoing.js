@@ -348,13 +348,13 @@ async function load() {
 async function loadTransit(S, E) {
   const today = dayKey(new Date()) === $("outDay").value;
   const flt = (today ? "status.eq.transit," : "") + `and(status.eq.forwarded,fwd_departure_at.gte.${S},fwd_departure_at.lt.${E})`;
-  const { data, error } = await D.sb.from("parcels").select("id,receipt_no,recipient_name,recipient_phone,destination_city,origin_city,pieces,status,bypassed,fwd_destination,fwd_departure_at,fwd_bus,created_at")
+  const { data, error } = await D.sb.from("parcels").select("id,receipt_no,recipient_name,recipient_phone,destination_city,origin_city,pieces_total,status,bypassed,fwd_destination,fwd_departure_at,fwd_bus,created_at")
     .or(flt).limit(500);
   if (error) return [];
   const old = Date.now() - 10 * 864e5;
   return (data || []).filter(p => !p.bypassed && (p.status === "transit" || p.status === "forwarded") && (p.status !== "transit" || new Date(p.created_at).getTime() > old)).map(p => ({
     id: "p:" + p.id, _parcel: p, receipt_no: p.receipt_no, recipient_name: p.recipient_name, recipient_phone: p.recipient_phone,
-    destination_city: p.fwd_destination || p.destination_city, pieces: p.pieces || 1, fare_eur: null,
+    destination_city: p.fwd_destination || p.destination_city, pieces: p.pieces_total || 1, fare_eur: null,
     departure_at: p.status === "forwarded" ? p.fwd_departure_at : null, created_at: p.created_at,
     status: p.status === "forwarded" ? "loaded" : "waiting", notes: "⇄ Μεταφόρτωση" + (p.origin_city ? " από " + p.origin_city : "") }));
 }

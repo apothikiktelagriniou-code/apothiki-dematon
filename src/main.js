@@ -4,6 +4,7 @@ import {
   HOME, norm, shelfFor, cleanPhone, fmtPhone, parseGrDate, fmtGr, toLocalInput, money, hoursSince, daysSince,
   tripsOf, tripLabel, sortTrips, isClosed, isTransit, parseLabel, fillTemplate, toCSV, cleanIdDoc, sameReceipt, likelySameParcel, sameNameTrip, smsFor, soundKey, safeAutoPhone, phoneFits, mixedCustomer, fetchAll, nameLexicon, nameSuggestion, greeklishToGreek, greekName, isGreeklishName, surnameFirst, expectHelp, expectProgress } from "./lib.js";
 import { initCamera } from "./camera.js";
+import { sound } from "./scan.js";
 import { initCapture, pendingReviewCount, toJpegB64, loadQueue } from "./capture.js";
 import { openManifest } from "./manifest.js";
 import { initOutgoing, showOutgoing, reloadOutgoing } from "./outgoing.js";
@@ -178,7 +179,38 @@ function subscribe() {
     .on("postgres_changes", { event: "*", schema: "public", table: "shift_notes" }, () => loadNotes())
     .subscribe(st => { $("netMsg").hidden = st === "SUBSCRIBED" || st === "CLOSED"; if (st === "CHANNEL_ERROR" || st === "TIMED_OUT") show($("netMsg"), "Χάθηκε η ζωντανή σύνδεση — οι αλλαγές από την άλλη συσκευή θα φανούν με ανανέωση.", "warn"); });
 }
-let rT = null; const scheduleRender = () => { clearTimeout(rT); rT = setTimeout(render, 120); };
+// σύνδεσμοι από AI/εξωτερικές πηγές: μόνο http(s) — ποτέ «javascript:» (θα μπορούσε να κλέψει τη σύνδεση)
+const safeUrl = u => { try { const x = new URL(String(u || "")); return /^https?:$/.test(x.protocol) ? x.href : ""; } catch { return ""; } };
+// ---------- μήνυμα κάτω στην οθόνη (εκεί που κοιτάς), με ήχο και προαιρετικό «↶ Αναίρεση» για 10″
+const pl = (n, one, many) => n + " " + (n === 1 ? one : many); // σωστός ενικός/πληθυντικός
+let toastT = null;
+function toast(text, kind = "ok", undo = null) {
+  let t = $("toast"); if (!t) { t = el("div", "toast"); t.id = "toast"; t.setAttribute("role", "status"); document.body.append(t); }
+  clearTimeout(toastT); t.textContent = ""; t.className = "toast " + kind; t.hidden = false;
+  t.append(el("span", "toast-t", text));
+  if (undo) { const b = el("button", "btn small", "↶ Αναίρεση"); b.type = "button"; b.onclick = async () => { b.disabled = true; clearTimeout(toastT); t.hidden = true; await undo(); }; t.append(b); }
+  const x = el("button", "btn small toastx", "✕"); x.type = "button"; x.setAttribute("aria-label", "Κλείσιμο"); x.onclick = () => { clearTimeout(toastT); t.hidden = true; }; t.append(x);
+  toastT = setTimeout(() => { t.hidden = true; }, undo ? 10000 : 4000);
+}
+// λάθος πάτημα «Παραδόθηκε»: επιστροφή αμέσως, χωρίς λόγο (γράφεται στο σημείωμα βάρδιας)
+async function quickUndoPickup(p, prev) {
+  if (needOperator()) return;
+  const cur = rows.get(p.id) || p;
+  try {
+    if (cur.signature_path) await sb.storage.from("signatures").remove([cur.signature_path]).catch(() => {});
+    await updateParcel(p.id, { status: prev.status, status_at: new Date().toISOString(), picked_up_at: null, picked_by_name: null, picked_by_phone: null,
+      id_doc_type: null, id_doc_number: null, id_doc_last4: null, signature_path: null, home_delivery: !!prev.home_delivery, cod_collected: !!prev.cod_collected });
+    sb.from("shift_notes").insert({ text: "↶ Αναίρεση παράδοσης αμέσως μετά (λάθος πάτημα): " + (p.recipient_name || "—") + (p.receipt_no ? " (απόδ. " + p.receipt_no + ")" : "") + " · " + (operator() || ""), operator: operator() || null }).then(() => loadNotes());
+    toast("↶ Αναιρέθηκε — το δέμα είναι ξανά στα «" + STATUS[prev.status] + "».", "info");
+  } catch { toast("Δεν αναιρέθηκε. Χρησιμοποίησε το «↶ Αναίρεση παράδοσης» στην κάρτα.", "bad"); }
+}
+function pickedUp(p, text) {
+  const prev = { status: p.status === "done" ? "arrived" : p.status, cod_collected: p.cod_collected, home_delivery: p.home_delivery };
+  boxCache.key = "", openBox = { id: null };
+  if ($("q").value) $("q").value = ""; // έτοιμο για τον επόμενο πελάτη
+  render(); sound.ok(); toast(text, "ok", () => quickUndoPickup(p, prev));
+}
+let rT = null; const scheduleRender = () => { if (rT) return; rT = setTimeout(() => { rT = null; render(); }, 120); };
 window.addEventListener("online", () => { $("netMsg").hidden = true; loadParcels(); });
 // ---------------------------------------------------------------- συγχρονισμός κινητού–υπολογιστή
 // Όταν το κινητό «κοιμάται» ή η εφαρμογή πάει στο παρασκήνιο, η ζωντανή σύνδεση κόβεται και οι αλλαγές της άλλης
@@ -220,7 +252,7 @@ async function saveParcel(o) {
 async function updateParcel(id, patch) {
   const { data, error } = await sb.from("parcels").update({ ...patch, operator: operator() }).eq("id", id).select().single();
   if (error) throw error;
-  rows.set(id, data); render(); purgePackage(data); return data;
+  rows.set(id, data); scheduleRender(); purgePackage(data); return data; // μαζικές ενέργειες: ένα σχέδιο αντί για δεκάδες
 }
 
 // ---------------------------------------------------------------- φωτογραφία δέματος (σβήνεται όταν κλείσει)
@@ -609,7 +641,7 @@ function matches(p) {
     case "nophone": if (isClosed(p) || isTransit(p) || phoneOk(p)) return false; break;
     case "transit": if (!(p.status === "transit" || (p.status === "forwarded" && !away(p)))) return false; break;
     case "cod": if (!(p.cod_amount_eur > 0 && !p.cod_collected)) return false; break;
-    case "star": if (!isStarP(p) || isClosed(p)) return false; break;
+    case "star": if (isClosed(p) || !isStarP(p)) return false; break; // πρώτα το φτηνό
     // «Σήμερα» = όσα καταχωρήθηκαν σήμερα (και το «Παλιό απόθεμα» που περάστηκε σήμερα)
     case "today": { const td = new Date().toDateString(); if (!sameDay(p.created_at, td) && !sameDay(p.extraction_confidence && p.extraction_confidence.registered_at, td)) return false; break; }
     case "done": if (!isClosed(p)) return false; break;
@@ -619,6 +651,8 @@ function matches(p) {
   const q = norm($("q").value); if (!q) return true;
   if (/[A-Z]{3}/.test(q) && !/\d/.test(q)) { const k = soundKey(q); if (k.length >= 3 && [p.recipient_name, p.sender_name, p.picked_by_name].some(n => n && soundKey(n).includes(k))) return true; } // greeklish στην αναζήτηση
   if (p.id_doc_number && p.id_doc_number.includes(cleanIdDoc(q)) && cleanIdDoc(q).length >= 3) return true;
+  // ψηφία όπως κι αν γραφτούν: «694 000 0003», «258-341-23003» ή «25834123003»
+  const qd = q.replace(/\D/g, ""); if (qd.length >= 4 && qd.length === q.replace(/[\s\-./]/g, "").length && [p.recipient_phone, p.picked_by_phone, p.receipt_no, p.parcel_code, p.pickup_code].some(x => String(x || "").replace(/\D/g, "").includes(qd))) return true;
   return norm([p.receipt_no, p.parcel_code, p.recipient_name, p.sender_name, p.recipient_phone, p.origin_city, p.destination_city, p.shelf, (p.tags || []).join(" "), p.notes, p.pickup_code, p.picked_by_name, p.picked_by_phone, p.id_doc_number, p.fwd_bus, p.fwd_destination, p.package_desc].join(" ")).includes(q);
 }
 
@@ -651,14 +685,14 @@ function render() {
     al.append(b); };
   const pendTr = all.filter(p => p.status === "transit");
   if (pendTr.length) { const late = pendTr.filter(lateTransit); const dests = [...new Set(pendTr.map(p => p.destination_city))].join(", ");
-    addAlert((late.length ? "⚠ " : "⇄ ") + pendTr.length + " μεταφορτώσεις περιμένουν προώθηση (" + dests + ")" + (late.length ? " · " + late.length + " καθυστερούν" : "") + ".", late.length ? "bad" : "warn", "transit"); }
-  const rem = all.filter(needsRemind).length; if (rem) addAlert("🔔 " + rem + " δέματα θέλουν υπενθύμιση.", "info", "remind");
-  const hw = all.filter(p => !isClosed(p) && p.phone_source === "handwritten" && !p.phone_confirmed).length; if (hw) addAlert("✍ " + hw + " τηλέφωνα από χειρόγραφο θέλουν επιβεβαίωση.", "warn", "hw");
+    addAlert((late.length ? "⚠ " : "⇄ ") + pl(pendTr.length, "μεταφόρτωση περιμένει", "μεταφορτώσεις περιμένουν") + " προώθηση (" + dests + ")" + (late.length ? " · " + pl(late.length, "καθυστερεί", "καθυστερούν") : "") + ".", late.length ? "bad" : "warn", "transit"); }
+  const rem = all.filter(needsRemind).length; if (rem) addAlert("🔔 " + pl(rem, "δέμα θέλει", "δέματα θέλουν") + " υπενθύμιση.", "info", "remind");
+  const hw = all.filter(p => !isClosed(p) && p.phone_source === "handwritten" && !p.phone_confirmed).length; if (hw) addAlert("✍ " + pl(hw, "τηλέφωνο από χειρόγραφο θέλει", "τηλέφωνα από χειρόγραφο θέλουν") + " επιβεβαίωση.", "warn", "hw");
   const dups = findDuplicates().length; if (dups) { const b = el("button", "msg bad alert", "🔁 " + dups + " πιθανές διπλές καταχωρήσεις (κατάσταση + φωτογραφία) ›"); b.type = "button"; b.onclick = openDuplicates; al.append(b); }
   if (new Date().getHours() >= 21 && store.get("cashSeen") !== new Date().toDateString()) { const b = el("button", "msg info alert", "💶 Κλείσιμο ημέρας: δες το σύνολο είσπραξης ›"); b.type = "button"; b.onclick = () => openCash(); al.append(b); }
   if (gemiCount > 0 && gemiLast && daysSince(gemiLast) > 31) { const b = el("button", "msg info alert", "🏢 Ενημέρωσε τη βάση επιχειρήσεων (ΓΕΜΗ) — πέρασε μήνας ›"); b.type = "button"; b.onclick = openGemi; al.append(b); }
   if (new Date().getDay() === 0 && store.get("invDoneDay") !== dayKey(new Date())) { const b = el("button", "msg info alert", "📦 Κυριακή: κάνε απογραφή αποθήκης ›"); b.type = "button"; b.onclick = () => { if (!needOperator()) openInventory(); }; al.append(b); }
-  const cod = all.filter(p => p.cod_amount_eur > 0 && !p.cod_collected && !isClosed(p)).length; if (cod) addAlert("💶 " + cod + " δέματα με είσπραξη από τον παραλήπτη.", "warn", "cod");
+  const cod = all.filter(p => p.cod_amount_eur > 0 && !p.cod_collected && !isClosed(p)).length; if (cod) addAlert("💶 " + pl(cod, "δέμα", "δέματα") + " με είσπραξη από τον παραλήπτη.", "warn", "cod");
 
   // πόλεις
   // πόλεις άφιξης: μετράνε τα δέματα της καρτέλας που είναι ανοιχτή (π.χ. «Σήμερα» → μόνο τα σημερινά)
@@ -736,7 +770,9 @@ function card(p) {
     if (isBizCustomer(p)) nb.prepend("🏢 "); nb.onclick = () => openCustomerFor(p);
     const st = isStarP(p), sb2 = el("button", "starbtn" + (st ? " on" : ""), st ? "⭐" : "☆"); sb2.type = "button";
     sb2.title = st ? "Τακτικός πελάτης — πάτα για αφαίρεση" : "Σημείωσε ως τακτικό πελάτη"; sb2.setAttribute("aria-label", sb2.title); sb2.setAttribute("aria-pressed", st ? "true" : "false");
-    sb2.onclick = () => toggleStarP(p); top.append(sb2, nb); if (st) row.classList.add("is-star"); }
+    // ⭐ με 2 πατήματα: ο τακτικός παίρνει αυτόματα κινητό, οπότε ένα λάθος άγγιγμα κοστίζει
+    sb2.onclick = () => { if (!sb2.dataset.sure) { sb2.dataset.sure = "1"; sb2.classList.add("asking"); sb2.textContent = st ? "Αφαίρεση ⭐;" : "⭐ Τακτικός;"; setTimeout(() => { delete sb2.dataset.sure; sb2.classList.remove("asking"); sb2.textContent = st ? "⭐" : "☆"; }, 4000); return; } toggleStarP(p); };
+    top.append(sb2, nb); if (st) row.classList.add("is-star"); }
   const old = !isClosed(p) && daysSince(p.created_at) >= (settings.old_parcel_days || 5);
   const late = lateTransit(p); const rem = needsRemind(p);
   top.append(el("span", "pill " + (old || late ? "s-old" : "s-" + p.status),
@@ -846,6 +882,7 @@ $("q").addEventListener("input", () => { clearTimeout(qT); const q = $("q").valu
     const or = [`recipient_name.ilike.%${s}%`, `receipt_no.ilike.%${raw}%`, `parcel_code.ilike.%${s}%`, `recipient_phone.ilike.%${raw}%`, `picked_by_phone.ilike.%${raw}%`, `id_doc_number.ilike.%${s}%`,
       `picked_by_name.ilike.%${s}%`, `sender_name.ilike.%${s}%`, `fwd_bus.ilike.%${s}%`, `package_desc.ilike.%${raw}%`, `pickup_code.eq.${raw}`];
     if (/[A-Z]{3}/.test(s) && !/\d/.test(s)) or.push(`recipient_name.ilike.%${greeklishToGreek(s)}%`);
+    const qd = raw.replace(/\D/g, ""); if (qd.length >= 4 && qd.length === raw.replace(/[\s\-./]/g, "").length) or.push(`recipient_phone.ilike.%${qd}%`, `picked_by_phone.ilike.%${qd}%`, `receipt_no.ilike.%${qd.slice(-5)}%`); // ψηφία με κενά/χωρίς παύλες
     let { data, error } = await sb.from("parcels").select("*").or(or.join(",")).order("created_at", { ascending: false }).limit(100);
     if (error) ({ data } = await sb.from("parcels").select("*").or(or.filter(x => !x.startsWith("package_desc")).join(",")).order("created_at", { ascending: false }).limit(100));
     if (data && data.length) { data.forEach(p => rows.set(p.id, p)); render(); } }, 400); });
@@ -959,7 +996,7 @@ async function maybeAutoSms(p) {
 function renderAutoSms() { const b = $("tg-smsauto"); if (!b || b.dataset.asking) return; b.textContent = "📩 Αυτόματο SMS με την καταχώρηση: " + (autoSmsOn() ? "ΕΝΕΡΓΟ ✓" : "ανενεργό") + (autoSmsOn() && !smsOn() ? " (άνοιξε πρώτα το 📩 SMS)" : ""); }
 $("tg-smsauto").onclick = async () => {
   const b = $("tg-smsauto"), on = !autoSmsOn();
-  if (on && !b.dataset.asking) { b.dataset.asking = "1"; b.textContent = "Σίγουρα; Θα φεύγει SMS σε κάθε δέμα με επιβεβαιωμένο κινητό (08:00–21:30). Πάτα ξανά."; setTimeout(() => { delete b.dataset.asking; renderAutoSms(); }, 7000); return; }
+  if (!b.dataset.asking) { b.dataset.asking = "1"; b.textContent = on ? "Σίγουρα; Θα φεύγει SMS σε κάθε δέμα με επιβεβαιωμένο κινητό (08:00–21:30). Πάτα ξανά." : "Σίγουρα; ΑΠΕΝΕΡΓΟΠΟΙΗΣΗ αυτόματου SMS για όλους. Πάτα ξανά."; setTimeout(() => { delete b.dataset.asking; renderAutoSms(); }, 7000); return; }
   delete b.dataset.asking;
   const { error } = await sb.from("app_settings").update({ sms_auto: on }).eq("id", 1);
   if (error) { try { localStorage.setItem("smsAuto", on ? "1" : "0"); } catch {} delete settings.sms_auto; show($("formMsg"), "Ο διακόπτης κρατήθηκε μόνο σε αυτή τη συσκευή — τρέξε το 0020_sms_auto.sql για να ισχύει παντού.", "warn"); }
@@ -977,7 +1014,7 @@ async function bulkSms() {
 }
 for (const c of ["whatsapp", "viber", "sms"]) $("tg-" + c).onclick = async () => {
   const b = $("tg-" + c), key = c + "_enabled", on = settings[key] !== true;
-  if (on && !b.dataset.asking) { b.dataset.asking = "1"; b.textContent = "Σίγουρα; Πάτα ξανά για ενεργοποίηση " + CH_LABEL[c]; setTimeout(() => { delete b.dataset.asking; renderSmsToggle(); }, 6000); return; }
+  if (!b.dataset.asking) { b.dataset.asking = "1"; b.textContent = on ? "Σίγουρα; Πάτα ξανά για ενεργοποίηση " + CH_LABEL[c] : "Σίγουρα; ΑΠΕΝΕΡΓΟΠΟΙΗΣΗ " + CH_LABEL[c] + " για όλους — πάτα ξανά"; setTimeout(() => { delete b.dataset.asking; renderSmsToggle(); }, 6000); return; }
   delete b.dataset.asking;
   const { error } = await sb.from("app_settings").update({ [key]: on }).eq("id", 1);
   if (error) { show($("formMsg"), "Δεν άλλαξε ο διακόπτης. Έχει τρέξει το 0006 στη βάση;", "bad"); return; }
@@ -1087,7 +1124,7 @@ function pickupBox(p) {
         id_doc_type: idNo ? sel.value : null, id_doc_number: idNo || null, id_doc_last4: idNo ? idNo.slice(-4) : null,
         signature_path: path, home_delivery: home.checked, cod_collected: codC ? true : p.cod_collected });
       if (!other) await saveSelf(sd).catch(() => {});
-      boxCache.key = "", openBox = { id: null }; show($("formMsg"), "Παραδόθηκε: " + (p.receipt_no || nm) + (other ? " — παρέλαβε " + nm : "") + ".", "ok"); render();
+      pickedUp(p, "✓ Παραδόθηκε: " + (p.recipient_name || p.receipt_no || nm) + (other ? " — παρέλαβε " + nm : ""));
     } catch (err) { console.error(err); ok.disabled = false; say("Δεν αποθηκεύτηκε. Δοκίμασε ξανά.", "bad"); }
   };
   self.onclick = async () => {
@@ -1102,7 +1139,7 @@ function pickupBox(p) {
       const now = new Date().toISOString();
       await updateParcel(p.id, { status: "done", status_at: now, picked_up_at: now, picked_by_name: sd.nm || null,
         picked_by_phone: sd.pn || null, home_delivery: home.checked, cod_collected: codC ? true : p.cod_collected });
-      boxCache.key = "", openBox = { id: null }; show($("formMsg"), "Παραδόθηκε στον ίδιο: " + (p.recipient_name || p.receipt_no) + ".", "ok"); render();
+      pickedUp(p, "✓ Παραδόθηκε στον ίδιο: " + (p.recipient_name || p.receipt_no));
     } catch (err) { console.error(err); self.disabled = false; ok.disabled = false; say("Δεν αποθηκεύτηκε. Δοκίμασε ξανά.", "bad"); }
   };
   return box;
@@ -1314,6 +1351,10 @@ $("exportBtn").onclick = async () => {
 };
 
 $("goSearch").onclick = () => { $("hLog").scrollIntoView({ behavior: "smooth" }); setTimeout(() => $("q").focus(), 350); };
+// 🔎 στην κεφαλίδα (και στο PC) + πλήκτρα «/» ή F2 → κατευθείαν στην αναζήτηση
+$("hdrSearch").onclick = () => $("goSearch").click();
+document.addEventListener("keydown", e => { if ((e.key === "/" || e.key === "F2") && !e.target.matches("input,textarea,select,[contenteditable]") && !document.querySelector("dialog[open]")) { e.preventDefault(); $("hLog").scrollIntoView(); $("q").focus(); $("q").select(); } });
+{ const setHdr = () => document.documentElement.style.setProperty("--hdr-h", (document.querySelector("header")?.offsetHeight || 64) + "px"); addEventListener("resize", setHdr); setHdr(); setTimeout(setHdr, 500); }
 $("goNew").onclick = () => { $("hNew").scrollIntoView({ behavior: "smooth" }); };
 
 // ---------------------------------------------------------------- εκκίνηση
@@ -1379,18 +1420,22 @@ $("invDone").onclick = async () => {
 let dupCache = { at: 0, list: [] };
 const dupIgnored = () => { try { return new Set(JSON.parse(store.get("dupIgnore") || "[]")); } catch { return new Set(); } };
 function findDuplicates(force) {
-  if (!force && Date.now() - dupCache.at < 15000) return dupCache.list;
+  if (!force && dupCache.n === rows.size && Date.now() - dupCache.at < 60000) return dupCache.list; // ξαναψάχνει μόνο αν άλλαξαν τα δέματα
   const all = liveRows(); const ign = dupIgnored();
   const man = all.filter(p => p.source === "manifest"), real = all.filter(p => p.source !== "manifest");
   const out = [], usedB = new Set();
+  const sur = s => norm(s).split(" ")[0] || "", idx = new Map(); const put = (k, b) => { if (!k) return; const a = idx.get(k); if (a) { if (a[a.length - 1] !== b) a.push(b); } else idx.set(k, [b]); };
+  const pos = new Map(real.map((b, i) => [b, i]));
+  real.forEach(b => { const d = String(b.receipt_no || "").replace(/\D/g, ""); put("r" + d.slice(-8), b); put("s" + sur(b.recipient_name), b); });
   man.forEach(a => {
-    let best = null, why = "";
-    for (const b of real) { if (usedB.has(b.id) || ign.has(a.id + "|" + b.id)) continue;
+    let best = null, why = ""; const d = String(a.receipt_no || "").replace(/\D/g, "");
+    const cand = [...new Set([...(idx.get("r" + d.slice(-8)) || []), ...(idx.get("s" + sur(a.recipient_name)) || [])])].sort((x, y) => pos.get(x) - pos.get(y));
+    for (const b of cand) { if (usedB.has(b.id) || ign.has(a.id + "|" + b.id)) continue;
       const w = likelySameParcel(a, b); if (w) { best = b; why = w === "receipt" ? "ίδιος αριθμός απόδειξης" : "σχεδόν ίδιος αριθμός + ίδιο επώνυμο"; break; }
       if (!best && sameNameTrip(a, b)) { best = b; why = "ίδιο επώνυμο, ίδια πόλη και μέρα"; } }
     if (best) { usedB.add(best.id); out.push({ a, b: best, why }); }
   });
-  dupCache = { at: Date.now(), list: out }; return out;
+  dupCache = { at: Date.now(), n: rows.size, list: out }; return out;
 }
 async function mergeDuplicate(a, b) {
   const patch = {};
@@ -1520,9 +1565,17 @@ function suggestName() {
 const loadCustomersSoon = () => { clearTimeout(custT); custT = setTimeout(loadCustomers, 800); };
 const toks = s => norm(String(s || "").replace(/\./g, "").replace(/,/g, " ")).split(" ").filter(Boolean);
 // πελάτης ενός δέματος: η σύνδεση (customer_id) ή — μόνο αν είναι ΜΟΝΟΣΗΜΑΝΤΟ — το όνομα
+let custIdx = { src: null, byId: new Map(), byKey: new Map(), bySur: new Map() };
+function custIndex() {
+  if (custIdx.src === custCache) return custIdx;
+  const byId = new Map(), byKey = new Map(), bySur = new Map(); const push = (m, k, c) => { const a = m.get(k); if (a) a.push(c); else m.set(k, [c]); };
+  for (const c of custCache) { byId.set(c.id, c); push(byKey, c.name_key, c); for (const a of c.aliases || []) if (a !== c.name_key) push(byKey, a, c); if (c.surname_key) push(bySur, c.surname_key, c); }
+  return (custIdx = { src: custCache, byId, byKey, bySur });
+}
 const custOf = p => {
-  if (p.customer_id) { const c = custCache.find(c => c.id === p.customer_id); if (c) return c; }
-  const k = norm(p.recipient_name || "-"), m = custCache.filter(c => c.name_key === k || (c.aliases || []).includes(k));
+  const ix = custIndex();
+  if (p.customer_id) { const c = ix.byId.get(p.customer_id); if (c) return c; }
+  const m = ix.byKey.get(norm(p.recipient_name || "-")) || [];
   return m.length === 1 && phoneFits(m[0], cleanPhone(p.recipient_phone) || "", p.recipient_name) ? m[0] : undefined;
 };
 // το όνομα όπως γράφτηκε στην ετικέτα γίνεται «ψευδώνυμο» του πελάτη → την επόμενη φορά αναγνωρίζεται αμέσως
@@ -1548,7 +1601,7 @@ function fuzzyCustomer(p) {
   if (p.recipient_phone || store.get("fz:" + p.id)) return null;
   const t = toks(p.recipient_name); if (t.length < 2) return null;
   const sur = t[0], given = t.slice(1).join(" ");
-  const c = custCache.filter(x => (x.phones || []).length && x.surname_key === sur && x.name_key !== norm(p.recipient_name || ""));
+  const c = (custIndex().bySur.get(sur) || []).filter(x => (x.phones || []).length && x.name_key !== norm(p.recipient_name || ""));
   const ok = c.filter(x => { const g = toks(x.full_name).slice(1).join(" "); return g && (g.startsWith(given) || given.startsWith(g)); });
   return ok.length === 1 ? ok[0] : null;
 }
@@ -1566,7 +1619,7 @@ function phoneHelp(p, lineEl) {
   if (s && s.phone && !s.rejected) {
     const w = el("div", "msg " + (s.confidence === "high" ? "ok" : "warn") + " sugg");
     w.append("🏢 Βρέθηκε: ", el("b", null, fmtPhone(s.phone)), (s.email ? " · ✉ " + s.email : "") + " — " + (s.business_name || "") + (s.address ? " · " + s.address : "") + " · βεβαιότητα: " + ({ high: "υψηλή", medium: "μέτρια", low: "χαμηλή — έλεγξέ το" }[s.confidence] || "?") + " ");
-    if (s.source_url) { const a = el("a", null, "πηγή"); a.href = s.source_url; a.target = "_blank"; a.rel = "noopener"; w.append("(", a, ") "); }
+    if (safeUrl(s.source_url)) { const a = el("a", null, "πηγή"); a.href = safeUrl(s.source_url); a.target = "_blank"; a.rel = "noopener"; w.append("(", a, ") "); }
     const yes = el("button", "btn small primary", "✓ Σωστό, βάλ' το"); yes.type = "button"; yes.onclick = () => acceptBiz(p, s);
     const no = el("button", "btn small", "✗ Όχι"); no.type = "button"; no.onclick = () => sb.from("parcels").update({ phone_suggestion: { ...s, rejected: true } }).eq("id", p.id).select().single().then(({ data }) => { if (data) { rows.set(p.id, data); render(); } });
     w.append(yes, " ", no); lineEl.after(w);
@@ -1737,7 +1790,7 @@ async function openCustomer(id, draft, fromParcel) {
       if (!r.phone && !r.email) { say(r.is_business === false ? "Μοιάζει με ιδιώτη — δεν ψάχνουμε προσωπικά τηλέφωνα." : "Δεν βρέθηκε επαγγελματικό τηλέφωνο.", "warn"); return; }
       msg.textContent = ""; msg.className = "msg " + (r.confidence === "high" ? "ok" : "warn"); msg.hidden = false;
       msg.append("Βρέθηκε: ", el("b", null, r.phone ? fmtPhone(r.phone) : "—"), (r.email ? " · ✉ " + r.email : "") + " — " + (r.business_name || "") + (r.address ? " · " + r.address : "") + " ");
-      if (r.source_url) { const a = el("a", null, "πηγή"); a.href = r.source_url; a.target = "_blank"; a.rel = "noopener"; msg.append("(", a, ") "); }
+      if (safeUrl(r.source_url)) { const a = el("a", null, "πηγή"); a.href = safeUrl(r.source_url); a.target = "_blank"; a.rel = "noopener"; msg.append("(", a, ") "); }
       const add = el("button", "btn small primary", "Πρόσθεσέ το"); add.type = "button";
       add.onclick = () => { if (r.phone) { const cur = phones.value.trim(); phones.value = cur ? cur + ", " + fmtPhone(r.phone) : fmtPhone(r.phone); } if (!email.value && r.email) email.value = r.email; if (!addr.value && r.address) addr.value = r.address; c.business_source = r.source_url || null; add.remove(); };
       msg.append(add);
@@ -1851,6 +1904,8 @@ async function toggleStarP(p) {
   await setStarCustomer(cid, on);
 }
 const waitingOf = c => [...rows.values()].filter(p => !isClosed(p) && !away(p) && (p.customer_id === c.id || (!p.customer_id && custOf(p) === c)));
+// όλοι οι τακτικοί μαζί: ένα πέρασμα στα δέματα αντί για ένα ανά πελάτη
+function waitingByCustomer() { const m = new Map(); for (const p of rows.values()) { if (isClosed(p) || away(p)) continue; const c = p.customer_id ? custIndex().byId.get(p.customer_id) : custOf(p); if (c) (m.get(c.id) || m.set(c.id, []).get(c.id)).push(p); } return m; }
 async function notifyRegular(c, list, hint) {
   if (needOperator()) return { ok: 0, fail: 0 };
   if (!smsReady) { hint.textContent = "Τα SMS δεν είναι έτοιμα (κινητό SMS Gateway)."; return { ok: 0, fail: 0 }; }
@@ -1875,14 +1930,16 @@ function regularsBody() {
   body.append(q, el("div", "quick"), all, hint, list);
   q.oninput = () => { clearTimeout(q._t); q._t = setTimeout(renderRegularsIn, 200); };
   all.onclick = async () => { all.disabled = true; let ok = 0, fail = 0;
-    for (const c of custCache.filter(c => c.starred)) { const w = waitingOf(c).filter(p => p.status === "arrived"); if (w.length) { const r = await notifyRegular(c, w, hint); ok += r.ok; fail += r.fail; } }
+    const W = waitingByCustomer();
+    for (const c of custCache.filter(c => c.starred)) { const w = (W.get(c.id) || []).filter(p => p.status === "arrived"); if (w.length) { const r = await notifyRegular(c, w, hint); ok += r.ok; fail += r.fail; } }
     hint.textContent = ok || fail ? "📩 Στάλθηκαν " + ok + " SMS" + (fail ? " · χωρίς κινητό/απέτυχαν " + fail : "") + "." : "Κανένα δέμα τακτικού για ειδοποίηση."; all.disabled = false; renderRegularsIn(); };
 }
 function renderRegularsIn() {
   const list = $("regInList"); if (!list) return; list.textContent = "";
   const q = norm($("regInQ").value), qd = $("regInQ").value.replace(/\D/g, "");
   const hit = c => !q || norm(c.full_name).includes(q) || (qd.length >= 3 && (c.phones || []).some(p => p.includes(qd)));
-  const stars = custCache.filter(c => c.starred && hit(c)).map(c => ({ c, w: waitingOf(c) })).sort((a, b) => b.w.length - a.w.length || a.c.full_name.localeCompare(b.c.full_name, "el"));
+  const W = waitingByCustomer();
+  const stars = custCache.filter(c => c.starred && hit(c)).map(c => ({ c, w: W.get(c.id) || [] })).sort((a, b) => b.w.length - a.w.length || a.c.full_name.localeCompare(b.c.full_name, "el"));
   const nAr = stars.reduce((s, x) => s + x.w.filter(p => p.status === "arrived").length, 0);
   $("regInAll").textContent = "📩 Ειδοποίησε όλους τους τακτικούς (" + nAr + ")"; $("regInAll").disabled = !nAr;
   if (!stars.length) list.append(el("p", "hint", custCache.some(c => c.starred) ? "Κανένας τακτικός με αυτό." : "Δεν έχεις ακόμα τακτικούς. Πάτα ☆ δίπλα στο όνομα ενός δέματος, ή διάλεξε από τις προτάσεις παρακάτω."));
