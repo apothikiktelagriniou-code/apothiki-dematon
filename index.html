@@ -11,8 +11,6 @@
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" href="./icon-192.png">
 <link rel="apple-touch-icon" href="./icon-192.png">
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
 <link rel="stylesheet" href="./src/style.css">
 </head>
 <body>
@@ -39,6 +37,7 @@
     <div class="hdr-right">
       <button class="btn small op" id="opBtn" type="button">👤 <span id="opName">—</span><span class="opchg"> · αλλαγή</span></button>
       <button class="btn small" id="reloadBtn" type="button" title="Ανανέωση (φέρνει και τη νεότερη έκδοση)" aria-label="Ανανέωση" onclick="(async b=>{b.disabled=true;b.textContent='…';try{const ks=await caches.keys();await Promise.all(ks.map(k=>caches.delete(k)));const r=await navigator.serviceWorker?.getRegistration();await r?.update();}catch(e){}location.reload();})(this)">⟳</button>
+      <button class="btn small" id="hdrSearch" type="button" aria-label="Αναζήτηση δέματος" title="Αναζήτηση (πλήκτρο / ή F2)">🔎</button>
       <button class="btn small" id="themeBtn" type="button" aria-label="Φωτεινό / σκούρο θέμα" title="Φωτεινό / σκούρο">🌙</button>
       <details class="menu">
         <summary class="btn small">☰ Μενού</summary>
@@ -100,7 +99,7 @@
 
   <section class="panel" id="reviewPanel" hidden aria-labelledby="hReview">
     <h2 id="hReview">📋 Για έλεγχο (<span id="reviewCount">0</span>)</h2>
-    <div class="hint">Διόρθωσε τα κόκκινα πεδία και πάτα Αποθήκευση (Enter). Πάτα τη φωτογραφία για μεγέθυνση. Esc = απόρριψη.</div>
+    <div class="hint">Διόρθωσε τα κόκκινα πεδία και πάτα Αποθήκευση (Enter). Πάτα τη φωτογραφία για μεγέθυνση. Απόρριψη: 2 πατήματα.</div>
     <div id="reviewList" class="rlist"></div>
   </section>
 

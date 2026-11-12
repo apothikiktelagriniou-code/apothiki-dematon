@@ -158,7 +158,7 @@ dialog.sheet[open]{display:flex;flex-direction:column;gap:10px}
   --shadow-sm:0 1px 2px rgba(15,27,42,.06),0 1px 1px rgba(15,27,42,.04);
   --shadow:0 1px 2px rgba(15,27,42,.05),0 6px 20px -8px rgba(15,27,42,.12);
   --r:16px; --r-sm:10px;
-  --display:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans",sans-serif; --body:var(--display);
+  --display:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans",sans-serif; --body:var(--display);
 }
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
   --bg:#0B1219; --surface:#121C26; --surface-2:#17222E; --fg:#E7EDF3; --muted:#97A5B4; --line:#233140; --line-2:#1C2834;
@@ -570,3 +570,17 @@ label.camshot.disabled{opacity:.5;pointer-events:none}
 .edgeflash[hidden]{display:none}
 @keyframes edgebad{50%{border-color:rgba(220,38,38,.35)}}
 @media (prefers-reduced-motion:reduce){.edgeflash.bad{animation:none}}
+
+.starbtn.asking{width:auto;padding:0 10px;font-size:14px;font-weight:800;background:#fef3c7;border:1px solid #d97706;color:#92400e;border-radius:10px}
+
+/* μήνυμα κάτω στην οθόνη (Παραδόθηκε / Αναίρεση) */
+.toast{position:fixed;left:12px;right:12px;bottom:max(84px,calc(env(safe-area-inset-bottom) + 76px));z-index:65;display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 14px;border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.3);font-weight:800;font-size:17px;color:#fff;max-width:640px;margin:0 auto}
+.toast[hidden]{display:none}
+.toast.ok{background:#15803d}.toast.info{background:#1e3a8a}.toast.bad{background:#b91c1c}
+.toast .toast-t{flex:1 1 200px}
+.toast .btn{background:#fff;color:#111;border-color:#fff;min-height:40px;font-weight:800}
+.toast .toastx{background:transparent;color:#fff;border-color:rgba(255,255,255,.5);min-width:40px}
+@media (min-width:900px){.toast{bottom:24px}}
+/* η αναζήτηση μένει ορατή κάτω από την κεφαλίδα όσο κυλάς τη λίστα */
+#q{position:sticky;top:var(--hdr-h,64px);z-index:20;box-shadow:0 4px 10px rgba(0,0,0,.06)}
+@media (max-width:900px){#hdrSearch{display:none}} /* στο κινητό υπάρχει ήδη το «🔎 Αναζήτηση» κάτω */
