@@ -157,6 +157,11 @@
           tick(); tr.addEventListener("animationend", () => tr.classList.remove("flip"), { once: true });
         }
       });
+      // «🚌 Επόμενο» στην κορυφή (κινητό): η πρώτη γραμμή του πίνακα, με «αύριο»/μέρα όταν δεν είναι σήμερα
+      const nb = $("[data-nextbus]");
+      if (nb && rows[0]) { const r = rows[0], dest = SITE.DESTINATIONS.find(x => x.sched && x.sched[0] === r.k);
+        $(".nb-t", nb).textContent = r.time; $(".nb-d", nb).textContent = dest ? L(dest.name) : pretty(r.k);
+        $(".nb-w", nb).textContent = r.rel === 0 ? (r.express ? "Express" : "") : r.rel === 1 ? T("αύριο", "tomorrow") : r.day || ""; }
       if (!boardDrawn) boardAt = performance.now();
       boardDrawn = true;
       $("time", board).textContent = new Intl.DateTimeFormat(LOCALE, { timeZone: "Europe/Athens", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date());

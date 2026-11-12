@@ -1,8 +1,12 @@
 <!--meta {"title":"Αποστολή δεμάτων Αγρίνιο · Αποθήκη Δεμάτων ΚΤΕΛ","description":"Αποστολή και παραλαβή δεμάτων με ΚΤΕΛ από το Αγρίνιο προς Αθήνα, Πάτρα, Θεσσαλονίκη και πολλές πόλεις. Τιμές, δρομολόγια, αναζήτηση δέματος.","ld":"business"}-->
 <section class="hero"><div class="wrap">
   <div>
-    <h1>Αποστολή δεμάτων με ΚΤΕΛ από το Αγρίνιο</h1>
-    <p class="lead">{{slogan}} Αποθήκη δεμάτων μέσα στον σταθμό ΚΤΕΛ Αγρινίου. Φέρτε το δέμα τουλάχιστον {{cutoff}} λεπτά πριν και φεύγει με το επόμενο δρομολόγιο, για τις περισσότερες πόλεις της Ελλάδας.</p>
+    <h1>Αποστολή δεμάτων με <span class="acc">ΚΤΕΛ</span> από το Αγρίνιο</h1>
+    <p class="lead">Φέρτε το δέμα {{cutoff}}′ πριν — φεύγει με το επόμενο λεωφορείο, για {{mapCount}} πόλεις.</p>
+    {{nextBus}}
+    <div class="ctas">
+      <a class="btn btn-primary" href="apostoli.html#ypologismos">{{i:send}} Στέλνω δέμα · πόσο κοστίζει</a><span class="desk-only">{{chatButtons}}</span>
+    </div>
     <form class="quicktrack" action="anazitisi.html" method="get" autocomplete="off">
       <p class="qt-title">Πού είναι το δέμα μου;</p>
       <div class="row qt-grid">
@@ -13,19 +17,16 @@
       </div>
       <small>Αριθμός απόδειξης και τα 3 πρώτα γράμματα του επωνύμου του παραλήπτη.</small>
     </form>
-    <div class="ctas">
-      <a class="btn btn-ghost-light" href="apostoli.html#ypologismos">{{i:send}} Στέλνω δέμα · πόσο κοστίζει</a><span class="desk-only">{{chatButtons}}</span>
-    </div>
     <div class="facts"><span class="open-now" data-open-now hidden></span><span><b>Δευ–Παρ</b> {{openWk}}–{{close}} · <b>Σαβ–Κυρ</b> {{openWe}}–{{close}}</span><span><a href="{{maps}}" rel="noopener">Πώς θα έρθετε</a></span></div>
   </div>
-  <div class="hero-side"><section class="board" data-board aria-label="Επόμενες αναχωρήσεις από Αγρίνιο">
+  <div class="hero-side"><section class="board" id="board" data-board aria-label="Επόμενες αναχωρήσεις από Αγρίνιο">
     <div class="board-head"><span>Αναχωρήσεις</span><time></time></div>
     <table><thead><tr><th scope="col">Ώρα</th><th scope="col">Προορισμός</th><th scope="col"><span class="sr-only">Σημείωση</span></th></tr></thead><tbody>{{boardRows}}</tbody></table>
     <div class="board-foot">Φέρτε το δέμα τουλάχιστον {{cutoff}} λεπτά πριν από την αναχώρηση. Για λεωφορεία που φεύγουν πριν ανοίξουμε, από το προηγούμενο βράδυ έως τις {{eveningBy}}.</div>
   </section>
-  <div class="hero-photo-wrap">{{photo:eisodos|Η είσοδος της αποθήκης, δεξιά από την είσοδο του σταθμού|The depot entrance, to the right of the station entrance}}</div>
   </div>
 </div></section>
+{{trustStrip}}
 
 {{oilBanner}}
 

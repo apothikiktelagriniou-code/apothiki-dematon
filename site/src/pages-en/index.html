@@ -1,8 +1,12 @@
 <!--meta {"title":"Send parcels from Agrinio · KTEL Parcel Depot","description":"Send and collect parcels by KTEL bus from Agrinio to Athens, Patras, Thessaloniki and many more Greek towns. Prices, departures and parcel tracking.","ld":"business"}-->
 <section class="hero"><div class="wrap">
   <div>
-    <h1>Send parcels by KTEL bus from Agrinio</h1>
-    <p class="lead">{{slogan}} Parcel depot inside the KTEL Agrinio bus station. Bring it at least {{cutoff}} minutes ahead and it leaves on the next scheduled bus, to most towns in Greece.</p>
+    <h1>Send parcels by <span class="acc">KTEL</span> bus from Agrinio</h1>
+    <p class="lead">Bring it {{cutoff}}′ ahead — it leaves on the next bus, to {{mapCount}} towns.</p>
+    {{nextBus}}
+    <div class="ctas">
+      <a class="btn btn-primary" href="send.html#ypologismos">{{i:send}} Send a parcel · price</a><span class="desk-only">{{chatButtons}}</span>
+    </div>
     <form class="quicktrack" action="track.html" method="get" autocomplete="off">
       <p class="qt-title">Where is my parcel?</p>
       <div class="row qt-grid">
@@ -13,19 +17,16 @@
       </div>
       <small>Receipt number and the first 3 letters of the recipient’s surname.</small>
     </form>
-    <div class="ctas">
-      <a class="btn btn-ghost-light" href="send.html#ypologismos">{{i:send}} Send a parcel · price</a><span class="desk-only">{{chatButtons}}</span>
-    </div>
     <div class="facts"><span class="open-now" data-open-now hidden></span><span><b>Mon–Fri</b> {{openWk}}–{{close}} · <b>Sat–Sun</b> {{openWe}}–{{close}}</span><span><a href="{{maps}}" rel="noopener">How to get here</a></span></div>
   </div>
-  <div class="hero-side"><section class="board" data-board aria-label="Next departures from Agrinio">
+  <div class="hero-side"><section class="board" id="board" data-board aria-label="Next departures from Agrinio">
     <div class="board-head"><span>Departures</span><time></time></div>
     <table><thead><tr><th scope="col">Time</th><th scope="col">Destination</th><th scope="col"><span class="sr-only">Note</span></th></tr></thead><tbody>{{boardRows}}</tbody></table>
     <div class="board-foot">Bring your parcel at least {{cutoff}} minutes before departure. For buses that leave before we open, the evening before, by {{eveningBy}}.</div>
   </section>
-  <div class="hero-photo-wrap">{{photo:eisodos|Η είσοδος της αποθήκης, δεξιά από την είσοδο του σταθμού|The depot entrance, to the right of the station entrance}}</div>
   </div>
 </div></section>
+{{trustStrip}}
 
 {{oilBanner}}
 

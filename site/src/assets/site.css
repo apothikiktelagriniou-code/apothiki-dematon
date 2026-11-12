@@ -928,3 +928,30 @@ h2.h3 { font-size: 20px; font-weight: 700; }
 @media print { .ask-fab, .ask-panel { display: none !important; } }
 .ask-head, .ask-chips, .ask-form, .ask-foot { flex: none; }
 .ask-log { min-height: 0; }
+
+/* ---------- Αρχική: έμφαση τίτλου, «Επόμενο», ταινία εμπιστοσύνης (πρόταση web-review) ---------- */
+.hero h1 .acc { color: var(--sign); }
+@media (min-width: 900px) { .hero h1 { font-size: clamp(44px, 4.4vw, 64px); line-height: 1.03; } }
+.nextbus { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; margin: 14px 0 16px; padding: 10px 14px; max-width: 520px; border-radius: 12px; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.2); color: #fff; text-decoration: none; font-weight: 700; }
+.nextbus:hover { border-color: rgba(255,255,255,.5); }
+.nextbus:focus-visible { outline: 3px solid var(--sign); outline-offset: 3px; }
+.nextbus .nb-l { font-size: 15px; opacity: .85; }
+.nextbus .nb-t { font: 700 19px/1 var(--f-mono, ui-monospace, monospace); background: #071a2c; color: #7dd3c8; padding: 5px 8px; border-radius: 6px; font-variant-numeric: tabular-nums; }
+.nextbus .nb-d { font-size: 18px; }
+.nextbus .nb-w { font-size: 14px; font-weight: 600; color: var(--sign); }
+.nextbus .nb-w:empty { display: none; }
+.nextbus .nb-all { margin-left: auto; font-size: 14px; font-weight: 600; opacity: .85; white-space: nowrap; }
+.hero .ctas { margin: 0 0 18px; }
+.trust { background: #0f2c4a; color: #fff; border-top: 1px solid rgba(255,255,255,.12); }
+.trust ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, 1fr); }
+.trust li { padding: 18px 12px; text-align: center; border-right: 1px solid rgba(255,255,255,.12); }
+.trust li:last-child { border-right: 0; }
+.trust b { display: block; font: 800 22px/1.15 var(--f-display); color: var(--sign); }
+.trust span { font-size: 14px; opacity: .88; }
+@media (max-width: 760px) {
+  .trust ul { grid-template-columns: repeat(2, 1fr); }
+  .trust li { padding: 12px 8px; border-bottom: 1px solid rgba(255,255,255,.12); }
+  .trust li:nth-child(2n) { border-right: 0; }
+  .trust b { font-size: 18px; }
+  .nextbus .nb-all { margin-left: 0; }
+}

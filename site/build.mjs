@@ -348,6 +348,21 @@ function makeLang(lang) {
   <div class="j-ctas"><a class="btn btn-ghost" data-j-calc href="${link("apostoli")}?to=${encodeURIComponent(d0.name)}#ypologismos">${t("Ακριβής τιμή", "Exact price")} →</a>${chatButtons()}</div>
 </div>`;
     },
+    "{{mapCount}}": () => String(MAP.cities.filter(c => c.dest).length + MAP.via.length),
+    // «🚌 Επόμενο»: στατική πρώτη γραμμή του πίνακα· ο browser τη διορθώνει ζωντανά (client.js, data-nextbus)
+    "{{nextBus}}": () => {
+      const picks = ["ΑΘΗΝΑ", "ΠΑΤΡΑ", "ΘΕΣΣΑΛΟΝΙΚΗ", "ΙΩΑΝΝΙΝΑ", "ΛΕΥΚΑΔΑ", "ΑΡΤΑ", "ΝΑΥΠΑΚΤΟΣ", "ΜΕΣΟΛΟΓΓΙ", "ΑΜΦΙΛΟΧΙΑ"];
+      const r = SCHED.filter(r => picks.includes(r.dest) && r.days[1] === "1" && r.time >= "07:00").sort((a, b) => a.time.localeCompare(b.time))[0];
+      const d = r && DATA.DESTINATIONS.find(x => x.sched && x.sched[0] === r.dest);
+      return `<a class="nextbus" data-nextbus href="#board"><span class="nb-l">${t("Επόμενο", "Next bus")}</span><span class="nb-t">${r ? r.time : "—"}</span><span class="nb-d">${esc(d ? L(d.name) : (r ? r.dest : ""))}</span><span class="nb-w"></span><span class="nb-all">${t("όλες οι ώρες", "all times")} →</span></a>`;
+    },
+    // (κενό ανάμεσα σε </b> και <span>: να μη γίνεται κεφαλαίο το πρώτο γράμμα — είναι συνέχεια της φράσης)
+    "{{trustStrip}}": () => `<div class="trust"><div class="wrap"><ul>
+  <li><b>${t("70+ χρόνια", "70+ years")}</b> <span>${t("δέματα με το ΚΤΕΛ", "of parcels by KTEL")}</span></li>
+  <li><b>${t(`${MAP.cities.filter(c => c.dest).length + MAP.via.length} πόλεις`, `${MAP.cities.filter(c => c.dest).length + MAP.via.length} towns`)}</b> <span>${t("απευθείας & με ανταπόκριση", "direct & via connections")}</span></li>
+  <li><b>${t("7 μέρες", "7 days")}</b> <span>${t("ανοιχτά, και Κυριακή", "a week, Sundays too")}</span></li>
+  <li><b>SMS</b> <span>${t("όταν φτάσει το δέμα", "when the parcel arrives")}</span></li>
+</ul></div></div>`,
     "{{routesMap}}": () => {
       const hrefOf = d => { const dp = DEST_PAGES.find(p => p.d.name === d.name); return dp ? link(dp.gr) : `${link("apostoli")}?to=${encodeURIComponent(d.name)}#ypologismos`; };
       const all = [...MAP.cities.filter(c => c.dest).map(c => ({ d: c.dest, via: null })), ...MAP.via.map(c => ({ d: c.dest, via: c.from }))].sort((a, b) => L(a.d.name).localeCompare(L(b.d.name), lang));
