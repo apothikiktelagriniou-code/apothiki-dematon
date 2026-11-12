@@ -780,3 +780,74 @@ export function paymentSummary(rows) {
   };
 }
 export const looksLikePayLink = s => /^https:\/\/([a-z0-9-]+\.)*vivapayments\.com\/|^https:\/\/([a-z0-9-]+\.)*viva\.com\//i.test(String(s || "").trim());
+
+// ---------------------------------------------------------------- λεξικό ονομάτων: «Μήπως εννοείς…;»
+/** Απόσταση Damerau (OSA): αλλαγή / προσθήκη / αφαίρεση γράμματος ή αντιμετάθεση δύο γειτονικών = 1. */
+export function editDist(a, b, max = 3) {
+  if (a === b) return 0; if (Math.abs(a.length - b.length) > max) return max + 1;
+  const d = Array.from({ length: a.length + 1 }, (_, i) => [i]);
+  for (let j = 1; j <= b.length; j++) d[0][j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    let best = Infinity;
+    for (let j = 1; j <= b.length; j++) {
+      const c = a[i - 1] === b[j - 1] ? 0 : 1;
+      d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + c);
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + 1);
+      best = Math.min(best, d[i][j]);
+    }
+    if (best > max) return max + 1;
+  }
+  return d[a.length][b.length];
+}
+// διαφορετική κατάληξη στο ίδιο θέμα = άλλο πρόσωπο/γένος (ΠΑΠΑΔΟΠΟΥΛΟΣ ≠ ΠΑΠΑΔΟΠΟΥΛΟΥ, ΓΕΩΡΓΙΟΣ ≠ ΓΕΩΡΓΙΑ) → ΔΕΝ «διορθώνεται»
+const END_RX = /(ΟΥ|ΟΣ|ΗΣ|ΑΣ|ΕΣ|ΙΣ|Η|Α|Ι|Ω|Ο)$/;
+function endingOnly(a, b) { const sa = a.replace(END_RX, ""), sb = b.replace(END_RX, ""); return sa.length >= 3 && sa === sb; }
+/** Συχνά ελληνικά επώνυμα (αρσενικά + θηλυκά) — αρχικό λεξικό· το κύριο λεξικό χτίζεται από τους δικούς μας πελάτες/δέματα. */
+const SURNAMES = ("ΠΑΠΑΔΟΠΟΥΛΟΣ ΠΑΠΑΓΕΩΡΓΙΟΥ ΟΙΚΟΝΟΜΟΥ ΓΕΩΡΓΙΟΥ ΠΑΠΑΔΗΜΗΤΡΙΟΥ ΠΑΠΠΑΣ ΒΑΣΙΛΕΙΟΥ ΝΙΚΟΛΑΟΥ ΚΩΝΣΤΑΝΤΙΝΟΥ ΙΩΑΝΝΟΥ ΔΗΜΗΤΡΙΟΥ "
+  + "ΑΘΑΝΑΣΙΟΥ ΧΡΙΣΤΟΔΟΥΛΟΥ ΑΝΤΩΝΙΟΥ ΠΑΝΑΓΙΩΤΟΠΟΥΛΟΣ ΓΕΩΡΓΙΑΔΗΣ ΚΑΡΑΓΙΑΝΝΗΣ ΜΑΚΡΗΣ ΠΑΠΑΝΙΚΟΛΑΟΥ ΑΛΕΞΙΟΥ ΣΤΑΥΡΟΠΟΥΛΟΣ "
+  + "ΑΓΓΕΛΟΠΟΥΛΟΣ ΝΙΚΟΛΟΠΟΥΛΟΣ ΔΗΜΟΠΟΥΛΟΣ ΚΩΣΤΟΠΟΥΛΟΣ ΓΙΑΝΝΟΠΟΥΛΟΣ ΘΕΟΔΩΡΟΠΟΥΛΟΣ ΒΛΑΧΟΣ ΜΠΑΚΑΣ ΚΑΤΣΑΡΟΣ ΖΑΧΑΡΙΟΥ "
+  + "ΑΝΑΣΤΑΣΙΟΥ ΜΙΧΑΗΛΙΔΗΣ ΧΑΤΖΗΣ ΧΑΤΖΗΔΑΚΗΣ ΣΠΥΡΟΠΟΥΛΟΣ ΤΣΙΡΩΝΗΣ ΚΑΡΑΛΗΣ ΜΑΝΩΛΑΣ ΛΑΜΠΡΟΠΟΥΛΟΣ ΜΟΥΡΤΖΟΣ ΤΖΙΒΕΛΕΚΗΣ "
+  + "ΠΑΠΑΘΑΝΑΣΙΟΥ ΣΩΤΗΡΟΠΟΥΛΟΣ ΧΡΗΣΤΟΠΟΥΛΟΣ ΠΕΤΡΟΠΟΥΛΟΣ ΜΑΡΚΟΠΟΥΛΟΣ ΚΟΥΤΣΟΓΙΑΝΝΗΣ ΠΑΠΑΚΩΣΤΑΣ ΚΑΡΑΜΑΝΛΗΣ ΑΛΕΞΟΠΟΥΛΟΣ "
+  + "ΣΤΑΜΑΤΟΠΟΥΛΟΣ ΒΑΣΙΛΟΠΟΥΛΟΣ ΚΟΛΛΙΑΣ ΣΑΚΚΟΣ ΜΠΟΥΡΑΣ ΚΑΡΑΠΑΝΟΣ ΤΣΟΥΚΑΛΑΣ ΠΑΠΑΣΤΑΘΟΠΟΥΛΟΣ ΚΩΣΤΑΚΗΣ ΓΚΟΛΦΗΣ "
+  + "ΠΑΠΑΔΑΚΗΣ ΠΑΠΑΔΟΠΟΥΛΟΥ ΠΑΝΑΓΙΩΤΟΠΟΥΛΟΥ ΓΕΩΡΓΙΑΔΟΥ ΚΑΡΑΓΙΑΝΝΗ ΜΑΚΡΗ ΣΤΑΥΡΟΠΟΥΛΟΥ ΒΛΑΧΟΥ ΚΑΤΣΑΡΟΥ ΧΑΤΖΗ").split(" ");
+/** Λεξικό: λέξη (ΚΕΦΑΛΑΙΑ χωρίς τόνους) → πόσες φορές την έχουμε δει, με ευρετήρια για γρήγορη αναζήτηση.
+ *  `entries` = [[ονοματεπώνυμο, βάρος], ...] (πελάτες, δέματα). */
+export function nameLexicon(entries) {
+  const words = new Map(), add = (w, n) => { if (w.length >= 3 && /^[Α-Ω]+$/.test(w)) words.set(w, (words.get(w) || 0) + n); };
+  for (const n of FIRST_NAMES) add(n, 5);
+  for (const n of SURNAMES) add(n, 5);
+  for (const [name, n] of entries) for (const w of norm(name).replace(/ς/g, "Σ").split(/[\s.\-,]+/)) add(w, Math.max(1, n || 1));
+  const bySound = new Map(), idx = new Map();
+  for (const [w, n] of words) {
+    if (n < 3) continue; // μόνο «καθιερωμένες» γραφές προτείνονται
+    const k = soundKey(w), b = bySound.get(k); if (!b || n > b[1]) bySound.set(k, [w, n]);
+    const ik = w[0] + w.length; (idx.get(ik) || idx.set(ik, []).get(ik)).push([w, n]);
+  }
+  return { words, bySound, idx };
+}
+/** «Μήπως εννοείς…;» για ένα όνομα — ΠΟΤΕ δεν αλλάζει μόνο του· επιστρέφει { to, latin } ή null.
+ *  Πιάνει: greeklish (GIORGOS PAPADOPOULOS), ορθογραφικά (ΠΑΠΑΔΟΠΟΛΟΣ, ΓΕΟΡΓΙΟΥ), αντιμεταθέσεις (ΠΑΠΑΔΟΠΟΥΛΣΟ).
+ *  ΔΕΝ «διορθώνει» άλλη κατάληξη (ΠΑΠΑΔΟΠΟΥΛΟΥ, ΤΣΙΡΩΝΗ = άλλο πρόσωπο/γένος). */
+export function nameSuggestion(name, lex) {
+  const raw = norm(name); if (!raw || !lex) return null;
+  const latin = /[A-Z]/.test(raw) && !/[Α-Ω]/.test(raw);
+  const toks = (latin ? greekName(raw) : raw).replace(/ς/g, "Σ").split(" ");
+  let changed = latin;
+  const out = toks.map(t => {
+    if (t.length < 4 || !/^[Α-Ω]+$/.test(t)) return t;
+    const have = lex.words.get(t) || 0; if (have >= 3) return t; // γνωστό όνομα
+    const ok = (w, n) => w !== t && n >= 3 * Math.max(1, have);
+    const snd = lex.bySound.get(soundKey(t)); // ίδιος ήχος (ΗΣ/ΙΣ, Ο/Ω, ΕΙ/Ι, διπλά) = ορθογραφικό
+    if (snd && ok(snd[0], snd[1])) { changed = true; return snd[0]; }
+    const maxD = t.length >= 8 ? 2 : 1; let best = null;
+    for (let L = t.length - maxD; L <= t.length + maxD; L++) for (const [w, n] of lex.idx.get(t[0] + L) || []) {
+      if (!ok(w, n) || endingOnly(w, t)) continue;
+      const dist = editDist(t, w, maxD); if (dist > maxD) continue;
+      const score = dist * 10 - Math.log(n); if (!best || score < best.score) best = { w, score };
+    }
+    if (best) { changed = true; return best.w; }
+    return t;
+  });
+  const to = out.join(" ");
+  return changed && to !== raw ? { to, latin } : null;
+}

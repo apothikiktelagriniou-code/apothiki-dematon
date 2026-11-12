@@ -508,3 +508,20 @@ test("fetchAll: φέρνει όλες τις σελίδες πάνω από το
   const r = await fetchAll(make); assert.equal(r.data.length, 2345); assert.equal(r.data[2344], 2344);
   const r2 = await fetchAll(() => ({ range: async () => ({ data: null, error: { message: "x" } }) })); assert.ok(r2.error);
 });
+
+import { editDist, nameLexicon, nameSuggestion } from "../src/lib.js";
+test("λεξικό ονομάτων: «Μήπως εννοείς…;»", () => {
+  assert.equal(editDist("ΠΑΠΑΔΟΠΟΥΛΣΟ", "ΠΑΠΑΔΟΠΟΥΛΟΣ"), 1); // αντιμετάθεση
+  const lex = nameLexicon([["ΤΣΙΡΩΝΗΣ ΓΙΩΡΓΟΣ", 12], ["ΜΠΑΚΑΣ ΝΙΚΟΣ", 4], ["ΚΑΡΑΓΚΙΟΖΗΣ ΚΩΣΤΑΣ", 6]]);
+  const s = n => (nameSuggestion(n, lex) || {}).to || null;
+  assert.equal(s("ΠΑΠΑΔΟΠΟΛΟΣ ΓΙΩΡΓΟΣ"), "ΠΑΠΑΔΟΠΟΥΛΟΣ ΓΙΩΡΓΟΣ");   // ορθογραφικό
+  assert.equal(s("ΤΣΙΡΟΝΗΣ"), "ΤΣΙΡΩΝΗΣ");                           // ο/ω
+  assert.equal(s("ΚΑΡΑΓΚΙΟΖΙΣ"), "ΚΑΡΑΓΚΙΟΖΗΣ");                     // ι/η
+  assert.equal(s("ΤΣΙΡΩΝΙΣ"), "ΤΣΙΡΩΝΗΣ");
+  assert.equal(s("ΠΑΠΑΔΟΠΟΥΛΣΟ"), "ΠΑΠΑΔΟΠΟΥΛΟΣ");                   // αναγραμματισμός
+  assert.equal(s("TSIRONIS GIORGOS"), "ΤΣΙΡΩΝΗΣ ΓΙΩΡΓΟΣ");             // greeklish
+  assert.equal(s("ΠΑΠΑΔΟΠΟΥΛΟΥ ΜΑΡΙΑ"), null);                          // θηλυκό ≠ λάθος
+  assert.equal(s("ΤΣΙΡΩΝΗ"), null);                                     // άλλη κατάληξη = άλλο πρόσωπο
+  assert.equal(s("ΤΣΙΡΩΝΗΣ ΓΙΩΡΓΟΣ"), null);                          // ήδη σωστό
+  assert.equal(s("ΜΠΑΚΑΣ"), null);
+});
