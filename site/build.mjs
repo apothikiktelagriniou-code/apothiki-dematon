@@ -11,7 +11,7 @@ import { FAQ, FAQ_EN } from "./src/faq.mjs";
 import { EN, tr } from "./src/en.mjs";
 import { SCHEDULE_TIMES } from "../src/schedule-seed.js";
 import { SUPABASE_URL, SUPABASE_KEY } from "../src/config.js";
-import { daysLabel, destDays, tariffKey, kgRate } from "./src/calc.mjs";
+import { daysLabel, destDays, tariffKey, kgRate, dropOff } from "./src/calc.mjs";
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const ARTIFACT = process.argv.includes("--artifact");
@@ -272,11 +272,11 @@ function makeLang(lang) {
     const hubs = Object.entries(DATA.HUBS).map(([k, h]) => {
       const list = DATA.DESTINATIONS.filter(d => d.hub === k).sort(sortL);
       if (!list.length) return "";
-      return `<div class="panel"><h3>${t("Ανταπόκριση:", "Via")} ${esc(L(h.label))}</h3><p class="muted" style="margin-top:6px">${esc(L(h.eta))} ${t(`Πληρώνετε εδώ την τιμή ${esc(L(DATA.TARIFFS[h.tariff].label))} και βάζετε περίπου άλλο τόσο σε φάκελο πάνω στο δέμα, για το πρακτορείο που συνεχίζει.`, `You pay the ${esc(L(DATA.TARIFFS[h.tariff].label))} price here and put about the same amount in an envelope on the parcel, for the agency that carries it on.`)}</p><ul class="dest-list">${list.map(chip).join("")}</ul></div>`;
+      return `<div class="panel"><h3>${t("Ανταπόκριση:", "Via")} ${esc(L(h.label))}</h3><p class="muted" style="margin-top:6px">${esc(L(h.eta))} ${t(`Πληρώνετε εδώ την τιμή του τιμοκαταλόγου «${esc(L(DATA.TARIFFS[h.tariff].label))}» και βάζετε περίπου άλλο τόσο σε φάκελο πάνω στο δέμα, για το πρακτορείο που συνεχίζει.`, `You pay the ${esc(L(DATA.TARIFFS[h.tariff].label))} price here and put about the same amount in an envelope on the parcel, for the agency that carries it on.`)}</p><ul class="dest-list">${list.map(chip).join("")}</ul></div>`;
     }).join("");
     return `<div class="dest-groups">
   <div><h2>${t("Απευθείας δρομολόγια", "Direct buses")}</h2><p class="muted" style="margin-top:6px">${t("Το δέμα φτάνει την ίδια μέρα, με τα δρομολόγια που αναγράφονται. Δίπλα σε κάθε πόλη, οι μέρες που υπάρχει δρομολόγιο, αν δεν είναι καθημερινό.", "It arrives the same day, on the listed schedules. Next to each town: the days with a bus, if not daily.")}</p><ul class="dest-list">${by("direct").map(chip).join("")}</ul></div>
-  <div><h2>${t("Εντός Νομού Αιτωλοακαρνανίας", "Within Aetolia-Acarnania")}</h2><p class="muted" style="margin-top:6px">${t("Ίδια τιμή για όλο τον νομό.", "One price for the whole prefecture.")}</p><ul class="dest-list">${by("local").map(chip).join("")}</ul></div>
+  <div><h2>${t("Εντός νομού Αιτωλοακαρνανίας", "Within Aetolia-Acarnania")}</h2><p class="muted" style="margin-top:6px">${t("Ίδια τιμή για όλο τον νομό.", "One price for the whole prefecture.")}</p><ul class="dest-list">${by("local").map(chip).join("")}</ul></div>
   <div><h2>${t("Με ανταπόκριση", "With connection")}</h2><div class="grid g3" style="margin-top:12px">${hubs}</div></div>
   ${by("ask").length ? `<div><h2>${t("Ρωτήστε μας", "Ask us")}</h2><ul class="dest-list">${by("ask").map(d => `<li>${esc(L(d.name))}</li>`).join("")}</ul></div>` : ""}
   ${by("none").length ? `<div><h2>${t("Δεν εξυπηρετούνται", "Not served")}</h2><ul class="dest-list none">${by("none").map(d => `<li>${esc(L(d.name))}</li>`).join("")}</ul></div>` : ""}
@@ -319,7 +319,7 @@ function makeLang(lang) {
   <div class="oil-copy">
     <span class="oil-kicker">${t("Εποχή λαδιού", "Olive oil season")}</span>
     <h2 id="oil-h">${t("Το λάδι της χρονιάς, στους δικούς σας", "This year's oil, to your family")}</h2>
-    <p>${t(`Ο τενεκές ταξιδεύει μέσα σε χαρτοκιβώτιο. Φέρτε τον έτοιμο, ή αφήστε τη συσκευασία σε εμάς με ${money(PK_TIN.service)}: κούτα, σακούλα, ταινία και σήμανση.`, `The tin travels inside a cardboard box. Bring it packed, or let us pack it for ${money(PK_TIN.service)}: box, bag, tape and labels.`)}</p>
+    <p>${t(`Ο τενεκές ταξιδεύει μέσα σε χαρτοκιβώτιο. Φέρτε τον έτοιμο ή αφήστε τη συσκευασία σε εμάς με ${money(PK_TIN.service)}: κούτα, σακούλα, ταινία και σήμανση.`, `The tin travels inside a cardboard box. Bring it packed, or let us pack it for ${money(PK_TIN.service)}: box, bag, tape and labels.`)}</p>
     <ul class="oil-prices">
       ${tf.p.tenekes != null ? `<li><b>${eur(tf.p.tenekes)}</b><span>${t("τενεκές για Αθήνα", "a tin to Athens")}</span></li>` : ""}
       ${tfP.p.tenekes != null ? `<li><b>${eur(tfP.p.tenekes)}</b><span>${t("τενεκές για Πάτρα", "a tin to Patras")}</span></li>` : ""}
@@ -342,7 +342,7 @@ function makeLang(lang) {
     ${step("drop", I.send, t("Φέρτε το", "Bring it"), t(`Τουλάχιστον ${B.cutoffMin} λεπτά πριν από την αναχώρηση`, `At least ${B.cutoffMin} minutes before departure`), t(`Για λεωφορεία πριν ανοίξουμε, από το προηγούμενο βράδυ έως τις ${B.eveningBy}.`, `For buses before we open, the evening before, by ${B.eveningBy}.`))}
     ${step("pay", I.euro, t("Πληρώνετε", "Pay"), [tf.p.fakelos != null ? t(`Φάκελος ${eur(tf.p.fakelos)}`, `Envelope ${eur(tf.p.fakelos)}`) : "", tf.p.mikro != null ? t(`μικρό κουτί ${eur(tf.p.mikro)}`, `small box ${eur(tf.p.mikro)}`) : ""].filter(Boolean).join(" · "), t("Ενδεικτικά. Η τελική τιμή βγαίνει στο ταμείο.", "Indicative. The final price is set at the counter."))}
     ${step("go", I.bus, t("Φεύγει", "It leaves"), t("Με το επόμενο δρομολόγιο", "On the next scheduled bus"), esc(L(d0.eta || "")))}
-    ${step("get", I.receive, t("Παραλαβή", "Collection"), esc(d0.terminal || t("Στο ΚΤΕΛ του προορισμού", "At the destination bus station")), [esc(d0.terminalAddr || ""), tel].filter(Boolean).join(" · ") + `<br>${t("Με ταυτότητα. Μπορεί να το πάρει και άλλος, με τη δική του.", "With ID. Someone else can collect it with their own ID.")}`)}
+    ${step("get", I.receive, t("Παραλαβή", "Collection"), esc(L(d0.terminal) || t("Στο ΚΤΕΛ του προορισμού", "At the destination bus station")), [esc(L(d0.terminalAddr) || ""), tel].filter(Boolean).join(" · ") + `<br>${t("Με ταυτότητα. Μπορεί να το πάρει και άλλος, με τη δική του.", "With ID. Someone else can collect it with their own ID.")}`)}
     <span class="j-parcel" aria-hidden="true">${I.send}</span>
   </ol>
   <div class="j-ctas"><a class="btn btn-ghost" data-j-calc href="${link("apostoli")}?to=${encodeURIComponent(d0.name)}#ypologismos">${t("Ακριβής τιμή", "Exact price")} →</a>${chatButtons()}</div>
@@ -416,7 +416,7 @@ function makeLang(lang) {
     const f = ["jpg", "jpeg", "webp", "png"].map(x => name + "." + x).find(x => existsSync(join(PHOTO_DIR, x)));
     if (!f) return "";
     const cap = t(capEl, capEn || capEl), sz = imgSize(join(PHOTO_DIR, f)), dir = `${lang === "en" ? "../" : ""}assets/photos/`;
-    const img = `<img src="${dir}${f}" alt=""${sz ? ` width="${sz.w}" height="${sz.h}"` : ""} ${eager ? 'fetchpriority="high"' : 'loading="lazy"'} decoding="async">`;
+    const img = `<img src="${dir}${f}" alt=""${sz ? ` width="${sz.w}" height="${sz.h}" style="--ar:${sz.w}/${sz.h}"` : ""} ${eager ? 'fetchpriority="high"' : 'loading="lazy"'} decoding="async">`;
     // Μικρότερα αντίγραφα AVIF/WebP (φτιάχνονται μία φορά με: node site/tools/optimize-images.mjs). Αν λείπουν, μένει μόνο το jpg.
     const W = [480, 800, 1200].filter(w => sz && w < sz.w).concat(sz ? [sz.w] : []);
     const srcset = ext => W.filter(w => existsSync(join(PHOTO_DIR, `${name}-${w}.${ext}`))).map(w => `${dir}${name}-${w}.${ext} ${w}w`).join(", ");
@@ -521,6 +521,7 @@ ${body}
   <a href="${WA_URL}">${I.chat || I.phone}<span>WhatsApp</span></a>
   <a href="${link("anazitisi")}"${gr === "anazitisi" ? ' aria-current="page"' : ""}>${I.search}<span>${t("Το δέμα μου", "My parcel")}</span></a>
   <a href="${link("apostoli")}#ypologismos"${gr === "apostoli" ? ' aria-current="page"' : ""}>${I.send}<span>${t("Τιμή", "Price")}</span></a>
+  <button type="button" class="qb-ask" data-ask-open aria-controls="ask-panel"><span class="qb-q" aria-hidden="true">?</span><span>${t("Ρωτήστε", "Ask")}</span></button>
 </nav>
 ${/^diaxeirisi/.test(gr) ? `<script src="${pre}assets/app-admin.js?v=${V_ADMIN}"></script>` : `<script src="${pre}assets/app.js?v=${V_JS}"></script>`}`;
     if (ARTIFACT && lang === "el" && gr === "index") return `${headInner}\n${content}\n`;
@@ -531,6 +532,14 @@ ${/^diaxeirisi/.test(gr) ? `<script src="${pre}assets/app-admin.js?v=${V_ADMIN}"
     const d = p.d, name = L(d.name), tf = DATA.TARIFFS[tariffKey(DATA, d)];
     const days = destDays(DATA, SCHED, d, lang);
     const rows = SCHED.filter(r => (d.sched || []).includes(r.dest)).sort((a, b) => a.time.localeCompare(b.time));
+    // Λεωφορεία που φεύγουν πριν ανοίξουμε: το δέμα έρχεται από το προηγούμενο βράδυ (ίδια λογική με τον υπολογιστή).
+    const runDays = r => [...String(r.days || "")].map((c, i) => c === "1" ? i : -1).filter(i => i >= 0);
+    const earlyDays = r => runDays(r).filter(i => !dropOff(B, i, r.time).same);
+    const isEarly = r => earlyDays(r).length > 0;
+    const DSH = lang === "en" ? ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] : ["Δευ", "Τρι", "Τετ", "Πεμ", "Παρ", "Σαβ", "Κυρ"];
+    const earlyNote = r => { const e = earlyDays(r), all = e.length === runDays(r).length;
+      return (all ? "" : e.map(i => DSH[i]).join(", ") + ": ") + t(`${all ? "Φ" : "φ"}έρτε το από το προηγούμενο βράδυ, έως τις ${B.eveningBy}`, `${all ? "B" : "b"}ring it the evening before, by ${B.eveningBy}`); };
+    const early = rs => [...new Set(rs.filter(r => earlyDays(r).length === runDays(r).length).map(r => r.time))].join(", ");
     const pEnv = tf.p.fakelos, pSmall = tf.p.mikro;
     const fromTxt = t([pEnv != null ? `φάκελος από ${eur(pEnv)}` : "", pSmall != null ? `μικρό κουτί από ${eur(pSmall)}` : ""].filter(Boolean).join(", "),
       [pEnv != null ? `envelopes from ${eur(pEnv)}` : "", pSmall != null ? `small boxes from ${eur(pSmall)}` : ""].filter(Boolean).join(", "));
@@ -539,9 +548,9 @@ ${/^diaxeirisi/.test(gr) ? `<script src="${pre}assets/app-admin.js?v=${V_ADMIN}"
     const facts = [
       days && [t("Μέρες", "Days"), days],
       d.eta && [t("Παράδοση", "Delivery"), L(d.eta)],
-      d.terminal && [t("Παραλαβή στον προορισμό", "Collection at destination"), [d.terminal, d.terminalAddr].filter(Boolean).join(", "), d.terminalPhone],
+      d.terminal && [t("Παραλαβή στον προορισμό", "Collection at destination"), [L(d.terminal), L(d.terminalAddr)].filter(Boolean).join(", "), d.terminalPhone],
       d.note && [t("Σημείωση", "Note"), L(d.note)],
-      [t("Στο ταμείο", "At the counter"), t(`Τουλάχιστον ${B.cutoffMin} λεπτά πριν την αναχώρηση.`, `At least ${B.cutoffMin} minutes before departure.`)],
+      [t("Στο ταμείο", "At the counter"), t(`Τουλάχιστον ${B.cutoffMin} λεπτά πριν από την αναχώρηση.`, `At least ${B.cutoffMin} minutes before departure.`) + (rows.some(isEarly) ? " " + t(`Για λεωφορεία που φεύγουν πριν ανοίξουμε: από το προηγούμενο βράδυ, έως τις ${B.eveningBy} (δείτε τη στήλη «Σημείωση»).`, `For buses that leave before we open: the evening before, by ${B.eveningBy} (see the “Note” column).`) : "")],
       [t("Πληρωμή", "Payment"), t("Μετρητά, κάρτα ή IRIS", "Cash, card or IRIS")],
     ].filter(Boolean);
     const others = DEST_PAGES.filter(x => x !== p).map(x => `<li><a href="${link(x.gr)}">${esc(L(x.d.name))}</a></li>`).join("");
@@ -554,7 +563,7 @@ ${/^diaxeirisi/.test(gr) ? `<script src="${pre}assets/app-admin.js?v=${V_ADMIN}"
 <section class="section"><div class="wrap">
   <h2>${t("Με μια ματιά", "At a glance")}</h2>
   <ul class="access">${facts.map(([k, v, ph]) => `<li><b>${k}:</b> ${esc(v)}${ph ? ` · ${String(ph).split(/\s*[,;]\s*/).map(n => `<a class="num" href="tel:${n.replace(/[^\d+]/g, "").replace(/^(?!\+)/, "+30")}">${esc(n)}</a>`).join(", ")}` : ""}</li>`).join("")}</ul>
-  ${d.name === "Αθήνα" && DATA.HOME.athens ? `<div class="notice info" style="margin-top:16px;max-width:70ch"><b>${t("Παραλαβή κατ' οίκον στην Αθήνα", "Delivery to your door in Athens")}${DATA.HOME.athens.active ? "" : ` <span class="tag">${t("Σύντομα", "Soon")}</span>`}</b>${(brandImg("asap", "", 20) ? brandImg("asap", DATA.HOME.athens.partner, 20) + " " : "") + t(`Σε συνεργασία με την ${esc(DATA.HOME.athens.partner)}: ο παραλήπτης το παίρνει στο σπίτι ή στο γραφείο, χωρίς να πάει στον Κηφισό.`, `In partnership with ${esc(DATA.HOME.athens.partner)}: the recipient gets it at home or at work, without going to Kifisos.`)} <a href="${link("spiti")}#${lang === "en" ? "athens" : "athina"}">${t("Περισσότερα →", "More →")}</a></div>` : ""}
+  ${d.name === "Αθήνα" && DATA.HOME.athens ? `<div class="notice info" style="margin-top:16px;max-width:70ch"><b>${t("Παραλαβή κατ' οίκον στην Αθήνα", "Delivery to your door in Athens")}${DATA.HOME.athens.active ? "" : ` <span class="tag">${t("Σύντομα", "Soon")}</span>`}</b>${(brandImg("asap", "", 20) ? brandImg("asap", DATA.HOME.athens.partner, 20) + " " : "") + t(`Σε συνεργασία με την ${esc(DATA.HOME.athens.partner)}: ο παραλήπτης το παίρνει στο σπίτι ή στο γραφείο, χωρίς να πάει στον Κηφισό.`, `In partnership with ${esc(DATA.HOME.athens.partner)}: the recipient gets it at home or at work, without going to Kifissos.`)} <a href="${link("spiti")}#${lang === "en" ? "athens" : "athina"}">${t("Περισσότερα →", "More →")}</a></div>` : ""}
   <h2>${t(`Τιμές για ${esc(name)}`, `Prices to ${esc(name)}`)}</h2>
   <div class="table-wrap narrow"><table class="data two"><thead><tr><th scope="col">${t("Είδος δέματος", "Item")}</th><th scope="col">${t("Τιμή", "Price")}</th></tr></thead><tbody>${
     C.map(c => { const v = tf.p[c.id]; return `<tr><th scope="row" style="font-weight:600">${esc(L(c.name))}</th><td class="${v == null ? "na" : "num"}">${v == null ? t("ρωτήστε", "ask") : eur(v)}</td></tr>`; }).join("")
@@ -562,11 +571,11 @@ ${/^diaxeirisi/.test(gr) ? `<script src="${pre}assets/app-admin.js?v=${V_ADMIN}"
   <p class="caption">${t("Ενδεικτικές τιμές από τον επίσημο τιμοκατάλογο του ΚΤΕΛ Αιτωλοακαρνανίας, ανά τεμάχιο, με ΦΠΑ. Η τελική τιμή βγαίνει στον πάγκο.", "Indicative prices from the official KTEL Aetolia-Acarnania price list, per item, VAT included. The final price is set at the counter.")} <a href="${link("apostoli")}#ypologismos">${t("Ποιο μέγεθος είναι το δέμα μου;", "Which size is my parcel?")}</a></p>
   ${rows.length ? `<h2>${t("Αναχωρήσεις από το Αγρίνιο", "Departures from Agrinio")}</h2>
   <div class="table-wrap narrow"><table class="data times"><thead><tr><th scope="col">${t("Ώρα", "Time")}</th><th scope="col">${t("Μέρες", "Days")}</th><th scope="col">${t("Σημείωση", "Note")}</th></tr></thead><tbody>${
-    rows.map(r => `<tr><td class="num">${r.time}</td><td>${esc(daysLabel([r], [r.dest], lang))}</td><td>${[r.express ? "Express" : "", r.notes ? esc(noteTxt(r.notes)) : ""].filter(Boolean).join(" · ")}</td></tr>`).join("")
+    rows.map(r => `<tr><td class="num">${r.time}</td><td>${esc(daysLabel([r], [r.dest], lang))}</td><td>${[isEarly(r) ? earlyNote(r) : "", r.express ? "Express" : "", r.notes ? esc(noteTxt(r.notes)) : ""].filter(Boolean).join(" · ")}</td></tr>`).join("")
   }</tbody></table></div>
-  <p class="caption">${t(`Λεωφορεία που παίρνουν δέματα. Φέρτε το δέμα στο ταμείο τουλάχιστον ${B.cutoffMin} λεπτά πριν. Τις αργίες τα δρομολόγια μπορεί να αλλάζουν.`, `Buses that carry parcels. Bring your parcel to the counter at least ${B.cutoffMin} minutes before. Holiday timetables may differ.`)}</p>` : ""}
+  <p class="caption">${t(`Λεωφορεία που παίρνουν δέματα. Φέρτε το δέμα στο ταμείο τουλάχιστον ${B.cutoffMin} λεπτά πριν. Τις αργίες τα δρομολόγια μπορεί να αλλάξουν.`, `Buses that carry parcels. Bring your parcel to the counter at least ${B.cutoffMin} minutes before. Holiday timetables may differ.`)}</p>` : ""}
   <h2>${t("Πώς στέλνω", "How to send")}</h2>
-  <ol class="steps"><li><div><b>${t("Συσκευάστε το δέμα", "Pack the parcel")}</b><p>${t("Γράψτε πάνω ονοματεπώνυμο και κινητό του παραλήπτη, όπως στην ταυτότητά του.", "Write the recipient’s full name, as on their ID, and mobile number on it.")}</p></div></li><li><div><b>${t("Φέρτε το στην αποθήκη", "Bring it to the depot")}</b><p>${t(`Δεξιά από την είσοδο του σταθμού ΚΤΕΛ Αγρινίου. ${esc(B.hours.map(x => L(x.days) + " " + x.time).join(" · "))}.`, `To the right of the Agrinio KTEL station entrance. ${esc(B.hours.map(x => L(x.days) + " " + x.time).join(" · "))}.`)}</p></div></li><li><div><b>${t("Πληρώνετε και φεύγει", "Pay and it’s on its way")}</b><p>${t(`Μετρητά, κάρτα ή IRIS. Ο παραλήπτης ειδοποιείται με SMS όταν φτάσει ${p.eis}.`, `Cash, card or IRIS. The recipient gets an SMS when it reaches ${esc(name)}.`)}</p></div></li></ol>
+  <ol class="steps"><li><div><b>${t("Συσκευάστε το δέμα", "Pack the parcel")}</b><p>${t("Γράψτε πάνω στο δέμα το ονοματεπώνυμο του παραλήπτη, όπως στην ταυτότητά του, και το κινητό του.", "Write the recipient’s full name, as on their ID, and mobile number on it.")}</p></div></li><li><div><b>${t("Φέρτε το στην αποθήκη", "Bring it to the depot")}</b><p>${t(`Δεξιά από την είσοδο του σταθμού ΚΤΕΛ Αγρινίου. ${esc(B.hours.map(x => L(x.days) + " " + x.time).join(" · "))}.`, `To the right of the Agrinio KTEL station entrance. ${esc(B.hours.map(x => L(x.days) + " " + x.time).join(" · "))}.`)}</p></div></li><li><div><b>${t("Πληρώνετε και φεύγει", "Pay and it’s on its way")}</b><p>${t(`Μετρητά, κάρτα ή IRIS. Ο παραλήπτης ειδοποιείται με SMS όταν φτάσει ${p.eis}.`, `Cash, card or IRIS. The recipient gets an SMS when it reaches ${esc(name)}.`)}</p></div></li></ol>
   <h2>${t("Άλλοι προορισμοί", "Other destinations")}</h2>
   <ul class="dest-list">${others}<li><a href="${link("proorismoi")}">${t("Όλοι οι προορισμοί →", "All destinations →")}</a></li></ul>
 </div></section>`;

@@ -13,13 +13,13 @@
         <label for="q-r">Αριθμός απόδειξης</label><label for="q-n">Επώνυμο παραλήπτη</label>
         <input id="q-r" name="r" class="mono" inputmode="numeric" placeholder="228-336-12345" required>
         <input id="q-n" name="n" maxlength="20" autocapitalize="characters" placeholder="ΠΑΠ" required>
-        <button class="btn" type="submit">{{i:search}} Βρες το</button>
+        <button class="btn" type="submit">{{i:search}} Βρείτε το</button>
       </div>
       <small>Αριθμός απόδειξης και τα 3 πρώτα γράμματα του επωνύμου του παραλήπτη.</small>
     </form>
-    <div class="facts"><span class="open-now" data-open-now hidden></span><span><b>Δευ–Παρ</b> {{openWk}}–{{close}} · <b>Σαβ–Κυρ</b> {{openWe}}–{{close}}</span><span><a href="{{maps}}" rel="noopener">Πώς θα έρθετε</a></span></div>
+    <div class="facts"><span class="open-now" data-open-now></span><span><b>Δευ–Παρ</b> {{openWk}}–{{close}} · <b>Σαβ–Κυρ</b> {{openWe}}–{{close}}</span><span><a href="{{maps}}" rel="noopener">Πώς θα έρθετε</a></span></div>
   </div>
-  <div class="hero-side"><section class="board" id="board" data-board aria-label="Επόμενες αναχωρήσεις από Αγρίνιο">
+  <div class="hero-side"><section class="board" id="board" data-board aria-label="Επόμενες αναχωρήσεις από το Αγρίνιο">
     <div class="board-head"><span>Αναχωρήσεις</span><time></time></div>
     <table><thead><tr><th scope="col">Ώρα</th><th scope="col">Προορισμός</th><th scope="col"><span class="sr-only">Σημείωση</span></th></tr></thead><tbody>{{boardRows}}</tbody></table>
     <div class="board-foot">Φέρτε το δέμα τουλάχιστον {{cutoff}} λεπτά πριν από την αναχώρηση. Για λεωφορεία που φεύγουν πριν ανοίξουμε, από το προηγούμενο βράδυ έως τις {{eveningBy}}.</div>
@@ -48,15 +48,15 @@
   {{journey}}
 </div></section>
 
-<section class="section alt"><div class="wrap grid g2" style="gap:40px;align-items:start">
+<section class="section alt"><div class="wrap grid g2 split" style="gap:40px;align-items:start">
   <div>
-    <div class="section-head"><h2>Πού στέλνουμε</h2><p>Απευθείας δρομολόγια σε πολλές πόλεις της Ελλάδας, όλος ο νομός, και ακόμα περισσότερες πόλεις με ανταπόκριση.</p></div>
+    <div class="section-head"><h2>Πού στέλνουμε</h2><p>Απευθείας δρομολόγια σε πολλές πόλεις της Ελλάδας και σε όλο τον νομό, και ακόμα περισσότερες πόλεις με ανταπόκριση.</p></div>
     <ul class="routes">
       <li><b>Αθήνα</b><span class="p">από {{eur:athina:fakelos}}</span><small>Καθημερινά, από νωρίς το πρωί</small></li>
       <li><b>Πάτρα</b><span class="p">από {{eur:patra:fakelos}}</span><small>Έως {{patraDaily}} λεωφορεία την ημέρα</small></li>
-      <li><b>Θεσσαλονίκη</b><span class="p">από {{eur:thess:fakelos}}</span><small>Καθημερινά 09:30</small></li>
+      <li><b>Θεσσαλονίκη</b><span class="p">από {{eur:thess:fakelos}}</span><small>Καθημερινά στις 09:30</small></li>
     </ul>
-    <p style="margin-top:18px"><a class="btn btn-ghost" href="proorismoi.html">Όλοι οι προορισμοί και τιμές →</a></p>
+    <p style="margin-top:18px"><a class="btn btn-ghost" href="proorismoi.html">Όλοι οι προορισμοί και οι τιμές →</a></p>
   </div>
   {{routesMap}}
 </div></section>
