@@ -2,7 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { SUPABASE_URL, SUPABASE_KEY } from "./config.js";
 import {
   HOME, norm, shelfFor, cleanPhone, fmtPhone, parseGrDate, fmtGr, toLocalInput, money, hoursSince, daysSince,
-  tripsOf, tripLabel, sortTrips, isClosed, isTransit, parseLabel, fillTemplate, toCSV, cleanIdDoc, sameReceipt, likelySameParcel, sameNameTrip, smsFor, soundKey, safeAutoPhone, phoneFits, mixedCustomer, fetchAll, greeklishToGreek, greekName, isGreeklishName, surnameFirst, expectHelp, expectProgress } from "./lib.js";
+  tripsOf, tripLabel, sortTrips, isClosed, isTransit, parseLabel, fillTemplate, toCSV, cleanIdDoc, sameReceipt, likelySameParcel, sameNameTrip, smsFor, soundKey, safeAutoPhone, phoneFits, mixedCustomer, fetchAll, nameLexicon, nameSuggestion, greeklishToGreek, greekName, isGreeklishName, surnameFirst, expectHelp, expectProgress } from "./lib.js";
 import { initCamera } from "./camera.js";
 import { initCapture, pendingReviewCount, toJpegB64, loadQueue } from "./capture.js";
 import { openManifest } from "./manifest.js";
@@ -72,7 +72,7 @@ async function boot() {
   if (store.get("mode") === "out") setMode("out");
   loadNotes();
   checkSms().then(render);
-  initCapture({ sb, operator, attachPackage, needOperator, findCustomers, linkCustomer, lastTrip, settings: () => settings,
+  initCapture({ sb, operator, attachPackage, needOperator, findCustomers, linkCustomer, lastTrip, settings: () => settings, nameSuggest: n => nameSuggest(n),
     receiptExists: rn => [...rows.values()].some(p => !(p.bypassed && p.status === "not_arrived") && sameReceipt(p.receipt_no, rn)),
     saveParcel,
     findByReceipt: rn => [...rows.values()].find(p => !(p.bypassed && p.status === "not_arrived") && sameReceipt(p.receipt_no, rn)),
@@ -347,12 +347,12 @@ async function lookupCustomerForForm() {
 const FIELDS = ["receipt_no", "parcel_code", "kind", "origin_city", "destination_city", "fare_eur", "recipient_name", "recipient_phone", "shelf", "sender_name", "package_desc", "item", "cod_amount_eur", "notes", "pieces_total", "pieces_in"];
 function clearForm() {
   for (const f of FIELDS) { const e = $(f); e.classList.remove("ai"); if (e.tagName === "SELECT") e.selectedIndex = 0; else e.value = ""; delete e.dataset.src; }
-  editingId = null; shelfManual = false; customerChoice = null; $("custHint").textContent = ""; $("destHint").textContent = "";
+  editingId = null; shelfManual = false; customerChoice = null; $("custHint").textContent = ""; $("nameHint").textContent = ""; $("destHint").textContent = "";
   $("saveBtn").textContent = "Αποθήκευση"; show($("editMsg"), "", "info"); ["departure_d", "departure_t", "issued_d", "issued_t", "ret_d", "ret_t", "ret_bus", "ret_note"].forEach(i => { $(i).value = ""; }); $("delBtn").hidden = true; $("ret_on").checked = false; $("retSet").hidden = true; $("retFields").hidden = true;
 }
 function fillForm(o, ai) {
   for (const f of FIELDS) if (o[f] != null && o[f] !== "") { $(f).value = o[f]; if (ai) $(f).classList.add("ai"); }
-  if (ai) { autoShelf(); lookupCustomerForForm(); }
+  if (ai) { autoShelf(); lookupCustomerForForm(); } suggestName();
 }
 function autoShelf() {
   const dest = norm($("destination_city").value);
@@ -363,6 +363,7 @@ function autoShelf() {
 }
 $("recipient_name").addEventListener("input", autoShelf);
 $("recipient_name").addEventListener("change", lookupCustomerForForm);
+$("recipient_name").addEventListener("change", suggestName);
 $("destination_city").addEventListener("input", autoShelf);
 $("shelf").addEventListener("input", () => { shelfManual = !!$("shelf").value.trim(); });
 $("recipient_phone").addEventListener("input", () => { $("recipient_phone").dataset.src = "manual"; });
@@ -762,6 +763,12 @@ function card(p) {
     else { const c = el("button", "btn small pkgbtn hwok", "✍ χειρόγραφο · Σωστό ✓"); c.type = "button"; c.title = "Έλεγξα το τηλέφωνο πάνω στο δέμα"; c.onclick = () => updateParcel(p.id, { phone_confirmed: true }).catch(() => show($("formMsg"), "Δεν αποθηκεύτηκε. Δοκίμασε ξανά.", "bad")); ph.append(" ", c); }
   } if (p.phone_source === "customer_db") ph.append(" ", el("span", "badge", "📇")); }
   line("Απόδειξη", el("span", "mono", p.receipt_no || "—"));
+  if (!isClosed(p) && p.status !== "not_arrived" && Date.now() - new Date(p.created_at).getTime() < 7 * 864e5) {
+    const sg = nameSuggest(p.recipient_name); // «Μήπως εννοείς…;» — μόνο πρόταση, αλλάζει με πάτημα
+    if (sg) { const b = el("button", "btn small pkgbtn", (sg.latin ? "🔤 " : "✎ ") + sg.to); b.type = "button"; b.title = "Διόρθωση ονόματος (το ράφι μένει ίδιο)";
+      b.onclick = async () => { b.disabled = true; try { await updateParcel(p.id, { recipient_name: sg.to }); show($("formMsg"), "✓ Το όνομα έγινε «" + sg.to + "».", "ok"); } catch { b.disabled = false; } };
+      line("Μήπως;", b); }
+  }
   if (ph) line("Τηλέφωνο", ph);
   else if (!isClosed(p) && p.status !== "not_arrived" && !isTransit(p)) phoneHelp(p, line("Τηλέφωνο", "—"));
   const canPhoto = !isClosed(p) && p.status !== "not_arrived";
@@ -1487,6 +1494,28 @@ async function loadCustomers() {
   if (error) ({ data, error } = await fetchAll(() => sb.from("customers").select("id,full_name,name_key,surname_key,phones,parcels_count,last_parcel_at,is_business,aliases").order("id"), 50000));
   if (error) ({ data } = await fetchAll(() => sb.from("customers").select("id,full_name,name_key,surname_key,phones,parcels_count,last_parcel_at,is_business").order("id"), 50000));
   if (data) { custCache = data; scheduleRender(); }
+}
+// ---------- λεξικό ονομάτων από ΔΙΚΑ μας δεδομένα (πελάτες + δέματα) + συχνά ελληνικά ονόματα/επώνυμα
+let lexCache = null, lexKey = "", sugCache = new Map();
+function nameLex() {
+  const k = custCache.length + ":" + rows.size;
+  if (!lexCache || k !== lexKey) {
+    lexCache = nameLexicon([...custCache.map(c => [c.full_name, c.parcels_count || 1]), ...[...rows.values()].map(p => [p.recipient_name || "", 1])]);
+    lexKey = k; sugCache = new Map();
+  }
+  return lexCache;
+}
+function nameSuggest(name) {
+  const key = norm(name || ""); if (!key) return null;
+  const lex = nameLex(); if (!sugCache.has(key)) sugCache.set(key, nameSuggestion(key, lex));
+  return sugCache.get(key);
+}
+function suggestName() {
+  const h = $("nameHint"); if (!h) return; h.textContent = "";
+  const s = nameSuggest($("recipient_name").value); if (!s) return;
+  const b = el("button", "btn small", s.to); b.type = "button";
+  b.onclick = () => { $("recipient_name").value = s.to; h.textContent = ""; autoShelf(); lookupCustomerForForm(); };
+  h.append(s.latin ? "🔤 Στα ελληνικά: " : "✎ Μήπως εννοείς: ", b, " ;");
 }
 const loadCustomersSoon = () => { clearTimeout(custT); custT = setTimeout(loadCustomers, 800); };
 const toks = s => norm(String(s || "").replace(/\./g, "").replace(/,/g, " ")).split(" ").filter(Boolean);

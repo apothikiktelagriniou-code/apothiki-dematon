@@ -289,6 +289,13 @@ function reviewCard(q, idx) {
   const kw = el("div", "f"); kw.append(el("label", null, "Τύπος"), kind); g.append(kw);
   const hw = el("label", "check"); const hwc = el("input"); hwc.type = "checkbox"; hwc.checked = !!d.phone_is_handwritten; hw.append(hwc, document.createTextNode(" Τηλ. από χειρόγραφο")); g.append(hw);
   right.append(g);
+  if (inputs.recipient) { // «Μήπως εννοείς…;» κάτω από το όνομα (μόνο πρόταση)
+    const nh = el("div", "hint"); inputs.recipient.closest(".f").append(nh);
+    const sug = () => { nh.textContent = ""; const s = D.nameSuggest && D.nameSuggest(inputs.recipient.value); if (!s) return;
+      const b = el("button", "btn small", s.to); b.type = "button"; b.onclick = () => { inputs.recipient.value = s.to; nh.textContent = ""; inputs.recipient.dispatchEvent(new Event("input")); };
+      nh.append(s.latin ? "🔤 Στα ελληνικά: " : "✎ Μήπως εννοείς: ", b, " ;"); };
+    sug(); inputs.recipient.addEventListener("change", sug);
+  }
   const msg = el("div", "msg warn"); msg.hidden = true; right.append(msg);
   const bar = el("div", "toolbar");
   const save = el("button", "btn primary", "Αποθήκευση ↵"); save.type = "submit";
