@@ -1,0 +1,76 @@
+# Νυχτερινό αντίγραφο ασφαλείας της βάσης — ΕΞΩ από το Supabase, κρυπτογραφημένο, με δοκιμή επαναφοράς κάθε φορά.
+# Χρειάζεται 2 secrets (GitHub → Settings → Secrets and variables → Actions):
+#   SUPABASE_DB_URL     = Supabase → Connect → «Session pooler» connection string (με τον κωδικό της βάσης)
+#   BACKUP_PASSPHRASE   = μεγάλη φράση (16+ χαρακτήρες) που ΦΥΛΑΣ ΚΑΙ ΣΕ ΧΑΡΤΙ — χωρίς αυτήν το αντίγραφο δεν ανοίγει
+# Επαναφορά (σε υπολογιστή με Docker/psql):
+#   gpg -d apothiki-ΗΜΕΡΟΜΗΝΙΑ.dump.gpg > db.dump   →   pg_restore --no-owner --no-privileges -d "<βάση>" db.dump
+# Περιέχει τους πίνακες (δέματα, πελάτες, εξερχόμενα, ιστορικό…). ΔΕΝ περιέχει αρχεία Storage (υπογραφές/φωτογραφίες) ούτε λογαριασμούς.
+name: Αντίγραφο βάσης
+on:
+  schedule: [{ cron: "17 1 * * *" }]   # κάθε βράδυ 03:17 (χειμώνας) / 04:17 (καλοκαίρι) ώρα Ελλάδας
+  workflow_dispatch: {}
+permissions:
+  contents: read
+concurrency: { group: backup, cancel-in-progress: false }
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      verify:
+        image: postgres:17
+        env: { POSTGRES_PASSWORD: verify }
+        ports: ["5433:5432"]
+        options: --health-cmd "pg_isready -U postgres" --health-interval 5s --health-retries 30
+    steps:
+      - name: Έλεγχος ρυθμίσεων
+        env:
+          DB: ${{ secrets.SUPABASE_DB_URL }}
+          PASS: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          [ -n "$DB" ] || { echo "::error::Λείπει το secret SUPABASE_DB_URL"; exit 1; }
+          [ ${#PASS} -ge 16 ] || { echo "::error::Το BACKUP_PASSPHRASE θέλει τουλάχιστον 16 χαρακτήρες"; exit 1; }
+      - name: Αντίγραφο (pg_dump 17)
+        env:
+          DB: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          docker run --rm --network host -e DB -v "$PWD:/out" postgres:17 \
+            sh -c 'pg_dump "$DB" --format=custom --no-owner --no-privileges --schema=public --file=/out/db.dump'
+          echo "Μέγεθος: $(du -h db.dump | cut -f1)"
+      - name: Δοκιμή επαναφοράς (σε άδεια βάση μέσα στο GitHub)
+        run: |
+          cat > stub.sql <<'SQL'
+          do $$ begin create role anon; exception when others then null; end $$;
+          do $$ begin create role authenticated; exception when others then null; end $$;
+          do $$ begin create role service_role; exception when others then null; end $$;
+          create schema if not exists auth; create schema if not exists extensions; create schema if not exists storage;
+          create table if not exists auth.users(id uuid primary key, email text);
+          create or replace function auth.uid() returns uuid language sql as $f$ select null::uuid $f$;
+          create or replace function auth.jwt() returns jsonb language sql as $f$ select '{}'::jsonb $f$;
+          create or replace function auth.role() returns text language sql as $f$ select 'anon' $f$;
+          create extension if not exists pgcrypto schema extensions;
+          create extension if not exists pg_trgm schema extensions;
+          create extension if not exists unaccent schema extensions;
+          alter database postgres set search_path = public, extensions;
+          SQL
+          docker run --rm --network host -e PGPASSWORD=verify -v "$PWD:/out" postgres:17 sh -c '
+            P="psql -h 127.0.0.1 -p 5433 -U postgres -q"
+            $P -f /out/stub.sql >/dev/null 2>&1
+            pg_restore -h 127.0.0.1 -p 5433 -U postgres -d postgres --no-owner --no-privileges /out/db.dump >/out/restore.log 2>&1 || true
+            $P -At -c "select count(*) from public.parcels"' > count.txt || true
+          n=$(tail -1 count.txt | tr -dc 0-9); echo "Δέματα μέσα στο αντίγραφο: ${n:-0} · σφάλματα επαναφοράς: $(grep -c 'error:' restore.log)"
+          [ "${n:-0}" -gt 0 ] || { echo "::error::Η επαναφορά δεν έδωσε δέματα"; grep -m10 'error:' restore.log; exit 1; }
+      - name: Κρυπτογράφηση (AES-256)
+        env:
+          PASS: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          f="apothiki-$(date -u +%F).dump.gpg"
+          gpg --batch --yes --pinentry-mode loopback --passphrase "$PASS" --symmetric --cipher-algo AES256 -o "$f" db.dump
+          shred -u db.dump restore.log count.txt 2>/dev/null || rm -f db.dump restore.log count.txt
+          ls -la "$f"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: antigrafo-${{ github.run_number }}
+          path: apothiki-*.dump.gpg
+          retention-days: 30
+          if-no-files-found: error

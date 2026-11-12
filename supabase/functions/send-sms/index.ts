@@ -14,7 +14,7 @@ Deno.serve(async req => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   const user = Deno.env.get("SMSGATE_USER"), pass = Deno.env.get("SMSGATE_PASS");
   const url = new URL(req.url);
-  if (url.searchParams.get("health") === "1") return json({ ok: true, ready: !!(user && pass), version: "2026-11-07-status" });
+  if (url.searchParams.get("health") === "1") return json({ ok: true, ready: !!(user && pass), version: "2026-11-12-quota" });
 
   const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY") ?? req.headers.get("apikey") ?? "", {
     global: { headers: { Authorization: req.headers.get("Authorization") ?? "" } },
@@ -37,6 +37,8 @@ Deno.serve(async req => {
   const text = String(b.text ?? "").trim();
   if (!/^(69\d{8})$/.test(phone)) return json({ error: "invalid_phone" }, 400); // μόνο κινητά δέχονται SMS
   if (!text || text.length > 160) return json({ error: "bad_text" }, 400); // πάντα 1 SMS
+  // ημερήσιο όριο (0034): 120 ανά χρήστη / 250 όλοι μαζί — αν δεν έχει τρέξει το 0034, δεν μπλοκάρει
+  { const { data: okq, error: qe } = await sb.rpc("fn_quota", { p_kind: "sms" }); if (!qe && okq === false) return json({ error: "quota", detail: "Ξεπεράστηκε το ημερήσιο όριο SMS" }, 429); }
 
   const r = await fetch("https://api.sms-gate.app/3rdparty/v1/messages", {
     method: "POST",

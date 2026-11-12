@@ -8,7 +8,9 @@ const day = (d = new Date()) => d.getFullYear() + "-" + String(d.getMonth() + 1)
 async function fetchAll(sb, table, onProgress) {
   const out = []; const page = 1000;
   for (let from = 0; ; from += page) {
-    const { data, error } = await sb.from(table).select("*").range(from, from + page - 1);
+    // σταθερή σειρά (id): χωρίς αυτήν οι σελίδες «γλιστράνε» και λείπουν/διπλασιάζονται γραμμές
+    let { data, error } = await sb.from(table).select("*").order("id").range(from, from + page - 1);
+    if (error && /column .*id|id.*does not exist/i.test(error.message)) ({ data, error } = await sb.from(table).select("*").range(from, from + page - 1));
     if (error) { if (/does not exist|schema cache|not find/i.test(error.message)) return null; throw new Error(table + ": " + error.message); }
     out.push(...(data || [])); onProgress && onProgress(table, out.length);
     if (!data || data.length < page) break;
